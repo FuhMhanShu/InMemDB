@@ -7,12 +7,20 @@
 
 namespace memdb {
 
-enum class AggOp { Min, Max, Sum, Avg, Count };
+/// @brief Aggregat-Operationen für `Collection::aggregate` / `groupBy` (FA-13).
+enum class AggOp {
+    Min,   ///< Kleinster Wert (Zahlen und Strings)
+    Max,   ///< Größter Wert (Zahlen und Strings)
+    Sum,   ///< Summe (Int-Erhalt, Overflow → Double)
+    Avg,   ///< Durchschnitt (immer Double)
+    Count  ///< Anzahl der Dokumente
+};
 
+/// @brief Eine Gruppe des `groupBy`-Ergebnisses.
 struct GroupAggregate {
-    Value key;
-    std::size_t count = 0;
-    std::optional<Value> value;
+    Value key;                   ///< Gruppenschlüssel (Wert an keyPath; fehlend → null)
+    std::size_t count = 0;       ///< Dokumente in der Gruppe
+    std::optional<Value> value;  ///< Aggregat des zweiten Feldes (nur bei op != Count)
 };
 
 } // namespace memdb

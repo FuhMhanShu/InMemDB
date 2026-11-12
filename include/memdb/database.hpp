@@ -9,8 +9,13 @@
 
 namespace memdb {
 
+/// @brief Oberste Einheit: verwaltet benannte Collections (FA-01/FA-02).
+///
+/// Reines In-Memory: Daten gehen beim Prozessende verloren, außer sie werden
+/// per `saveToFile`/`toJson` gesichert (FA-14). Nicht kopierbar.
 class Database {
 public:
+    /// @param name Optionaler Name der Database (steht im JSON-Snapshot).
     explicit Database(std::string name = {});
     ~Database();
     Database(const Database&) = delete;
@@ -18,19 +23,39 @@ public:
     Database(Database&&) noexcept;
     Database& operator=(Database&&) noexcept;
 
+    /// @brief Name der Database.
     const std::string& name() const;
 
+    /// @brief Neue Collection anlegen.
+    /// @throws CollectionExistsError wenn der Name bereits vergeben ist.
     Collection createCollection(const std::string& name);
+    /// @brief Bestehende Collection holen (Handle).
+    /// @throws CollectionNotFoundError wenn nicht vorhanden.
     Collection collection(const std::string& name) const;
+    /// @brief true, wenn die Collection existiert.
     bool hasCollection(const std::string& name) const;
+    /// @brief Namen aller Collections (sortiert).
     std::vector<std::string> collectionNames() const;
+    /// @brief Collection inkl. aller Dokumente löschen; false, wenn nicht vorhanden.
     bool dropCollection(const std::string& name);
+    /// @brief Alle Collections löschen.
     void clear();
 
+    /// @brief Gesamte Database als JSON-String (FA-14), inkl. Index-Definitionen
+    /// pro Collection. Format siehe `docs/snapshot-json.md`.
     std::string toJson() const;
+    /// @brief Lädt JSON in diese Database: fehlende Collections werden angelegt,
+    /// bestehende behalten ihre Index-Definitionen, Dokumente werden ersetzt.
+    /// @throws JsonError bei Parse-/Strukturfehlern.
     void fromJson(std::string_view json);
+    /// @brief Neue Database aus JSON-String; `name` überschreibt ggf. den Namen aus dem JSON.
+    /// @throws JsonError
     static Database fromJson(std::string_view json, std::string name);
+    /// @brief Speichert `toJson()` in eine Datei.
+    /// @throws Error bei IO-Fehlern.
     void saveToFile(const std::string& path) const;
+    /// @brief Lädt eine Database aus einer JSON-Datei (Name aus der Datei).
+    /// @throws Error bei IO-Fehlern; JsonError bei ungültigem JSON.
     static Database loadFromFile(const std::string& path);
 
 private:

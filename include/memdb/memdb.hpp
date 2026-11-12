@@ -1,3 +1,9 @@
+/// @file
+/// @brief Umbrella-Header: inkludiert die gesamte öffentliche API von InMemDB.
+///
+/// ```cpp
+/// #include <memdb/memdb.hpp>
+/// ```
 #pragma once
 
 #include "aggregate.hpp"
