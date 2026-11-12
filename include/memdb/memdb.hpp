@@ -8,4 +8,5 @@
 #include "exceptions.hpp"
 #include "index.hpp"
 #include "query.hpp"
+#include "transaction.hpp"
 #include "value.hpp"

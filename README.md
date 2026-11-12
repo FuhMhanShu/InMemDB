@@ -8,11 +8,13 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Query-API](docs/query-api.md) (verbindliche Ausprägung)
 - [Architektur-Entscheidungen](docs/architecture.md) (statische Lib mit Pimpl)
 - [Indizes](docs/indexes.md) (FA-10, v0.2)
+- [Transaktionen](docs/transactions.md) (FA-12, v0.3)
 
-## Features (v0.2)
+## Features (v0.3)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")`
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
+- Atomare Transaktionen pro Collection (commit/rollback, RAII-Rollback)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
@@ -52,6 +54,7 @@ Lauffähige Beispiele in `examples/` (werden mitgebaut und als CTest-Smoke-Tests
 | `03_queries.cpp` | Query-Ausdruckbaum: Vergleiche, `&&`/`||`/`!`, `contains`, `exists`, Punktnotation |
 | `04_crud.cpp` | insertBulk, update, updateById, replace, remove, count |
 | `05_indexes.cpp` | Indizes anlegen/löschen, Unique-Constraints, beschleunigte Abfragen |
+| `06_transactions.cpp` | Atomare Transaktion: commit, rollback, RAII-Rollback |
 
 ```sh
 cmake --build build -j

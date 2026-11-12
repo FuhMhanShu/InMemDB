@@ -283,6 +283,65 @@ void testIndexes() {
     CHECK(c.lastQueryCandidateCount() == 3);
 }
 
+void testTransactions() {
+    Database db;
+    Collection c = db.createCollection("konten");
+    c.createIndex("name", true);
+    DocumentId a = c.insert({{"name", "a"}, {"saldo", 100}});
+    c.insert({{"name", "b"}, {"saldo", 50}});
+
+    {
+        Transaction tx = c.beginTransaction();
+        CHECK(tx.isActive());
+        tx.insert({{"name", "tmp"}, {"saldo", 0}});
+        tx.updateById(a, [](Document& d) { d.set("saldo", 999); });
+        CHECK(tx.size() == 3);
+        CHECK(tx.findById(a)->at("saldo").asInt() == 999);
+        CHECK(tx.count(Field("saldo") >= 500) == 1);
+        tx.rollback();
+        CHECK(!tx.isActive());
+        CHECK_THROWS_AS(tx.size(), Error);
+    }
+    CHECK(c.size() == 2);
+    CHECK(c.findById(a)->at("saldo").asInt() == 100);
+
+    {
+        Transaction tx = c.beginTransaction();
+        std::size_t n = tx.update(Field("saldo") <= 100, [](Document& d) { d.set("saldo", d.at("saldo").asInt() + 10); });
+        CHECK(n == 2);
+        tx.remove(Field("name") == "b");
+        tx.commit();
+        CHECK(!tx.isActive());
+    }
+    CHECK(c.size() == 1);
+    CHECK(c.findById(a)->at("saldo").asInt() == 110);
+
+    {
+        Transaction tx = c.beginTransaction();
+        tx.remove(Expression{});
+        CHECK(tx.size() == 0);
+    }
+    CHECK(c.size() == 1);
+
+    {
+        Transaction tx = c.beginTransaction();
+        CHECK_THROWS_AS(tx.insert({{"name", "a"}, {"saldo", 1}}), UniqueConstraintError);
+        CHECK(tx.isActive());
+        tx.rollback();
+    }
+    CHECK(c.count(Field("name") == "a") == 1);
+
+    {
+        Transaction t1 = c.beginTransaction();
+        t1.insert({{"name", "c"}, {"saldo", 5}});
+        t1.commit();
+        Transaction t2 = c.beginTransaction();
+        CHECK(t2.count(Field("name") == "c") == 1);
+        t2.rollback();
+    }
+    CHECK(c.size() == 2);
+}
+
 } // namespace
 
 int main() {
@@ -292,6 +351,7 @@ int main() {
     testCollectionCrud();
     testQuery();
     testIndexes();
+    testTransactions();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)

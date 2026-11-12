@@ -9,7 +9,7 @@ namespace memdb {
 
 struct Database::Impl {
     std::string name;
-    std::map<std::string, std::shared_ptr<Collection::Impl>> collections;
+    std::map<std::string, std::shared_ptr<detail::CollectionState>> collections;
     mutable std::shared_mutex mtx;
 };
 
