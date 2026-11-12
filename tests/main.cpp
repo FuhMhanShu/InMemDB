@@ -1,5 +1,6 @@
 #include "memdb/memdb.hpp"
 
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -342,6 +343,85 @@ void testTransactions() {
     CHECK(c.size() == 2);
 }
 
+void testSnapshotJson() {
+    Database db("shop");
+    Collection users = db.createCollection("users");
+    users.createIndex("name", true);
+    users.insert({{"name", "Ada"}, {"age", 36}, {"aktiv", true}});
+    users.insert({{"name", "München ✓"}, {"preis", 49.99}, {"lager", 12}, {"genau", 5.0},
+                  {"tags", Value(std::vector<Value>{Value("a\"b"), Value("zeile\n1"), Value(2)})},
+                  {"adresse", Value(std::make_shared<Document>(std::initializer_list<std::pair<const std::string, Value>>{{"stadt", "Berlin"}, {"plz", "10115"}}))},
+                  {"hash", Value(std::vector<std::uint8_t>{0xDE, 0xAD, 0xBE, 0xEF})},
+                  {"leer", Value(nullptr)}});
+    db.createCollection("leer");
+
+    std::string json = db.toJson();
+    CHECK(json.find("\"name\":\"shop\"") != std::string::npos);
+    CHECK(json.find("\"collections\"") != std::string::npos);
+    CHECK(json.find("\"indexes\"") != std::string::npos);
+    CHECK(json.find("\"field\":\"name\"") != std::string::npos);
+    CHECK(json.find("\"unique\":true") != std::string::npos);
+
+    Database db2 = Database::fromJson(json, "");
+    CHECK(db2.name() == "shop");
+    CHECK(db2.collectionNames().size() == 2);
+    Collection users2 = db2.collection("users");
+    CHECK(users2.size() == 2);
+    CHECK(users2.hasIndex("name"));
+
+    auto byName = [](Collection& c, const std::string& n) {
+        return c.findOne(Field("name") == n);
+    };
+    auto ada2 = byName(users2, "Ada");
+    CHECK(ada2.has_value());
+    CHECK(ada2->at("age").isInt());
+    CHECK(ada2->at("age").asInt() == 36);
+    auto m2 = byName(users2, "München ✓");
+    CHECK(m2.has_value());
+    CHECK(m2->at("preis").isDouble());
+    CHECK(m2->at("preis").asDouble() == 49.99);
+    CHECK(m2->at("genau").isDouble());
+    CHECK(m2->at("genau").asDouble() == 5.0);
+    CHECK(m2->at("lager").isInt());
+    CHECK(m2->at("hash").isBinary());
+    CHECK(m2->at("hash").asBinary() == std::vector<std::uint8_t>({0xDE, 0xAD, 0xBE, 0xEF}));
+    CHECK(m2->at("leer").isNull());
+    CHECK(m2->at("tags").asArray().size() == 3);
+    CHECK(m2->at("tags").asArray()[0].asString() == "a\"b");
+    CHECK(m2->at("tags").asArray()[1].asString() == "zeile\n1");
+    CHECK(m2->findPath("adresse.plz")->asString() == "10115");
+
+    CHECK(db2.collection("leer").size() == 0);
+
+    db.fromJson(json);
+    CHECK(db.collection("users").size() == 2);
+    CHECK(db.collection("users").hasIndex("name"));
+    CHECK(db.collection("users").count(Field("age") == 36) == 1);
+
+    std::string collJson = users.toJson();
+    Collection users3 = db2.createCollection("users3");
+    users3.loadJson(collJson);
+    CHECK(users3.size() == 2);
+    CHECK(users3.count(Field("age") == 36) == 1);
+
+    const std::string path = "inmemdb_snapshot_test.json";
+    db.saveToFile(path);
+    Database db3 = Database::loadFromFile(path);
+    CHECK(db3.name() == "shop");
+    CHECK(db3.collection("users").size() == 2);
+    std::remove(path.c_str());
+
+    CHECK_THROWS_AS(Database::fromJson("{invalid", ""), JsonError);
+    CHECK_THROWS_AS(Database::fromJson("[1,2]", ""), JsonError);
+    CHECK_THROWS_AS(users3.loadJson("{}"), JsonError);
+    CHECK_THROWS_AS(Database::loadFromFile("definitiv_nicht_vorhanden_12345.json"), Error);
+
+    users3.clear();
+    CHECK(users3.size() == 0);
+    users3.loadJson(collJson);
+    CHECK(users3.size() == 2);
+}
+
 } // namespace
 
 int main() {
@@ -352,6 +432,7 @@ int main() {
     testQuery();
     testIndexes();
     testTransactions();
+    testSnapshotJson();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)

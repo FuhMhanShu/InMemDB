@@ -2,6 +2,7 @@
 #include "memdb/exceptions.hpp"
 
 #include "collection_state.hpp"
+#include "json.hpp"
 
 #include <mutex>
 #include <shared_mutex>
@@ -108,5 +109,37 @@ std::size_t Collection::lastQueryCandidateCount() const {
 }
 
 Transaction Collection::beginTransaction() { return Transaction(impl_); }
+
+std::string Collection::toJson() const {
+    std::shared_lock lock(impl_->mtx);
+    std::string out = "[";
+    bool first = true;
+    for (const auto& [id, doc] : impl_->docs) {
+        if (!first)
+            out += ",";
+        first = false;
+        out += detail::writeJsonDocument(doc);
+    }
+    out += "]";
+    return out;
+}
+
+void Collection::loadJson(std::string_view json) {
+    Value root = detail::parseJson(json);
+    if (!root.isArray())
+        throw JsonError("Collection-JSON muss ein Array von Objekten sein");
+    std::unique_lock lock(impl_->mtx);
+    impl_->doClear();
+    for (const auto& item : root.asArray()) {
+        if (!item.isDocument())
+            throw JsonError("Collection-JSON: Element ist kein Objekt");
+        impl_->doInsert(*item.asDocument());
+    }
+}
+
+void Collection::clear() {
+    std::unique_lock lock(impl_->mtx);
+    impl_->doClear();
+}
 
 } // namespace memdb

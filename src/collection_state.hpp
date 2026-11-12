@@ -271,6 +271,13 @@ struct CollectionState {
 
     std::size_t doSize() const { return docs.size(); }
 
+    void doClear() {
+        docs.clear();
+        nextId = 1;
+        for (auto& [path, idx] : indexes)
+            idx->entries.clear();
+    }
+
     Index doCreateIndex(const std::string& fieldPath, bool unique) {
         if (indexes.find(fieldPath) != indexes.end())
             throw IndexExistsError("Index existiert bereits fuer Feld: " + fieldPath);
