@@ -1,6 +1,7 @@
 #pragma once
 
 #include "memdb/aggregate.hpp"
+#include "memdb/change_event.hpp"
 #include "memdb/cursor.hpp"
 #include "memdb/document.hpp"
 #include "memdb/exceptions.hpp"
@@ -126,6 +127,14 @@ struct CollectionState {
     std::map<std::string, std::unique_ptr<FieldIndex>> indexes;
     mutable std::shared_mutex mtx;
     mutable std::size_t lastCandidateCount = 0;
+    std::vector<ChangeEvent>* sink = nullptr;
+    std::vector<std::pair<std::uint64_t, ChangeCallback>> observers;
+    std::uint64_t nextObserverId = 1;
+
+    void emit(ChangeType type, DocumentId id, const Document& doc) {
+        if (sink)
+            sink->push_back(ChangeEvent{type, name, id, doc});
+    }
 
     void indexRemove(DocumentId id, const Document& doc) {
         for (auto& [path, idx] : indexes) {
@@ -208,8 +217,9 @@ struct CollectionState {
         DocumentId id(nextId++);
         doc.setId(id);
         validateUnique(id, doc);
-        docs.emplace(id, doc);
-        indexAdd(id, doc);
+        auto [it, ok] = docs.emplace(id, doc);
+        indexAdd(id, it->second);
+        emit(ChangeType::Insert, id, it->second);
         return id;
     }
 
@@ -281,6 +291,7 @@ struct CollectionState {
             indexRemove(id, old);
             old = updated;
             indexAdd(id, updated);
+            emit(ChangeType::Update, id, old);
         }
         return changes.size();
     }
@@ -296,6 +307,7 @@ struct CollectionState {
         indexRemove(id, it->second);
         it->second = std::move(updated);
         indexAdd(id, it->second);
+        emit(ChangeType::Update, id, it->second);
         return true;
     }
 
@@ -308,6 +320,7 @@ struct CollectionState {
         indexRemove(id, it->second);
         it->second = std::move(doc);
         indexAdd(id, it->second);
+        emit(ChangeType::Replace, id, it->second);
         return true;
     }
 
@@ -319,6 +332,7 @@ struct CollectionState {
             indexRemove(id, it->second);
             it->second = std::move(doc);
             indexAdd(id, it->second);
+            emit(ChangeType::Update, id, it->second);
             return id;
         }
         return doInsert(std::move(doc));
@@ -344,6 +358,7 @@ struct CollectionState {
         }
         for (auto id : toRemove) {
             indexRemove(id, docs[id]);
+            emit(ChangeType::Remove, id, docs[id]);
             docs.erase(id);
         }
         return toRemove.size();
@@ -354,6 +369,7 @@ struct CollectionState {
         if (it == docs.end())
             return false;
         indexRemove(id, it->second);
+        emit(ChangeType::Remove, id, it->second);
         docs.erase(it);
         return true;
     }
@@ -397,6 +413,7 @@ struct CollectionState {
         nextId = 1;
         for (auto& [path, idx] : indexes)
             idx->entries.clear();
+        emit(ChangeType::Clear, DocumentId(0), Document{});
     }
 
     Index doCreateIndex(const std::string& fieldPath, bool unique) {
@@ -433,6 +450,14 @@ struct CollectionState {
             result.emplace_back(idx->path, idx->unique);
         return result;
     }
+};
+
+struct EventSinkGuard {
+    explicit EventSinkGuard(CollectionState* s, std::vector<ChangeEvent>* e) : state(s) { state->sink = e; }
+    ~EventSinkGuard() { state->sink = nullptr; }
+    EventSinkGuard(const EventSinkGuard&) = delete;
+    EventSinkGuard& operator=(const EventSinkGuard&) = delete;
+    CollectionState* state;
 };
 
 } // namespace memdb::detail

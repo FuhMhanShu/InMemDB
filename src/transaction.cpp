@@ -16,6 +16,7 @@ struct Transaction::Impl {
     std::map<DocumentId, Document> backupDocs;
     std::uint64_t backupNextId = 0;
     std::map<std::string, std::unique_ptr<detail::FieldIndex>> backupIndexes;
+    std::vector<ChangeEvent> events;
     bool active = true;
 
     explicit Impl(std::shared_ptr<detail::CollectionState> s) : state(std::move(s)), lock(state->mtx) {
@@ -50,6 +51,7 @@ Transaction::~Transaction() {
 
 DocumentId Transaction::insert(Document doc) {
     impl_->checkActive();
+    detail::EventSinkGuard guard(impl_->state.get(), &impl_->events);
     return impl_->state->doInsert(std::move(doc));
 }
 
@@ -59,36 +61,43 @@ DocumentId Transaction::insert(std::initializer_list<std::pair<const std::string
 
 std::size_t Transaction::update(const Expression& q, const std::function<void(Document&)>& mutator) {
     impl_->checkActive();
+    detail::EventSinkGuard guard(impl_->state.get(), &impl_->events);
     return impl_->state->doUpdate(q, mutator);
 }
 
 bool Transaction::updateById(DocumentId id, const std::function<void(Document&)>& mutator) {
     impl_->checkActive();
+    detail::EventSinkGuard guard(impl_->state.get(), &impl_->events);
     return impl_->state->doUpdateById(id, mutator);
 }
 
 bool Transaction::replace(DocumentId id, Document doc) {
     impl_->checkActive();
+    detail::EventSinkGuard guard(impl_->state.get(), &impl_->events);
     return impl_->state->doReplace(id, std::move(doc));
 }
 
 DocumentId Transaction::upsertById(DocumentId id, Document doc) {
     impl_->checkActive();
+    detail::EventSinkGuard guard(impl_->state.get(), &impl_->events);
     return impl_->state->doUpsertById(id, std::move(doc));
 }
 
 DocumentId Transaction::upsert(const Expression& q, Document doc) {
     impl_->checkActive();
+    detail::EventSinkGuard guard(impl_->state.get(), &impl_->events);
     return impl_->state->doUpsert(q, std::move(doc));
 }
 
 std::size_t Transaction::remove(const Expression& q) {
     impl_->checkActive();
+    detail::EventSinkGuard guard(impl_->state.get(), &impl_->events);
     return impl_->state->doRemove(q);
 }
 
 bool Transaction::removeById(DocumentId id) {
     impl_->checkActive();
+    detail::EventSinkGuard guard(impl_->state.get(), &impl_->events);
     return impl_->state->doRemoveById(id);
 }
 
@@ -126,12 +135,27 @@ std::vector<GroupAggregate> Transaction::groupBy(const std::string& keyPath, con
 void Transaction::commit() {
     impl_->checkActive();
     impl_->active = false;
+    std::vector<ChangeEvent> events = std::move(impl_->events);
+    impl_->events.clear();
     impl_->lock.unlock();
+    if (!events.empty()) {
+        std::vector<ChangeCallback> cbs;
+        {
+            std::shared_lock lock(impl_->state->mtx);
+            cbs.reserve(impl_->state->observers.size());
+            for (const auto& [id, cb] : impl_->state->observers)
+                cbs.push_back(cb);
+        }
+        for (const auto& e : events)
+            for (const auto& cb : cbs)
+                cb(e);
+    }
 }
 
 void Transaction::rollback() {
     if (impl_->active) {
         impl_->restore();
+        impl_->events.clear();
         impl_->active = false;
         impl_->lock.unlock();
     }

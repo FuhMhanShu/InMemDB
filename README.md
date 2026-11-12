@@ -11,8 +11,9 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Transaktionen](docs/transactions.md) (FA-12, v0.3)
 - [Snapshot/JSON](docs/snapshot-json.md) (FA-14, v0.4)
 - [Aggregationen](docs/aggregations.md) (FA-13, v0.6)
+- [Observer/Callbacks](docs/observer.md) (FA-15, v0.7)
 
-## Features (v0.6)
+## Features (v0.7)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")`
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
@@ -20,6 +21,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - JSON-Snapshot: `toJson`/`fromJson`/`saveToFile`/`loadFromFile` (ohne externe Abhängigkeiten)
 - Upsert: `upsertById(id, doc)` / `upsert(query, doc)` (FA-07)
 - Aggregationen: `aggregate(Min/Max/Sum/Avg/Count, feld, q)` und `groupBy(...)` (FA-13)
+- Observer: `onChange`/`offChange`, Events nach Commit einer Transaktion (FA-15)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
@@ -63,6 +65,7 @@ Lauffähige Beispiele in `examples/` (werden mitgebaut und als CTest-Smoke-Tests
 | `07_snapshot_json.cpp` | JSON-Snapshot speichern/laden (Datei + String) |
 | `08_upsert.cpp` | Upsert per Query und per ID |
 | `09_aggregations.cpp` | count/sum/avg/min/max und groupBy |
+| `10_observer.cpp` | onChange/offChange, Events inkl. Transaktions-Commit |
 
 ```sh
 cmake --build build -j
