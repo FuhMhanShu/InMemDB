@@ -1,3 +1,4 @@
 build/
 *.o
 *.a
+inmemdb_snapshot*.json
