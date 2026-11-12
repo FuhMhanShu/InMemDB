@@ -77,6 +77,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | FA-15 | **Beobachtung**: Callback/Observer, der bei insert/update/delete einer Collection benachrichtigt wird. | K |
 | FA-16 | **Thread-Safety**: parallele Lesezugriffe ohne gegenseitigen Ausschluss; Schreibzugriffe serialisiert (RW-Lock); optional konsistente Snapshot-Isolation innerhalb einer Transaktion. | S |
 | FA-17 | **Objektorientierte C++-API** (siehe Abschnitt 6): Klassen `Database`, `Collection`, `Document`, `Value`, `Query`, `Index`; RAII, Smart Pointer, `std::optional`, Exceptions statt Fehlercodes. | M |
+| FA-18 | **Referenzen zwischen Collections/Dokumenten** als Erweiterungsmodul (`ReferenceIndex`, ohne Kernänderung): name-basiert/relativ auflösbar, in beide Richtungen abfragbar (indexbeschleunigt), inkl. Dangling-Erkennung und -Bereinigung; snapshot-fähig. | K |
 
 > **Verbindliche Ausprägung von FA-05 (Query-API):** typsicher Ausdruckbaum mit
 > Operator-Overloading, z. B. `(Field("age") >= 18) && Field("tags").contains("cpp")`.
@@ -160,7 +161,7 @@ Namespace `memdb`. Wesentliche Klassen:
 ## 10. Ausblick (nicht in v1)
 
 - Persistente Speicherung (Append-only-Log, Memory-Mapped Files).
-- Eingebettete Referenzen zwischen Dokumenten (statt Kopie) mit optionalem "Join" bei Abfrage.
+- Eingebettete Referenzen zwischen Dokumenten (statt Kopie) mit optionalem "Join" bei Abfrage. Teilweise umgesetzt in v0.8 als FA-18 (`ReferenceIndex`, siehe `docs/references.md`); "Join" bei Abfrage weiterhin offen.
 - Out-of-Core-/Hybrid-Modus für Daten größer als RAM.
 - Netzwerk-Schnittstelle / Server-Modus.
 

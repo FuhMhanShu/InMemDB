@@ -10,5 +10,6 @@
 #include "exceptions.hpp"
 #include "index.hpp"
 #include "query.hpp"
+#include "references.hpp"
 #include "transaction.hpp"
 #include "value.hpp"

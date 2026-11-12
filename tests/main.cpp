@@ -603,6 +603,90 @@ void testObserver() {
     }
 }
 
+void testReferences() {
+    Database db("shop");
+    Collection users = db.createCollection("users");
+    Collection orders = db.createCollection("orders");
+    DocumentId ada = users.insert({{"name", "Ada"}});
+    DocumentId bob = users.insert({{"name", "Bob"}});
+    DocumentId o1 = orders.insert({{"total", 42}});
+
+    ReferenceIndex refs(db);
+    CHECK(db.hasCollection("__references"));
+    CHECK(db.collection("__references").hasIndex("from_key"));
+    CHECK(db.collection("__references").hasIndex("to_key"));
+
+    CHECK(refs.resolve("users", "orders") == "orders");
+    CHECK(refs.resolve("users", "./orders") == "orders");
+    CHECK(refs.resolve("users", "../orders") == "orders");
+    CHECK(refs.resolve("users", "/orders") == "orders");
+    CHECK(refs.resolve("a/b", "../c") == "c");
+    CHECK(refs.resolve("a/b", "./c") == "a/c");
+    CHECK(refs.resolve("a/b/c", "../../x") == "x");
+    CHECK_THROWS_AS(refs.resolve("users", ""), ReferenceError);
+    CHECK_THROWS_AS(refs.resolve("users", "/"), ReferenceError);
+
+    Reference r1 = refs.link("users", ada, "orders", std::nullopt, "hat-bestellungen");
+    CHECK(r1.fromCollection == "users");
+    CHECK(r1.fromId == ada);
+    CHECK(r1.toCollection == "orders");
+    CHECK(!r1.toId.has_value());
+    CHECK(r1.relation == "hat-bestellungen");
+
+    Reference r2 = refs.link("orders", o1, "users", ada);
+    Reference r3 = refs.link("users", std::nullopt, "orders", std::nullopt, "kennt");
+    Reference r4 = refs.link("orders", o1, "./users", bob);
+    CHECK(r4.toCollection == "users");
+    CHECK(r4.toId == bob);
+
+    CHECK_THROWS_AS(refs.link("users", ada, "orders", std::nullopt, "hat-bestellungen"), ReferenceExistsError);
+    refs.link("users", ada, "orders", std::nullopt, "andere-relation");
+    CHECK_THROWS_AS(refs.link("fehlt", std::nullopt, "orders", std::nullopt), CollectionNotFoundError);
+    CHECK_THROWS_AS(refs.link("users", DocumentId(9999), "orders", std::nullopt), DocumentNotFoundError);
+    CHECK_THROWS_AS(refs.link("users", ada, "fehlt", std::nullopt), CollectionNotFoundError);
+    CHECK_THROWS_AS(refs.link("users", ada, "orders", DocumentId(9999)), DocumentNotFoundError);
+
+    auto outAda = refs.references("users", RefDirection::Outgoing, ada);
+    CHECK(outAda.size() == 2);
+    auto inOrders = refs.references("orders", RefDirection::Incoming);
+    CHECK(inOrders.size() == 3);
+    auto outColl = refs.references("users", RefDirection::Outgoing);
+    CHECK(outColl.size() == 1 && outColl[0] == r3);
+    auto inAda = refs.references("users", RefDirection::Incoming, ada);
+    CHECK(inAda.size() == 1 && inAda[0] == r2);
+    auto outO1 = refs.references("orders", RefDirection::Outgoing, o1);
+    CHECK(outO1.size() == 2);
+    auto bothAda = refs.references("users", RefDirection::Both, ada);
+    CHECK(bothAda.size() == 3);
+    auto inBob = refs.references("users", RefDirection::Incoming, bob);
+    CHECK(inBob.size() == 1 && inBob[0] == r4);
+
+    CHECK(refs.unlink("users", ada, "orders", std::nullopt, "hat-bestellungen"));
+    CHECK(!refs.unlink("users", ada, "orders", std::nullopt, "hat-bestellungen"));
+    CHECK(refs.references("users", RefDirection::Outgoing, ada).size() == 1);
+
+    orders.removeById(o1);
+    CHECK(refs.dangling().size() == 2);
+    CHECK(refs.pruneDangling() == 2);
+    CHECK(refs.dangling().empty());
+    CHECK(refs.references("orders", RefDirection::Incoming).size() == 2);
+
+    db.dropCollection("orders");
+    CHECK(refs.dangling().size() == 2);
+    CHECK(refs.pruneDangling() == 2);
+    CHECK(refs.dangling().empty());
+
+    refs.link("users", ada, "users", bob, "kennt");
+    std::string json = db.toJson();
+    Database db2 = Database::fromJson(json, "");
+    CHECK(db2.hasCollection("__references"));
+    CHECK(db2.collection("__references").hasIndex("from_key"));
+    ReferenceIndex refs2(db2);
+    auto rt = refs2.references("users", RefDirection::Both, ada);
+    CHECK(rt.size() == 1);
+    CHECK(rt[0].toCollection == "users" && rt[0].toId == bob && rt[0].relation == "kennt");
+}
+
 } // namespace
 
 int main() {
@@ -617,6 +701,7 @@ int main() {
     testUpsert();
     testAggregations();
     testObserver();
+    testReferences();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)
