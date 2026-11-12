@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aggregate.hpp"
+#include "change_event.hpp"
 #include "cursor.hpp"
 #include "document.hpp"
 #include "index.hpp"
@@ -71,6 +72,9 @@ public:
                                     const Expression& q = Expression{}) const;
     std::vector<GroupAggregate> groupBy(const std::string& keyPath, const Expression& q = Expression{},
                                          AggOp op = AggOp::Count, const std::string& aggPath = "") const;
+
+    std::uint64_t onChange(ChangeCallback cb);
+    bool offChange(std::uint64_t handle);
 
 private:
     explicit Collection(std::shared_ptr<detail::CollectionState> impl);

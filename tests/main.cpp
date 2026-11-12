@@ -517,6 +517,92 @@ void testAggregations() {
     CHECK(sales.aggregate(AggOp::Sum, "betrag", Field("city") == "Berlin").value().asInt() == 30);
 }
 
+void testObserver() {
+    Database db;
+    Collection c = db.createCollection("users");
+
+    std::vector<ChangeEvent> events;
+    std::uint64_t h1 = c.onChange([&](const ChangeEvent& e) { events.push_back(e); });
+    int calls2 = 0;
+    std::uint64_t h2 = c.onChange([&](const ChangeEvent&) { ++calls2; });
+
+    DocumentId a = c.insert({{"name", "Ada"}, {"age", 36}});
+    CHECK(events.size() == 1);
+    CHECK(events[0].type == ChangeType::Insert);
+    CHECK(events[0].collection == "users");
+    CHECK(events[0].id == a);
+    CHECK(events[0].document.at("name").asString() == "Ada");
+    CHECK(calls2 == 1);
+
+    c.updateById(a, [](Document& d) { d.set("age", 37); });
+    CHECK(events.size() == 2);
+    CHECK(events[1].type == ChangeType::Update);
+    CHECK(events[1].document.at("age").asInt() == 37);
+
+    c.update(Field("name") == "Ada", [](Document& d) { d.set("x", 1); });
+    CHECK(events.size() == 3);
+    CHECK(events[2].type == ChangeType::Update);
+
+    c.upsert(Field("name") == "Bob", {{"name", "Bob"}});
+    CHECK(events.size() == 4);
+    CHECK(events[3].type == ChangeType::Insert);
+
+    c.removeById(a);
+    CHECK(events.size() == 5);
+    CHECK(events[4].type == ChangeType::Remove);
+    CHECK(events[4].document.at("name").asString() == "Ada");
+
+    CHECK(c.offChange(h2));
+    c.insert({{"name", "Cy"}});
+    CHECK(events.size() == 6);
+    CHECK(calls2 == 5);
+    CHECK(!c.offChange(h2));
+
+    c.clear();
+    CHECK(events.size() == 7);
+    CHECK(events[6].type == ChangeType::Clear);
+
+    c.offChange(h1);
+    c.insert({{"name", "Dee"}});
+    CHECK(events.size() == 7);
+
+    {
+        std::vector<ChangeEvent> txEvents;
+        std::uint64_t h = c.onChange([&](const ChangeEvent& e) { txEvents.push_back(e); });
+        c.insert({{"name", "Base"}});
+        CHECK(txEvents.size() == 1);
+        {
+            Transaction tx = c.beginTransaction();
+            tx.insert({{"name", "Tx1"}});
+            tx.update(Field("name") == "Base", [](Document& d) { d.set("v", 2); });
+            CHECK(txEvents.size() == 1);
+            tx.commit();
+        }
+        CHECK(txEvents.size() == 3);
+        CHECK(txEvents[1].type == ChangeType::Insert);
+        CHECK(txEvents[2].type == ChangeType::Update);
+        {
+            Transaction tx = c.beginTransaction();
+            tx.remove(Expression{});
+            tx.rollback();
+        }
+        CHECK(txEvents.size() == 3);
+        CHECK(c.size() == 3);
+        c.offChange(h);
+    }
+
+    {
+        bool reentrantOk = true;
+        std::uint64_t h = c.onChange([&](const ChangeEvent&) {
+            if (c.count(Expression{}) > 1000000)
+                reentrantOk = false;
+        });
+        c.insert({{"name", "Re"}});
+        CHECK(reentrantOk);
+        c.offChange(h);
+    }
+}
+
 } // namespace
 
 int main() {
@@ -530,6 +616,7 @@ int main() {
     testSnapshotJson();
     testUpsert();
     testAggregations();
+    testObserver();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)

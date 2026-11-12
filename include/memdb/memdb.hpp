@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aggregate.hpp"
+#include "change_event.hpp"
 #include "collection.hpp"
 #include "cursor.hpp"
 #include "database.hpp"

@@ -9,6 +9,25 @@
 
 namespace memdb {
 
+namespace {
+
+void fireEvents(const std::shared_ptr<detail::CollectionState>& state, const std::vector<ChangeEvent>& events) {
+    if (events.empty())
+        return;
+    std::vector<ChangeCallback> cbs;
+    {
+        std::shared_lock lock(state->mtx);
+        cbs.reserve(state->observers.size());
+        for (const auto& [id, cb] : state->observers)
+            cbs.push_back(cb);
+    }
+    for (const auto& e : events)
+        for (const auto& cb : cbs)
+            cb(e);
+}
+
+} // namespace
+
 Collection::Collection(std::shared_ptr<detail::CollectionState> impl) : impl_(std::move(impl)) {}
 
 Collection Collection::create(std::string name) {
@@ -20,8 +39,15 @@ Collection Collection::create(std::string name) {
 std::string Collection::name() const { return impl_->name; }
 
 DocumentId Collection::insert(Document doc) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doInsert(std::move(doc));
+    std::vector<ChangeEvent> events;
+    DocumentId id;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        id = impl_->doInsert(std::move(doc));
+    }
+    fireEvents(impl_, events);
+    return id;
 }
 
 DocumentId Collection::insert(std::initializer_list<std::pair<const std::string, Value>> fields) {
@@ -29,8 +55,15 @@ DocumentId Collection::insert(std::initializer_list<std::pair<const std::string,
 }
 
 std::vector<DocumentId> Collection::insertBulk(std::vector<Document> docs) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doInsertBulk(std::move(docs));
+    std::vector<ChangeEvent> events;
+    std::vector<DocumentId> ids;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        ids = impl_->doInsertBulk(std::move(docs));
+    }
+    fireEvents(impl_, events);
+    return ids;
 }
 
 std::optional<Document> Collection::findById(DocumentId id) const {
@@ -54,38 +87,87 @@ std::size_t Collection::count(const Expression& q) const {
 }
 
 std::size_t Collection::update(const Expression& q, const std::function<void(Document&)>& mutator) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doUpdate(q, mutator);
+    std::vector<ChangeEvent> events;
+    std::size_t n;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        n = impl_->doUpdate(q, mutator);
+    }
+    fireEvents(impl_, events);
+    return n;
 }
 
 bool Collection::updateById(DocumentId id, const std::function<void(Document&)>& mutator) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doUpdateById(id, mutator);
+    std::vector<ChangeEvent> events;
+    bool ok;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        ok = impl_->doUpdateById(id, mutator);
+    }
+    fireEvents(impl_, events);
+    return ok;
 }
 
 bool Collection::replace(DocumentId id, Document doc) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doReplace(id, std::move(doc));
+    std::vector<ChangeEvent> events;
+    bool ok;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        ok = impl_->doReplace(id, std::move(doc));
+    }
+    fireEvents(impl_, events);
+    return ok;
 }
 
 DocumentId Collection::upsertById(DocumentId id, Document doc) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doUpsertById(id, std::move(doc));
+    std::vector<ChangeEvent> events;
+    DocumentId result;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        result = impl_->doUpsertById(id, std::move(doc));
+    }
+    fireEvents(impl_, events);
+    return result;
 }
 
 DocumentId Collection::upsert(const Expression& q, Document doc) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doUpsert(q, std::move(doc));
+    std::vector<ChangeEvent> events;
+    DocumentId result;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        result = impl_->doUpsert(q, std::move(doc));
+    }
+    fireEvents(impl_, events);
+    return result;
 }
 
 std::size_t Collection::remove(const Expression& q) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doRemove(q);
+    std::vector<ChangeEvent> events;
+    std::size_t n;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        n = impl_->doRemove(q);
+    }
+    fireEvents(impl_, events);
+    return n;
 }
 
 bool Collection::removeById(DocumentId id) {
-    std::unique_lock lock(impl_->mtx);
-    return impl_->doRemoveById(id);
+    std::vector<ChangeEvent> events;
+    bool ok;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        ok = impl_->doRemoveById(id);
+    }
+    fireEvents(impl_, events);
+    return ok;
 }
 
 std::size_t Collection::size() const {
@@ -138,18 +220,28 @@ void Collection::loadJson(std::string_view json) {
     Value root = detail::parseJson(json);
     if (!root.isArray())
         throw JsonError("Collection-JSON muss ein Array von Objekten sein");
-    std::unique_lock lock(impl_->mtx);
-    impl_->doClear();
-    for (const auto& item : root.asArray()) {
-        if (!item.isDocument())
-            throw JsonError("Collection-JSON: Element ist kein Objekt");
-        impl_->doInsert(*item.asDocument());
+    std::vector<ChangeEvent> events;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        impl_->doClear();
+        for (const auto& item : root.asArray()) {
+            if (!item.isDocument())
+                throw JsonError("Collection-JSON: Element ist kein Objekt");
+            impl_->doInsert(*item.asDocument());
+        }
     }
+    fireEvents(impl_, events);
 }
 
 void Collection::clear() {
-    std::unique_lock lock(impl_->mtx);
-    impl_->doClear();
+    std::vector<ChangeEvent> events;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        impl_->doClear();
+    }
+    fireEvents(impl_, events);
 }
 
 std::optional<Value> Collection::aggregate(AggOp op, const std::string& fieldPath, const Expression& q) const {
@@ -161,6 +253,23 @@ std::vector<GroupAggregate> Collection::groupBy(const std::string& keyPath, cons
                                                  const std::string& aggPath) const {
     std::shared_lock lock(impl_->mtx);
     return impl_->doGroupBy(keyPath, q, op, aggPath);
+}
+
+std::uint64_t Collection::onChange(ChangeCallback cb) {
+    std::unique_lock lock(impl_->mtx);
+    std::uint64_t handle = impl_->nextObserverId++;
+    impl_->observers.emplace_back(handle, std::move(cb));
+    return handle;
+}
+
+bool Collection::offChange(std::uint64_t handle) {
+    std::unique_lock lock(impl_->mtx);
+    for (auto it = impl_->observers.begin(); it != impl_->observers.end(); ++it)
+        if (it->first == handle) {
+            impl_->observers.erase(it);
+            return true;
+        }
+    return false;
 }
 
 } // namespace memdb
