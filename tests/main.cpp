@@ -687,6 +687,60 @@ void testReferences() {
     CHECK(rt[0].toCollection == "users" && rt[0].toId == bob && rt[0].relation == "kennt");
 }
 
+void testReferenceTraversal() {
+    Database db;
+    Collection a = db.createCollection("a");
+    Collection b = db.createCollection("b");
+    Collection c = db.createCollection("c");
+    DocumentId a1 = a.insert({{"n", "a1"}});
+    DocumentId b1 = b.insert({{"n", "b1"}});
+    DocumentId c1 = c.insert({{"n", "c1"}});
+
+    ReferenceIndex refs(db);
+    refs.link("a", a1, "b", b1);
+    refs.link("b", b1, "c", c1);
+    refs.link("c", c1, "a", a1);                        // Ring: a1 -> b1 -> c1 -> a1
+    refs.link("a", a1, "a", a1, "selbst");              // Selbstverweis
+    refs.link("a", std::nullopt, "b", std::nullopt, "coll");
+
+    auto all = refs.traverse("a", a1, RefDirection::Outgoing);
+    CHECK(all.size() == 4);                             // terminiert trotz Ring dank visited
+    auto d1 = refs.traverse("a", a1, RefDirection::Outgoing, 1);
+    CHECK(d1.size() == 2);                              // a1->b1, a1->a1
+    auto d2 = refs.traverse("a", a1, RefDirection::Outgoing, 2);
+    CHECK(d2.size() == 3);                              // + b1->c1
+    CHECK(refs.traverse("a", a1, RefDirection::Outgoing, 0).empty());
+
+    auto inc = refs.traverse("c", c1, RefDirection::Incoming);
+    CHECK(inc.size() == 4);                             // b1->c1, a1->b1, c1->a1, a1->a1
+
+    auto incColl = refs.traverse("b", std::nullopt, RefDirection::Incoming);
+    CHECK(incColl.size() == 1 && incColl[0].relation == "coll");   // a#->b# landet auf Collection-Level
+
+    auto coll = refs.traverse("a", std::nullopt, RefDirection::Outgoing);
+    CHECK(coll.size() == 1 && coll[0].relation == "coll");
+
+    auto both = refs.traverse("b", b1, RefDirection::Both);
+    CHECK(both.size() == 4);                            // a1/b1/c1-Kreis + Selbstverweis, keine Duplikate
+
+    CHECK(refs.hasCycle("a", a1, RefDirection::Outgoing));
+    CHECK(refs.hasCycle("b", b1, RefDirection::Outgoing));
+    CHECK(refs.hasCycle("a", a1, RefDirection::Incoming));
+    CHECK(refs.hasCycle("a", a1, RefDirection::Both));
+
+    Database db2;
+    Collection x = db2.createCollection("x");
+    Collection y = db2.createCollection("y");
+    DocumentId x1 = x.insert({{"n", "x1"}});
+    DocumentId y1 = y.insert({{"n", "y1"}});
+    ReferenceIndex refs2(db2);
+    refs2.link("x", x1, "y", y1);
+    CHECK(!refs2.hasCycle("x", x1, RefDirection::Outgoing));
+    CHECK(!refs2.hasCycle("x", x1, RefDirection::Both));   // Parent-Skip: kein False-Positive
+    CHECK(refs2.traverse("x", x1, RefDirection::Outgoing).size() == 1);
+    CHECK(refs2.traverse("x", x1, RefDirection::Both).size() == 1);
+}
+
 } // namespace
 
 int main() {
@@ -702,6 +756,7 @@ int main() {
     testAggregations();
     testObserver();
     testReferences();
+    testReferenceTraversal();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)

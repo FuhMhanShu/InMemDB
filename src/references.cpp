@@ -4,6 +4,8 @@
 #include "memdb/query.hpp"
 
 #include <cstdint>
+#include <functional>
+#include <set>
 
 namespace memdb {
 
@@ -199,6 +201,77 @@ std::size_t ReferenceIndex::pruneDangling() {
         if (coll_.removeById(id))
             ++n;
     return n;
+}
+
+std::vector<Reference> ReferenceIndex::traverse(const std::string& fromCollection,
+                                                 std::optional<DocumentId> fromId, RefDirection dir,
+                                                 std::size_t maxDepth) const {
+    std::vector<Reference> out;
+    std::set<std::string> visited;
+    std::set<std::string> seenEdges;
+    std::function<void(const std::string&, const std::optional<DocumentId>&, std::size_t)> dfs =
+        [&](const std::string& coll, const std::optional<DocumentId>& id, std::size_t depth) {
+            if (depth >= maxDepth)
+                return;
+            const std::string key = makeKey(coll, id);
+            if (!visited.insert(key).second)
+                return;
+            for (const Reference& r : references(coll, dir, id)) {
+                const std::string edgeKey = makeKey(r.fromCollection, r.fromId) + "|" +
+                                            makeKey(r.toCollection, r.toId) + "|" + r.relation;
+                if (seenEdges.insert(edgeKey).second)
+                    out.push_back(r);
+                if (dir == RefDirection::Outgoing) {
+                    dfs(r.toCollection, r.toId, depth + 1);
+                } else if (dir == RefDirection::Incoming) {
+                    dfs(r.fromCollection, r.fromId, depth + 1);
+                } else {
+                    const bool fromIsSelf = makeKey(r.fromCollection, r.fromId) == key;
+                    if (fromIsSelf)
+                        dfs(r.toCollection, r.toId, depth + 1);
+                    else
+                        dfs(r.fromCollection, r.fromId, depth + 1);
+                }
+            }
+        };
+    dfs(fromCollection, fromId, 0);
+    return out;
+}
+
+bool ReferenceIndex::hasCycle(const std::string& fromCollection, std::optional<DocumentId> fromId,
+                              RefDirection dir) const {
+    std::set<std::string> gray;
+    std::set<std::string> black;
+    std::function<bool(const std::string&, const std::optional<DocumentId>&, const std::string&)> dfs =
+        [&](const std::string& coll, const std::optional<DocumentId>& id, const std::string& parentKey) -> bool {
+            const std::string key = makeKey(coll, id);
+            if (black.count(key))
+                return false;
+            if (gray.count(key))
+                return true;
+            gray.insert(key);
+            for (const Reference& r : references(coll, dir, id)) {
+                if (dir == RefDirection::Outgoing) {
+                    if (dfs(r.toCollection, r.toId, key))
+                        return true;
+                } else if (dir == RefDirection::Incoming) {
+                    if (dfs(r.fromCollection, r.fromId, key))
+                        return true;
+                } else {
+                    const bool fromIsSelf = makeKey(r.fromCollection, r.fromId) == key;
+                    const std::string& nc = fromIsSelf ? r.toCollection : r.fromCollection;
+                    const std::optional<DocumentId>& nid = fromIsSelf ? r.toId : r.fromId;
+                    if (makeKey(nc, nid) == parentKey)
+                        continue;
+                    if (dfs(nc, nid, key))
+                        return true;
+                }
+            }
+            gray.erase(key);
+            black.insert(key);
+            return false;
+        };
+    return dfs(fromCollection, fromId, "");
 }
 
 } // namespace memdb

@@ -46,6 +46,12 @@ int main() {
     printRefs("dangling nach removeById(o1)", refs.dangling());
     std::cout << "pruneDangling entfernt: " << refs.pruneDangling() << "\n";
 
+    refs.link("orders", std::nullopt, "users", ada);
+    refs.link("users", ada, "users", ada, "kennt-sich");   // Ringverweis (Selbstverweis)
+    printRefs("traverse ab users#ada (outgoing)", refs.traverse("users", ada, RefDirection::Outgoing));
+    std::cout << "traverse maxDepth=1: " << refs.traverse("users", ada, RefDirection::Outgoing, 1).size() << " Kanten\n";
+    std::cout << std::boolalpha << "hasCycle(users#ada, outgoing) = " << refs.hasCycle("users", ada, RefDirection::Outgoing) << "\n";
+
     std::string json = db.toJson();
     Database db2 = Database::fromJson(json, "");
     ReferenceIndex refs2(db2);

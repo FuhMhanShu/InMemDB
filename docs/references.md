@@ -34,6 +34,10 @@ auto both = refs.references("users", RefDirection::Both, userId);
 auto bad = refs.dangling();        // Referenzen, deren Quelle/Ziel nicht mehr existiert
 std::size_t n = refs.pruneDangling();  // entfernt genau diese
 
+auto edges = refs.traverse("users", userId, RefDirection::Outgoing);   // DFS: alle erreichbaren Kanten
+auto few  = refs.traverse("users", userId, RefDirection::Outgoing, 2); // maxDepth = 2 Hops
+bool ring = refs.hasCycle("users", userId);                            // Ringverweis-Erkennung
+
 std::string t = refs.resolve("a/b", "../c");   // -> "c"
 ```
 
@@ -67,6 +71,15 @@ Jede Referenz ist ein Dokument in `__references`:
 - **Dangling References:** Werden Quell-/Ziel-Dokumente gelöscht oder Collections gedroppt, werden
   Referenzen nicht automatisch entfernt, sondern bei `dangling()` gemeldet und per `pruneDangling()`
   entfernt (lazy statt eager — so gibt es keine Lücke bei neu angelegten Collections).
+- **Traversierung (`traverse`):** DFS ab einem Startknoten (Datensatz oder Collection-Level), Richtung
+  über `dir` wählbar, `maxDepth` begrenzt die Hop-Anzahl. Besuchte Knoten werden über eine
+  Visited-Menge (`"coll#id"`) dedupliziert, Kanten zusätzlich über ihre Identität — dadurch
+  **terminiert die Traversierung garantiert auch bei Ringverweisen**. Bei `RefDirection::Both` wird
+  jede Kante als ungerichtet behandelt (Traversierung ins „andere Ende“).
+- **Ringverweise:** beim `link` bewusst erlaubt (fachlich legitim; nur exakte Duplikate werfen
+  `ReferenceExistsError`). `hasCycle()` erkennt Ringe per DFS-Farben (grau = auf dem Stack); bei
+  `Both` mit Parent-Skip, damit die Kante zurück zum Vorgänger keinen False-Positive erzeugt.
+  Speicherung, Snapshot und `dangling()` sind von Ringen nicht betroffen (keine Rekursion).
 - **Snapshot:** `__references` ist eine normale Collection und wird von `Database::toJson` mit
   serialisiert (inkl. Indizes) — Referenzen überleben Save/Load.
 - **Transaktionen:** Änderungen an Referenzen sind über `__references.beginTransaction()` atomar.

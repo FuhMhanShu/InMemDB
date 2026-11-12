@@ -4,6 +4,8 @@
 #include "database.hpp"
 #include "document_id.hpp"
 
+#include <cstddef>
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -44,6 +46,12 @@ public:
 
     std::vector<Reference> dangling() const;
     std::size_t pruneDangling();
+
+    std::vector<Reference> traverse(const std::string& fromCollection, std::optional<DocumentId> fromId,
+                                    RefDirection dir = RefDirection::Outgoing,
+                                    std::size_t maxDepth = std::numeric_limits<std::size_t>::max()) const;
+    bool hasCycle(const std::string& fromCollection, std::optional<DocumentId> fromId,
+                  RefDirection dir = RefDirection::Outgoing) const;
 
     std::string resolve(const std::string& fromCollection, const std::string& relPath) const;
 
