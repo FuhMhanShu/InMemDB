@@ -94,6 +94,20 @@ struct NotNode : ExprNode {
     bool eval(const Document& doc) const override { return !child->eval(doc); }
 };
 
+std::optional<IndexHint> hintFrom(const std::shared_ptr<ExprNode>& n) {
+    if (auto* c = dynamic_cast<const CompareNode*>(n.get())) {
+        if (c->op == CompareNode::Op::Ne)
+            return std::nullopt;
+        return IndexHint{c->path, static_cast<int>(c->op), c->rhs};
+    }
+    if (auto* a = dynamic_cast<const AndNode*>(n.get())) {
+        if (auto h = hintFrom(a->left))
+            return h;
+        return hintFrom(a->right);
+    }
+    return std::nullopt;
+}
+
 } // namespace
 
 Expression::Expression() = default;
@@ -123,6 +137,12 @@ Expression Expression::exists() const {
 
 bool Expression::evaluate(const Document& doc) const {
     return root_ ? root_->eval(doc) : true;
+}
+
+std::optional<IndexHint> Expression::indexHint() const {
+    if (!root_)
+        return std::nullopt;
+    return hintFrom(root_);
 }
 
 Expression Field(std::string path) { return Expression(std::make_shared<PathNode>(std::move(path))); }

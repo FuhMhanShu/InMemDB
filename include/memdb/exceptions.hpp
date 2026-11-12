@@ -35,4 +35,14 @@ public:
     using Error::Error;
 };
 
+class IndexExistsError : public Error {
+public:
+    using Error::Error;
+};
+
+class UniqueConstraintError : public Error {
+public:
+    using Error::Error;
+};
+
 } // namespace memdb

@@ -7,6 +7,13 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Lastenheft](lastenheft.md) (v0.1)
 - [Query-API](docs/query-api.md) (verbindliche Ausprägung)
 - [Architektur-Entscheidungen](docs/architecture.md) (statische Lib mit Pimpl)
+- [Indizes](docs/indexes.md) (FA-10, v0.2)
+
+## Features (v0.2)
+- Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
+- Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")`
+- Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
+- Thread-Safety via `shared_mutex`
 
 ## Build & Test
 

@@ -2,6 +2,7 @@
 
 #include "cursor.hpp"
 #include "document.hpp"
+#include "index.hpp"
 #include "query.hpp"
 
 #include <cstddef>
@@ -43,6 +44,13 @@ public:
     bool removeById(DocumentId id);
 
     std::size_t size() const;
+
+    Index createIndex(const std::string& fieldPath, bool unique = false);
+    bool dropIndex(const std::string& fieldPath);
+    bool hasIndex(const std::string& fieldPath) const;
+    std::vector<Index> indexes() const;
+
+    std::size_t lastQueryCandidateCount() const;
 
 private:
     struct Impl;
