@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aggregate.hpp"
 #include "cursor.hpp"
 #include "document.hpp"
 #include "query.hpp"
@@ -41,6 +42,11 @@ public:
     std::optional<Document> findById(DocumentId id) const;
     std::size_t count(const Expression& q = Expression{}) const;
     std::size_t size() const;
+
+    std::optional<Value> aggregate(AggOp op, const std::string& fieldPath,
+                                    const Expression& q = Expression{}) const;
+    std::vector<GroupAggregate> groupBy(const std::string& keyPath, const Expression& q = Expression{},
+                                         AggOp op = AggOp::Count, const std::string& aggPath = "") const;
 
     void commit();
     void rollback();

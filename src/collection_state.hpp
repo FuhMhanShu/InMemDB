@@ -1,12 +1,15 @@
 #pragma once
 
+#include "memdb/aggregate.hpp"
 #include "memdb/cursor.hpp"
 #include "memdb/document.hpp"
 #include "memdb/exceptions.hpp"
 #include "memdb/index.hpp"
 #include "memdb/query.hpp"
 
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -51,6 +54,69 @@ struct FieldIndex {
     std::string path;
     bool unique = false;
     std::map<Value, std::set<DocumentId>, ValueLess> entries;
+};
+
+struct Accumulator {
+    AggOp op;
+    std::size_t count = 0;
+    bool have = false;
+    Value best;
+    std::int64_t sumInt = 0;
+    double sumD = 0.0;
+    bool allInt = true;
+    std::size_t numCount = 0;
+
+    explicit Accumulator(AggOp o) : op(o) {}
+
+    void addDoc() { ++count; }
+
+    void addValue(const Value* v) {
+        if (op == AggOp::Count)
+            return;
+        if (!v || v->isNull())
+            return;
+        if (op == AggOp::Sum || op == AggOp::Avg) {
+            if (!v->isNumber())
+                return;
+            ++numCount;
+            sumD += v->asDouble();
+            if (v->isInt()) {
+                auto x = v->asInt();
+                if (x > 0 && sumInt > std::numeric_limits<std::int64_t>::max() - x)
+                    allInt = false;
+                else if (x < 0 && sumInt < std::numeric_limits<std::int64_t>::min() - x)
+                    allInt = false;
+                else
+                    sumInt += x;
+            } else {
+                allInt = false;
+            }
+        } else {
+            if (!v->isNumber() && !v->isString())
+                return;
+            if (!have) {
+                best = *v;
+                have = true;
+            } else {
+                auto c = compare(*v, best);
+                if (c && ((op == AggOp::Min && *c < 0) || (op == AggOp::Max && *c > 0)))
+                    best = *v;
+            }
+        }
+    }
+
+    std::optional<Value> result() const {
+        if (op == AggOp::Count)
+            return Value(static_cast<std::int64_t>(count));
+        if (op == AggOp::Sum || op == AggOp::Avg) {
+            if (numCount == 0)
+                return std::nullopt;
+            if (op == AggOp::Sum)
+                return allInt ? std::optional<Value>(Value(sumInt)) : std::optional<Value>(Value(sumD));
+            return Value(sumD / static_cast<double>(numCount));
+        }
+        return have ? std::optional<Value>(best) : std::nullopt;
+    }
 };
 
 struct CollectionState {
@@ -293,6 +359,38 @@ struct CollectionState {
     }
 
     std::size_t doSize() const { return docs.size(); }
+
+    std::optional<Value> doAggregate(AggOp op, const std::string& fieldPath, const Expression& q) const {
+        Accumulator acc(op);
+        for (auto id : candidates(q)) {
+            auto it = docs.find(id);
+            if (it == docs.end() || !q.evaluate(it->second))
+                continue;
+            acc.addDoc();
+            acc.addValue(it->second.findPath(fieldPath));
+        }
+        return acc.result();
+    }
+
+    std::vector<GroupAggregate> doGroupBy(const std::string& keyPath, const Expression& q, AggOp op,
+                                           const std::string& aggPath) const {
+        std::map<Value, Accumulator, ValueLess> groups;
+        for (auto id : candidates(q)) {
+            auto it = docs.find(id);
+            if (it == docs.end() || !q.evaluate(it->second))
+                continue;
+            const Value* k = it->second.findPath(keyPath);
+            Value key = k ? *k : Value(nullptr);
+            auto& acc = groups.try_emplace(key, op).first->second;
+            acc.addDoc();
+            acc.addValue(it->second.findPath(aggPath));
+        }
+        std::vector<GroupAggregate> out;
+        out.reserve(groups.size());
+        for (auto& [k, acc] : groups)
+            out.push_back(GroupAggregate{k, acc.count, op == AggOp::Count ? std::nullopt : acc.result()});
+        return out;
+    }
 
     void doClear() {
         docs.clear();
