@@ -422,6 +422,46 @@ void testSnapshotJson() {
     CHECK(users3.size() == 2);
 }
 
+void testUpsert() {
+    Database db;
+    Collection c = db.createCollection("users");
+    c.createIndex("name", true);
+    DocumentId a = c.insert({{"name", "Ada"}, {"age", 36}});
+
+    DocumentId r1 = c.upsertById(a, Document{{"name", "Ada"}, {"age", 37}});
+    CHECK(r1 == a);
+    CHECK(c.size() == 1);
+    CHECK(c.findById(a)->at("age").asInt() == 37);
+
+    DocumentId r2 = c.upsertById(DocumentId(9999), Document{{"name", "Bob"}, {"age", 25}});
+    CHECK(r2 != DocumentId(9999));
+    CHECK(c.size() == 2);
+    CHECK(c.findById(r2)->at("name").asString() == "Bob");
+
+    DocumentId r3 = c.upsert(Field("name") == "Ada", Document{{"name", "Ada"}, {"age", 38}, {"neu", true}});
+    CHECK(r3 == a);
+    CHECK(c.size() == 2);
+    CHECK(c.findById(a)->at("age").asInt() == 38);
+    CHECK(c.findById(a)->at("neu").asBool() == true);
+
+    DocumentId r4 = c.upsert(Field("name") == "Cy", Document{{"name", "Cy"}, {"age", 40}});
+    CHECK(c.size() == 3);
+    CHECK(c.findById(r4)->at("name").asString() == "Cy");
+
+    CHECK_THROWS_AS(c.upsert(Field("name") == "Cy", Document{{"name", "Ada"}}), UniqueConstraintError);
+    CHECK(c.count(Field("name") == "Ada") == 1);
+    CHECK(c.findById(r4)->at("name").asString() == "Cy");
+
+    {
+        Transaction tx = c.beginTransaction();
+        DocumentId r5 = tx.upsert(Field("name") == "Bob", Document{{"name", "Bob"}, {"age", 26}});
+        CHECK(r5 == r2);
+        CHECK(tx.findById(r2)->at("age").asInt() == 26);
+        tx.rollback();
+    }
+    CHECK(c.findById(r2)->at("age").asInt() == 25);
+}
+
 } // namespace
 
 int main() {
@@ -433,6 +473,7 @@ int main() {
     testIndexes();
     testTransactions();
     testSnapshotJson();
+    testUpsert();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)

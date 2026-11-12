@@ -245,6 +245,29 @@ struct CollectionState {
         return true;
     }
 
+    DocumentId doUpsertById(DocumentId id, Document doc) {
+        auto it = docs.find(id);
+        if (it != docs.end()) {
+            doc.setId(id);
+            validateUnique(id, doc);
+            indexRemove(id, it->second);
+            it->second = std::move(doc);
+            indexAdd(id, it->second);
+            return id;
+        }
+        return doInsert(std::move(doc));
+    }
+
+    DocumentId doUpsert(const Expression& q, Document doc) {
+        auto ids = candidates(q);
+        for (auto id : ids) {
+            auto it = docs.find(id);
+            if (it != docs.end() && q.evaluate(it->second))
+                return doUpsertById(id, std::move(doc));
+        }
+        return doInsert(std::move(doc));
+    }
+
     std::size_t doRemove(const Expression& q) {
         auto ids = candidates(q);
         std::vector<DocumentId> toRemove;
