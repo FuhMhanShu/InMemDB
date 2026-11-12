@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.1 LANGUAGES CXX)
+project(InMemDB VERSION 0.2 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -28,4 +28,15 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         target_compile_options(memdb_tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME memdb_tests COMMAND memdb_tests)
+
+    file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp)
+    foreach(example_src ${EXAMPLE_SOURCES})
+        get_filename_component(example_name ${example_src} NAME_WE)
+        add_executable(${example_name} ${example_src})
+        target_link_libraries(${example_name} PRIVATE memdb)
+        if(NOT MSVC)
+            target_compile_options(${example_name} PRIVATE -Wall -Wextra -Wpedantic)
+        endif()
+        add_test(NAME ${example_name} COMMAND ${example_name})
+    endforeach()
 endif()

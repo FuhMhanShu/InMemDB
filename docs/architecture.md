@@ -31,6 +31,7 @@ include/memdb/    Öffentliche Header (API, ABI-stabil)
   exceptions.hpp  Fehlertypen
 src/              Implementierung (nicht Teil der ABI)
 tests/            Unit-Tests (assert-basiert, kein externes Framework)
+examples/         Lauffähige Beispiele (auch als CTest-Smoke-Tests registriert)
 CMakeLists.txt    Library-Target `memdb` (STATIC) + Tests via CTest
 ```
 

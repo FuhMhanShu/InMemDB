@@ -6,5 +6,6 @@
 #include "document.hpp"
 #include "document_id.hpp"
 #include "exceptions.hpp"
+#include "index.hpp"
 #include "query.hpp"
 #include "value.hpp"

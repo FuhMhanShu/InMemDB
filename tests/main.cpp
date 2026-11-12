@@ -215,6 +215,74 @@ void testQuery() {
     CHECK_THROWS_AS(Expression{} == Value(1), QueryError);
 }
 
+void testIndexes() {
+    Database db;
+    Collection c = db.createCollection("items");
+    DocumentId a = c.insert({{"name", "a"}, {"age", 10}});
+    c.insert({{"name", "b"}, {"age", 20}});
+    c.insert({{"name", "c"}, {"age", 30}});
+    c.insert({{"name", "d"}, {"age", 40}});
+
+    CHECK(!c.hasIndex("age"));
+    CHECK(c.indexes().empty());
+    Index idx = c.createIndex("age");
+    CHECK(c.hasIndex("age"));
+    CHECK(c.indexes().size() == 1);
+    CHECK(idx.field() == "age");
+    CHECK(!idx.isUnique());
+    CHECK_THROWS_AS(c.createIndex("age"), IndexExistsError);
+
+    auto r = c.find(Field("age") == 30);
+    CHECK(r.size() == 1);
+    CHECK(r.front().at("name").asString() == "c");
+    CHECK(c.lastQueryCandidateCount() == 1);
+
+    CHECK(c.find(Field("age") == 30.0).size() == 1);
+    CHECK(c.count(Field("age") >= 30) == 2);
+    CHECK(c.count(Field("age") > 10) == 3);
+    CHECK(c.count(Field("age") < 30) == 2);
+    CHECK(c.count(Field("age") <= 20) == 2);
+    CHECK(c.count(Field("age") >= 30) == 2);
+    CHECK(c.lastQueryCandidateCount() == 2);
+
+    CHECK(c.count(Field("name") == "a") == 1);
+    CHECK(c.lastQueryCandidateCount() == 4);
+
+    CHECK(c.count((Field("age") >= 20) && (Field("name") == "b")) == 1);
+    CHECK(c.lastQueryCandidateCount() == 3);
+
+    CHECK(c.updateById(a, [](Document& d) { d.set("age", 100); }));
+    CHECK(c.count(Field("age") == 10) == 0);
+    CHECK(c.count(Field("age") == 100) == 1);
+    CHECK(c.count(Field("age") > 50) == 1);
+
+    c.remove(Field("age") == 100);
+    CHECK(c.count(Field("age") == 100) == 0);
+    CHECK(c.size() == 3);
+
+    Collection u = db.createCollection("users");
+    u.insert({{"mail", "x@y.de"}});
+    Index uidx = u.createIndex("mail", true);
+    CHECK(uidx.isUnique());
+    CHECK_THROWS_AS(u.insert({{"mail", "x@y.de"}}), UniqueConstraintError);
+    u.insert({{"mail", "a@b.de"}});
+    CHECK(u.size() == 2);
+    DocumentId second = u.findOne(Field("mail") == "a@b.de")->id();
+    CHECK_THROWS_AS(u.updateById(second, [](Document& d) { d.set("mail", "x@y.de"); }), UniqueConstraintError);
+    CHECK(u.findById(second)->at("mail").asString() == "a@b.de");
+    CHECK_THROWS_AS(u.createIndex("mail", true), IndexExistsError);
+    Collection u2 = db.createCollection("u2");
+    u2.insert({{"mail", "d@e.de"}});
+    u2.insert({{"mail", "d@e.de"}});
+    CHECK_THROWS_AS(u2.createIndex("mail", true), UniqueConstraintError);
+
+    CHECK(c.dropIndex("age"));
+    CHECK(!c.hasIndex("age"));
+    CHECK(!c.dropIndex("age"));
+    CHECK(c.count(Field("age") == 20) == 1);
+    CHECK(c.lastQueryCandidateCount() == 3);
+}
+
 } // namespace
 
 int main() {
@@ -223,6 +291,7 @@ int main() {
     testDatabase();
     testCollectionCrud();
     testQuery();
+    testIndexes();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)

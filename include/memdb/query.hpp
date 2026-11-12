@@ -3,12 +3,19 @@
 #include "value.hpp"
 
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace memdb {
 
 class Document;
 struct ExprNode;
+
+struct IndexHint {
+    std::string path;
+    int op = 0; // 0=Eq, 1=Ne, 2=Lt, 3=Le, 4=Gt, 5=Ge
+    Value value;
+};
 
 class Expression {
 public:
@@ -23,6 +30,8 @@ public:
     Expression exists() const;
 
     bool evaluate(const Document& doc) const;
+
+    std::optional<IndexHint> indexHint() const;
 
 private:
     explicit Expression(std::shared_ptr<ExprNode> root);
