@@ -14,6 +14,9 @@
 namespace memdb {
 
 class Collection;
+namespace detail {
+struct CollectionState;
+}
 
 class Document {
 public:
@@ -52,6 +55,7 @@ private:
     void setId(DocumentId id);
 
     friend class Collection;
+    friend struct detail::CollectionState;
 };
 
 } // namespace memdb

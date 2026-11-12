@@ -4,6 +4,7 @@
 #include "document.hpp"
 #include "index.hpp"
 #include "query.hpp"
+#include "transaction.hpp"
 
 #include <cstddef>
 #include <functional>
@@ -17,6 +18,10 @@
 namespace memdb {
 
 class Database;
+
+namespace detail {
+struct CollectionState;
+}
 
 class Collection {
 public:
@@ -52,13 +57,15 @@ public:
 
     std::size_t lastQueryCandidateCount() const;
 
+    Transaction beginTransaction();
+
 private:
-    struct Impl;
-    explicit Collection(std::shared_ptr<Impl> impl);
+    explicit Collection(std::shared_ptr<detail::CollectionState> impl);
     static Collection create(std::string name);
-    std::shared_ptr<Impl> impl_;
+    std::shared_ptr<detail::CollectionState> impl_;
 
     friend class Database;
+    friend class Transaction;
 };
 
 } // namespace memdb
