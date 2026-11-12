@@ -116,11 +116,16 @@ public:
 
     /// @brief Skalares Aggregat über alle Treffer von `q` (FA-13).
     /// @param op Min/Max/Sum/Avg/Count; bei Count wird fieldPath ignoriert.
+    /// @param fieldPath Feldpfad, über den aggregiert wird (Punktnotation möglich).
+    /// @param q Optionale Query; leer = alle Dokumente.
     /// @return Aggregat; Count auf leerer Menge = 0, sonst `nullopt` bei leerer Menge.
     std::optional<Value> aggregate(AggOp op, const std::string& fieldPath,
                                     const Expression& q = Expression{}) const;
     /// @brief Gruppierung nach Feldwert (FA-13); Ergebnis nach Schlüssel sortiert.
+    /// @param keyPath Feldpfad des Gruppenschlüssels.
+    /// @param q Optionale Query; leer = alle Dokumente.
     /// @param op Aggregat für `aggPath` pro Gruppe (Count → nur count, value=nullopt).
+    /// @param aggPath Feldpfad für das Aggregat (bei op != Count).
     std::vector<GroupAggregate> groupBy(const std::string& keyPath, const Expression& q = Expression{},
                                          AggOp op = AggOp::Count, const std::string& aggPath = "") const;
 
