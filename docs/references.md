@@ -38,6 +38,9 @@ auto edges = refs.traverse("users", userId, RefDirection::Outgoing);   // DFS: a
 auto few  = refs.traverse("users", userId, RefDirection::Outgoing, 2); // maxDepth = 2 Hops
 bool ring = refs.hasCycle("users", userId);                            // Ringverweis-Erkennung
 
+auto hits = refs.search("users", userId, Field("status") == "offen");  // traversierende Suche
+// SearchHit { collection, id, document, path } — path = Kanten vom Startknoten bis zum Treffer
+
 std::string t = refs.resolve("a/b", "../c");   // -> "c"
 ```
 
@@ -80,6 +83,10 @@ Jede Referenz ist ein Dokument in `__references`:
   `ReferenceExistsError`). `hasCycle()` erkennt Ringe per DFS-Farben (grau = auf dem Stack); bei
   `Both` mit Parent-Skip, damit die Kante zurück zum Vorgänger keinen False-Positive erzeugt.
   Speicherung, Snapshot und `dangling()` sind von Ringen nicht betroffen (keine Rekursion).
+- **Traversierende Suche (`search`):** DFS ab einem Startknoten (Datensatz oder Collection-Level,
+  `fromId = nullopt` expandiert auf alle Dokumente der Collection). Jedes erreichte Dokument wird mit
+  der Query `q` getestet (`Expression{}` matcht alle); Treffer enthalten den Kanten-Pfad vom Start.
+  Ringverweis-sicher via Visited-Set, `maxDepth` begrenzt die Hops, dangling Ziele werden übersprungen.
 - **Snapshot:** `__references` ist eine normale Collection und wird von `Database::toJson` mit
   serialisiert (inkl. Indizes) — Referenzen überleben Save/Load.
 - **Transaktionen:** Änderungen an Referenzen sind über `__references.beginTransaction()` atomar.

@@ -52,6 +52,14 @@ int main() {
     std::cout << "traverse maxDepth=1: " << refs.traverse("users", ada, RefDirection::Outgoing, 1).size() << " Kanten\n";
     std::cout << std::boolalpha << "hasCycle(users#ada, outgoing) = " << refs.hasCycle("users", ada, RefDirection::Outgoing) << "\n";
 
+    Collection products = db.createCollection("products");
+    DocumentId p1 = products.insert({{"name", "Buch"}, {"preis", 10}});
+    refs.link("orders", std::nullopt, "products", p1, "enthaelt");
+    auto hits = refs.search("users", ada, Field("preis") > 5, RefDirection::Outgoing);
+    std::cout << "traversierende Suche ab users#ada (preis > 5): " << hits.size() << " Treffer\n";
+    for (const auto& h : hits)
+        std::cout << "  " << h.collection << "#" << toString(h.id) << " ueber " << h.path.size() << " Kante(n)\n";
+
     std::string json = db.toJson();
     Database db2 = Database::fromJson(json, "");
     ReferenceIndex refs2(db2);

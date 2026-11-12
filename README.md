@@ -23,7 +23,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Upsert: `upsertById(id, doc)` / `upsert(query, doc)` (FA-07)
 - Aggregationen: `aggregate(Min/Max/Sum/Avg/Count, feld, q)` und `groupBy(...)` (FA-13)
 - Observer: `onChange`/`offChange`, Events nach Commit einer Transaktion (FA-15)
-- Referenzen: `ReferenceIndex` verknüpft Collections/Dokumente name-basiert (relative Pfade), in beide Richtungen abfragbar, inkl. Traversierung (`traverse`/`hasCycle`, ringverweis-sicher) und Dangling-Bereinigung (FA-18)
+- Referenzen: `ReferenceIndex` verknüpft Collections/Dokumente name-basiert (relative Pfade), in beide Richtungen abfragbar, inkl. Traversierung (`traverse`/`hasCycle`/`search`, ringverweis-sicher) und Dangling-Bereinigung (FA-18)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
@@ -68,7 +68,7 @@ Lauffähige Beispiele in `examples/` (werden mitgebaut und als CTest-Smoke-Tests
 | `08_upsert.cpp` | Upsert per Query und per ID |
 | `09_aggregations.cpp` | count/sum/avg/min/max und groupBy |
 | `10_observer.cpp` | onChange/offChange, Events inkl. Transaktions-Commit |
-| `11_references.cpp` | Referenzen: link/unlink, outgoing/incoming, relative Pfade, dangling/prune, traverse/hasCycle (Ringverweis), Snapshot-Roundtrip |
+| `11_references.cpp` | Referenzen: link/unlink, outgoing/incoming, relative Pfade, dangling/prune, traverse/hasCycle/search (Ringverweis), Snapshot-Roundtrip |
 
 ```sh
 cmake --build build -j

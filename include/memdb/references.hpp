@@ -28,6 +28,13 @@ struct Reference {
 
 enum class RefDirection { Outgoing, Incoming, Both };
 
+struct SearchHit {
+    std::string collection;
+    DocumentId id;
+    Document document;
+    std::vector<Reference> path;
+};
+
 class ReferenceIndex {
 public:
     explicit ReferenceIndex(Database& db, std::string storageCollection = "__references");
@@ -52,6 +59,11 @@ public:
                                     std::size_t maxDepth = std::numeric_limits<std::size_t>::max()) const;
     bool hasCycle(const std::string& fromCollection, std::optional<DocumentId> fromId,
                   RefDirection dir = RefDirection::Outgoing) const;
+
+    std::vector<SearchHit> search(const std::string& fromCollection, std::optional<DocumentId> fromId,
+                                  const Expression& q = Expression{},
+                                  RefDirection dir = RefDirection::Outgoing,
+                                  std::size_t maxDepth = std::numeric_limits<std::size_t>::max()) const;
 
     std::string resolve(const std::string& fromCollection, const std::string& relPath) const;
 

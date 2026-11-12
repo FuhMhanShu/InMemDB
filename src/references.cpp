@@ -274,4 +274,61 @@ bool ReferenceIndex::hasCycle(const std::string& fromCollection, std::optional<D
     return dfs(fromCollection, fromId, "");
 }
 
+std::vector<SearchHit> ReferenceIndex::search(const std::string& fromCollection,
+                                               std::optional<DocumentId> fromId, const Expression& q,
+                                               RefDirection dir, std::size_t maxDepth) const {
+    std::vector<SearchHit> hits;
+    std::set<std::string> visited;
+    std::function<void(const std::string&, const std::optional<DocumentId>&, const std::vector<Reference>&, std::size_t)> dfs;
+    dfs = [&](const std::string& coll, const std::optional<DocumentId>& id,
+              const std::vector<Reference>& path, std::size_t depth) {
+        if (depth > maxDepth || !db_->hasCollection(coll))
+            return;
+        const std::string key = makeKey(coll, id);
+        if (!visited.insert(key).second)
+            return;
+        Collection c = db_->collection(coll);
+        std::vector<Reference> edges;
+        if (id) {
+            auto doc = c.findById(*id);
+            if (doc.has_value()) {
+                if (q.evaluate(*doc))
+                    hits.push_back(SearchHit{coll, *id, *doc, path});
+                for (const Reference& r : references(coll, dir, *id))
+                    edges.push_back(r);
+            }
+        } else {
+            for (const Document& d : c.find(Expression{})) {
+                if (!visited.insert(makeKey(coll, d.id())).second)
+                    continue;
+                if (q.evaluate(d))
+                    hits.push_back(SearchHit{coll, d.id(), d, path});
+                for (const Reference& r : references(coll, dir, d.id()))
+                    edges.push_back(r);
+            }
+            for (const Reference& r : references(coll, dir, std::nullopt))
+                edges.push_back(r);
+        }
+        if (depth >= maxDepth)
+            return;
+        for (const Reference& r : edges) {
+            auto nextPath = path;
+            nextPath.push_back(r);
+            if (dir == RefDirection::Outgoing)
+                dfs(r.toCollection, r.toId, nextPath, depth + 1);
+            else if (dir == RefDirection::Incoming)
+                dfs(r.fromCollection, r.fromId, nextPath, depth + 1);
+            else {
+                const bool fromIsSelf = makeKey(r.fromCollection, r.fromId) == key;
+                if (fromIsSelf)
+                    dfs(r.toCollection, r.toId, nextPath, depth + 1);
+                else
+                    dfs(r.fromCollection, r.fromId, nextPath, depth + 1);
+            }
+        }
+    };
+    dfs(fromCollection, fromId, {}, 0);
+    return hits;
+}
+
 } // namespace memdb

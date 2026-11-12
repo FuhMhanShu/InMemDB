@@ -741,6 +741,59 @@ void testReferenceTraversal() {
     CHECK(refs2.traverse("x", x1, RefDirection::Both).size() == 1);
 }
 
+void testReferenceSearch() {
+    Database db;
+    Collection users = db.createCollection("users");
+    Collection orders = db.createCollection("orders");
+    Collection products = db.createCollection("products");
+    DocumentId ada = users.insert({{"name", "Ada"}, {"age", 36}});
+    DocumentId bob = users.insert({{"name", "Bob"}, {"age", 25}});
+    DocumentId o1 = orders.insert({{"total", 42}, {"status", "offen"}});
+    DocumentId o2 = orders.insert({{"total", 7}, {"status", "bezahlt"}});
+    DocumentId p1 = products.insert({{"name", "Buch"}, {"preis", 10}});
+
+    ReferenceIndex refs(db);
+    refs.link("users", ada, "orders", o1);
+    refs.link("orders", o1, "products", p1, "enthaelt");
+    refs.link("users", bob, "orders", o2);
+    refs.link("orders", o2, "users", ada);   // Ring zurueck zu ada
+
+    auto all = refs.search("users", ada);
+    CHECK(all.size() == 3);                  // ada, o1, p1
+    CHECK(all[0].collection == "users" && all[0].id == ada && all[0].path.empty());
+
+    auto hit = refs.search("users", ada, Field("status") == "offen");
+    CHECK(hit.size() == 1);
+    CHECK(hit[0].collection == "orders" && hit[0].id == o1);
+    CHECK(hit[0].path.size() == 1);
+    CHECK(hit[0].path[0].fromId == ada && hit[0].path[0].toId == o1);
+    CHECK(hit[0].document.at("total").asInt() == 42);
+
+    auto deep = refs.search("users", ada, Field("preis") > 5);
+    CHECK(deep.size() == 1 && deep[0].id == p1 && deep[0].path.size() == 2);
+
+    auto byAge = refs.search("users", ada, Field("age") >= 30);
+    CHECK(byAge.size() == 1 && byAge[0].id == ada);
+
+    CHECK(refs.search("users", ada, Expression{}, RefDirection::Outgoing, 0).size() == 1);
+    CHECK(refs.search("users", ada, Expression{}, RefDirection::Outgoing, 1).size() == 2);
+
+    auto in = refs.search("products", p1, Expression{}, RefDirection::Incoming);
+    CHECK(in.size() == 5);                   // p1, o1, ada, o2, bob — terminiert trotz Ring
+    auto inName = refs.search("products", p1, Field("name").exists(), RefDirection::Incoming);
+    CHECK(inName.size() == 3);               // ada, bob, p1 (o1/o2 haben kein name)
+
+    auto fromColl = refs.search("users", std::nullopt);
+    CHECK(fromColl.size() == 5);             // alle users-Doks + o1, o2, p1
+    CHECK(refs.search("users", std::nullopt, Expression{}, RefDirection::Outgoing, 0).size() == 2);
+
+    auto both = refs.search("users", ada, Expression{}, RefDirection::Both);
+    CHECK(both.size() == 5);                 // kompletter Graph
+
+    products.removeById(p1);
+    CHECK(refs.search("users", ada).size() == 2);   // ada, o1 — dangling p1 wird uebersprungen
+}
+
 } // namespace
 
 int main() {
@@ -757,6 +810,7 @@ int main() {
     testObserver();
     testReferences();
     testReferenceTraversal();
+    testReferenceSearch();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)
