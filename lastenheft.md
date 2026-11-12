@@ -9,7 +9,7 @@
 | Status | In Abstimmung |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
-| Bereitstellungsform | Eingebettete Bibliothek (header-only oder statische Lib), kein Server, kein Netzwerk |
+| Bereitstellungsform | Eingebettete Bibliothek als **kompilierte statische Library mit Pimpl-Idiom** (öffentliche Header unter `include/memdb/`, Implementierung gekapselt in `src/`); kein Server, kein Netzwerk. Header-only wurde verworfen – siehe `docs/architecture.md`. |
 
 ---
 
@@ -94,7 +94,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | NFA-03 | **Erweiterbarkeit**: neue Werttypen durch Ableitung von einer `Value`-Basisklasse registrierbar; neue Query-Operatoren erweiterbar; keine Änderung am Kern für Erweiterungen nötig (Open/Closed). | M |
 | NFA-04 | **API-Ergonomie**: intuitive, moderne C++-Syntax (z. B. Initializer-Listen für Dokumente, `std::string_view`, `std::optional`); sprechende Methodennamen. | M |
 | NFA-05 | **Zuverlässigkeit/Speicher**: keine Lecks (RAII, Smart Pointer), starke Exception-Garantie bei fehlgeschlagenen Updates; ungültige Zugriffe werfen typisierte Exceptions. | M |
-| NFA-06 | **Portabilität & Build**: plattformunabhängiger Code, Build über CMake; Kern ohne externe Pflichtabhängigkeiten (header-only oder statische Lib). | M |
+| NFA-06 | **Portabilität & Build**: plattformunabhängiger Code, Build über CMake; Kern ohne externe Pflichtabhängigkeiten. Auslieferung als **statische Library mit Pimpl** (ABI-stabile öffentliche Header, geringe Compile-Zeiten der Konsumenten) – Details siehe `docs/architecture.md`. | M |
 | NFA-07 | **Testbarkeit**: Unit-Tests für alle Kernpfade (Empfehlung: Catch2 oder GoogleTest als Dev-Dependency); Abdeckung der CRUD-, Query- und Nebenläufigkeitsfälle. | S |
 | NFA-08 | **Dokumentation**: Doxygen-kommentierte öffentliche API, README mit Quickstart, mindestens ein lauffähiges Beispiel. | S |
 | NFA-09 | **Lizenz**: projektverträgliche Open-Source-Lizenz (z. B. MIT). | K |
