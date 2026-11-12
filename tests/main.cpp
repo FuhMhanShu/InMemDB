@@ -603,6 +603,197 @@ void testObserver() {
     }
 }
 
+void testReferences() {
+    Database db("shop");
+    Collection users = db.createCollection("users");
+    Collection orders = db.createCollection("orders");
+    DocumentId ada = users.insert({{"name", "Ada"}});
+    DocumentId bob = users.insert({{"name", "Bob"}});
+    DocumentId o1 = orders.insert({{"total", 42}});
+
+    ReferenceIndex refs(db);
+    CHECK(db.hasCollection("__references"));
+    CHECK(db.collection("__references").hasIndex("from_key"));
+    CHECK(db.collection("__references").hasIndex("to_key"));
+
+    CHECK(refs.resolve("users", "orders") == "orders");
+    CHECK(refs.resolve("users", "./orders") == "orders");
+    CHECK(refs.resolve("users", "../orders") == "orders");
+    CHECK(refs.resolve("users", "/orders") == "orders");
+    CHECK(refs.resolve("a/b", "../c") == "c");
+    CHECK(refs.resolve("a/b", "./c") == "a/c");
+    CHECK(refs.resolve("a/b/c", "../../x") == "x");
+    CHECK_THROWS_AS(refs.resolve("users", ""), ReferenceError);
+    CHECK_THROWS_AS(refs.resolve("users", "/"), ReferenceError);
+
+    Reference r1 = refs.link("users", ada, "orders", std::nullopt, "hat-bestellungen");
+    CHECK(r1.fromCollection == "users");
+    CHECK(r1.fromId == ada);
+    CHECK(r1.toCollection == "orders");
+    CHECK(!r1.toId.has_value());
+    CHECK(r1.relation == "hat-bestellungen");
+
+    Reference r2 = refs.link("orders", o1, "users", ada);
+    Reference r3 = refs.link("users", std::nullopt, "orders", std::nullopt, "kennt");
+    Reference r4 = refs.link("orders", o1, "./users", bob);
+    CHECK(r4.toCollection == "users");
+    CHECK(r4.toId == bob);
+
+    CHECK_THROWS_AS(refs.link("users", ada, "orders", std::nullopt, "hat-bestellungen"), ReferenceExistsError);
+    refs.link("users", ada, "orders", std::nullopt, "andere-relation");
+    CHECK_THROWS_AS(refs.link("fehlt", std::nullopt, "orders", std::nullopt), CollectionNotFoundError);
+    CHECK_THROWS_AS(refs.link("users", DocumentId(9999), "orders", std::nullopt), DocumentNotFoundError);
+    CHECK_THROWS_AS(refs.link("users", ada, "fehlt", std::nullopt), CollectionNotFoundError);
+    CHECK_THROWS_AS(refs.link("users", ada, "orders", DocumentId(9999)), DocumentNotFoundError);
+
+    auto outAda = refs.references("users", RefDirection::Outgoing, ada);
+    CHECK(outAda.size() == 2);
+    auto inOrders = refs.references("orders", RefDirection::Incoming);
+    CHECK(inOrders.size() == 3);
+    auto outColl = refs.references("users", RefDirection::Outgoing);
+    CHECK(outColl.size() == 1 && outColl[0] == r3);
+    auto inAda = refs.references("users", RefDirection::Incoming, ada);
+    CHECK(inAda.size() == 1 && inAda[0] == r2);
+    auto outO1 = refs.references("orders", RefDirection::Outgoing, o1);
+    CHECK(outO1.size() == 2);
+    auto bothAda = refs.references("users", RefDirection::Both, ada);
+    CHECK(bothAda.size() == 3);
+    auto inBob = refs.references("users", RefDirection::Incoming, bob);
+    CHECK(inBob.size() == 1 && inBob[0] == r4);
+
+    CHECK(refs.unlink("users", ada, "orders", std::nullopt, "hat-bestellungen"));
+    CHECK(!refs.unlink("users", ada, "orders", std::nullopt, "hat-bestellungen"));
+    CHECK(refs.references("users", RefDirection::Outgoing, ada).size() == 1);
+
+    orders.removeById(o1);
+    CHECK(refs.dangling().size() == 2);
+    CHECK(refs.pruneDangling() == 2);
+    CHECK(refs.dangling().empty());
+    CHECK(refs.references("orders", RefDirection::Incoming).size() == 2);
+
+    db.dropCollection("orders");
+    CHECK(refs.dangling().size() == 2);
+    CHECK(refs.pruneDangling() == 2);
+    CHECK(refs.dangling().empty());
+
+    refs.link("users", ada, "users", bob, "kennt");
+    std::string json = db.toJson();
+    Database db2 = Database::fromJson(json, "");
+    CHECK(db2.hasCollection("__references"));
+    CHECK(db2.collection("__references").hasIndex("from_key"));
+    ReferenceIndex refs2(db2);
+    auto rt = refs2.references("users", RefDirection::Both, ada);
+    CHECK(rt.size() == 1);
+    CHECK(rt[0].toCollection == "users" && rt[0].toId == bob && rt[0].relation == "kennt");
+}
+
+void testReferenceTraversal() {
+    Database db;
+    Collection a = db.createCollection("a");
+    Collection b = db.createCollection("b");
+    Collection c = db.createCollection("c");
+    DocumentId a1 = a.insert({{"n", "a1"}});
+    DocumentId b1 = b.insert({{"n", "b1"}});
+    DocumentId c1 = c.insert({{"n", "c1"}});
+
+    ReferenceIndex refs(db);
+    refs.link("a", a1, "b", b1);
+    refs.link("b", b1, "c", c1);
+    refs.link("c", c1, "a", a1);                        // Ring: a1 -> b1 -> c1 -> a1
+    refs.link("a", a1, "a", a1, "selbst");              // Selbstverweis
+    refs.link("a", std::nullopt, "b", std::nullopt, "coll");
+
+    auto all = refs.traverse("a", a1, RefDirection::Outgoing);
+    CHECK(all.size() == 4);                             // terminiert trotz Ring dank visited
+    auto d1 = refs.traverse("a", a1, RefDirection::Outgoing, 1);
+    CHECK(d1.size() == 2);                              // a1->b1, a1->a1
+    auto d2 = refs.traverse("a", a1, RefDirection::Outgoing, 2);
+    CHECK(d2.size() == 3);                              // + b1->c1
+    CHECK(refs.traverse("a", a1, RefDirection::Outgoing, 0).empty());
+
+    auto inc = refs.traverse("c", c1, RefDirection::Incoming);
+    CHECK(inc.size() == 4);                             // b1->c1, a1->b1, c1->a1, a1->a1
+
+    auto incColl = refs.traverse("b", std::nullopt, RefDirection::Incoming);
+    CHECK(incColl.size() == 1 && incColl[0].relation == "coll");   // a#->b# landet auf Collection-Level
+
+    auto coll = refs.traverse("a", std::nullopt, RefDirection::Outgoing);
+    CHECK(coll.size() == 1 && coll[0].relation == "coll");
+
+    auto both = refs.traverse("b", b1, RefDirection::Both);
+    CHECK(both.size() == 4);                            // a1/b1/c1-Kreis + Selbstverweis, keine Duplikate
+
+    CHECK(refs.hasCycle("a", a1, RefDirection::Outgoing));
+    CHECK(refs.hasCycle("b", b1, RefDirection::Outgoing));
+    CHECK(refs.hasCycle("a", a1, RefDirection::Incoming));
+    CHECK(refs.hasCycle("a", a1, RefDirection::Both));
+
+    Database db2;
+    Collection x = db2.createCollection("x");
+    Collection y = db2.createCollection("y");
+    DocumentId x1 = x.insert({{"n", "x1"}});
+    DocumentId y1 = y.insert({{"n", "y1"}});
+    ReferenceIndex refs2(db2);
+    refs2.link("x", x1, "y", y1);
+    CHECK(!refs2.hasCycle("x", x1, RefDirection::Outgoing));
+    CHECK(!refs2.hasCycle("x", x1, RefDirection::Both));   // Parent-Skip: kein False-Positive
+    CHECK(refs2.traverse("x", x1, RefDirection::Outgoing).size() == 1);
+    CHECK(refs2.traverse("x", x1, RefDirection::Both).size() == 1);
+}
+
+void testReferenceSearch() {
+    Database db;
+    Collection users = db.createCollection("users");
+    Collection orders = db.createCollection("orders");
+    Collection products = db.createCollection("products");
+    DocumentId ada = users.insert({{"name", "Ada"}, {"age", 36}});
+    DocumentId bob = users.insert({{"name", "Bob"}, {"age", 25}});
+    DocumentId o1 = orders.insert({{"total", 42}, {"status", "offen"}});
+    DocumentId o2 = orders.insert({{"total", 7}, {"status", "bezahlt"}});
+    DocumentId p1 = products.insert({{"name", "Buch"}, {"preis", 10}});
+
+    ReferenceIndex refs(db);
+    refs.link("users", ada, "orders", o1);
+    refs.link("orders", o1, "products", p1, "enthaelt");
+    refs.link("users", bob, "orders", o2);
+    refs.link("orders", o2, "users", ada);   // Ring zurueck zu ada
+
+    auto all = refs.search("users", ada);
+    CHECK(all.size() == 3);                  // ada, o1, p1
+    CHECK(all[0].collection == "users" && all[0].id == ada && all[0].path.empty());
+
+    auto hit = refs.search("users", ada, Field("status") == "offen");
+    CHECK(hit.size() == 1);
+    CHECK(hit[0].collection == "orders" && hit[0].id == o1);
+    CHECK(hit[0].path.size() == 1);
+    CHECK(hit[0].path[0].fromId == ada && hit[0].path[0].toId == o1);
+    CHECK(hit[0].document.at("total").asInt() == 42);
+
+    auto deep = refs.search("users", ada, Field("preis") > 5);
+    CHECK(deep.size() == 1 && deep[0].id == p1 && deep[0].path.size() == 2);
+
+    auto byAge = refs.search("users", ada, Field("age") >= 30);
+    CHECK(byAge.size() == 1 && byAge[0].id == ada);
+
+    CHECK(refs.search("users", ada, Expression{}, RefDirection::Outgoing, 0).size() == 1);
+    CHECK(refs.search("users", ada, Expression{}, RefDirection::Outgoing, 1).size() == 2);
+
+    auto in = refs.search("products", p1, Expression{}, RefDirection::Incoming);
+    CHECK(in.size() == 5);                   // p1, o1, ada, o2, bob — terminiert trotz Ring
+    auto inName = refs.search("products", p1, Field("name").exists(), RefDirection::Incoming);
+    CHECK(inName.size() == 3);               // ada, bob, p1 (o1/o2 haben kein name)
+
+    auto fromColl = refs.search("users", std::nullopt);
+    CHECK(fromColl.size() == 5);             // alle users-Doks + o1, o2, p1
+    CHECK(refs.search("users", std::nullopt, Expression{}, RefDirection::Outgoing, 0).size() == 2);
+
+    auto both = refs.search("users", ada, Expression{}, RefDirection::Both);
+    CHECK(both.size() == 5);                 // kompletter Graph
+
+    products.removeById(p1);
+    CHECK(refs.search("users", ada).size() == 2);   // ada, o1 — dangling p1 wird uebersprungen
+}
+
 } // namespace
 
 int main() {
@@ -617,6 +808,9 @@ int main() {
     testUpsert();
     testAggregations();
     testObserver();
+    testReferences();
+    testReferenceTraversal();
+    testReferenceSearch();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)

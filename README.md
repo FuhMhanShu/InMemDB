@@ -12,8 +12,9 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Snapshot/JSON](docs/snapshot-json.md) (FA-14, v0.4)
 - [Aggregationen](docs/aggregations.md) (FA-13, v0.6)
 - [Observer/Callbacks](docs/observer.md) (FA-15, v0.7)
+- [Referenzen zwischen Collections/Dokumenten](docs/references.md) (FA-18, v0.8)
 
-## Features (v0.7)
+## Features (v0.8)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")`
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
@@ -22,6 +23,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Upsert: `upsertById(id, doc)` / `upsert(query, doc)` (FA-07)
 - Aggregationen: `aggregate(Min/Max/Sum/Avg/Count, feld, q)` und `groupBy(...)` (FA-13)
 - Observer: `onChange`/`offChange`, Events nach Commit einer Transaktion (FA-15)
+- Referenzen: `ReferenceIndex` verknüpft Collections/Dokumente name-basiert (relative Pfade), in beide Richtungen abfragbar, inkl. Traversierung (`traverse`/`hasCycle`/`search`, ringverweis-sicher) und Dangling-Bereinigung (FA-18)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
@@ -66,6 +68,7 @@ Lauffähige Beispiele in `examples/` (werden mitgebaut und als CTest-Smoke-Tests
 | `08_upsert.cpp` | Upsert per Query und per ID |
 | `09_aggregations.cpp` | count/sum/avg/min/max und groupBy |
 | `10_observer.cpp` | onChange/offChange, Events inkl. Transaktions-Commit |
+| `11_references.cpp` | Referenzen: link/unlink, outgoing/incoming, relative Pfade, dangling/prune, traverse/hasCycle/search (Ringverweis), Snapshot-Roundtrip |
 
 ```sh
 cmake --build build -j

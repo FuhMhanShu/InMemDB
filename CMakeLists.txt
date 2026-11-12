@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.7 LANGUAGES CXX)
+project(InMemDB VERSION 0.8 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -10,6 +10,7 @@ add_library(memdb STATIC
     src/collection.cpp
     src/transaction.cpp
     src/database.cpp
+    src/references.cpp
 )
 target_include_directories(memdb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(memdb PUBLIC cxx_std_17)

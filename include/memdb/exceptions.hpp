@@ -50,4 +50,14 @@ public:
     using Error::Error;
 };
 
+class ReferenceError : public Error {
+public:
+    using Error::Error;
+};
+
+class ReferenceExistsError : public Error {
+public:
+    using Error::Error;
+};
+
 } // namespace memdb
