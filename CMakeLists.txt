@@ -25,7 +25,7 @@ endif()
 
 option(INMEMDB_BUILD_DOCS "Doxygen-API-Dokumentation bauen (NFA-08)" OFF)
 if(INMEMDB_BUILD_DOCS)
-    find_package(Doxygen REQUIRED dot)
+    find_package(Doxygen REQUIRED) # dot/graphviz optional; Doku ohne Diagramme (HAVE_DOT=NO)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
     add_custom_target(docs
         COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
