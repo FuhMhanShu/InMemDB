@@ -36,6 +36,17 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
+## API-Dokumentation (Doxygen, NFA-08)
+
+Alle öffentlichen Klassen/Methoden in `include/memdb/` sind doxygen-kommentiert.
+
+```sh
+cmake -S . -B build -DINMEMDB_BUILD_DOCS=ON
+cmake --build build --target docs   # HTML-Doku nach build/docs/html
+```
+
+In der CI läuft dafür der Job **Docs (doxygen)**.
+
 ## Nutzung
 
 ```cpp

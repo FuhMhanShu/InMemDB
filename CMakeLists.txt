@@ -23,6 +23,17 @@ if(NOT MSVC)
     target_compile_options(memdb PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+option(INMEMDB_BUILD_DOCS "Doxygen-API-Dokumentation bauen (NFA-08)" OFF)
+if(INMEMDB_BUILD_DOCS)
+    find_package(Doxygen REQUIRED dot)
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+    add_custom_target(docs
+        COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Generiere API-Dokumentation (Doxygen) nach ${CMAKE_CURRENT_BINARY_DIR}/docs/html"
+        VERBATIM)
+endif()
+
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     enable_testing()
     add_executable(memdb_tests tests/main.cpp)
