@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -58,6 +59,10 @@ public:
     std::size_t lastQueryCandidateCount() const;
 
     Transaction beginTransaction();
+
+    std::string toJson() const;
+    void loadJson(std::string_view json);
+    void clear();
 
 private:
     explicit Collection(std::shared_ptr<detail::CollectionState> impl);

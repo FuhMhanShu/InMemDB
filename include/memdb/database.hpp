@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace memdb {
@@ -25,6 +26,12 @@ public:
     std::vector<std::string> collectionNames() const;
     bool dropCollection(const std::string& name);
     void clear();
+
+    std::string toJson() const;
+    void fromJson(std::string_view json);
+    static Database fromJson(std::string_view json, std::string name);
+    void saveToFile(const std::string& path) const;
+    static Database loadFromFile(const std::string& path);
 
 private:
     struct Impl;

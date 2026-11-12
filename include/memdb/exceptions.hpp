@@ -45,4 +45,9 @@ public:
     using Error::Error;
 };
 
+class JsonError : public Error {
+public:
+    using Error::Error;
+};
+
 } // namespace memdb
