@@ -152,4 +152,15 @@ void Collection::clear() {
     impl_->doClear();
 }
 
+std::optional<Value> Collection::aggregate(AggOp op, const std::string& fieldPath, const Expression& q) const {
+    std::shared_lock lock(impl_->mtx);
+    return impl_->doAggregate(op, fieldPath, q);
+}
+
+std::vector<GroupAggregate> Collection::groupBy(const std::string& keyPath, const Expression& q, AggOp op,
+                                                 const std::string& aggPath) const {
+    std::shared_lock lock(impl_->mtx);
+    return impl_->doGroupBy(keyPath, q, op, aggPath);
+}
+
 } // namespace memdb

@@ -112,6 +112,17 @@ std::size_t Transaction::size() const {
     return impl_->state->doSize();
 }
 
+std::optional<Value> Transaction::aggregate(AggOp op, const std::string& fieldPath, const Expression& q) const {
+    impl_->checkActive();
+    return impl_->state->doAggregate(op, fieldPath, q);
+}
+
+std::vector<GroupAggregate> Transaction::groupBy(const std::string& keyPath, const Expression& q, AggOp op,
+                                                  const std::string& aggPath) const {
+    impl_->checkActive();
+    return impl_->state->doGroupBy(keyPath, q, op, aggPath);
+}
+
 void Transaction::commit() {
     impl_->checkActive();
     impl_->active = false;

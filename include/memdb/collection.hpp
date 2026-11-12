@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aggregate.hpp"
 #include "cursor.hpp"
 #include "document.hpp"
 #include "index.hpp"
@@ -65,6 +66,11 @@ public:
     std::string toJson() const;
     void loadJson(std::string_view json);
     void clear();
+
+    std::optional<Value> aggregate(AggOp op, const std::string& fieldPath,
+                                    const Expression& q = Expression{}) const;
+    std::vector<GroupAggregate> groupBy(const std::string& keyPath, const Expression& q = Expression{},
+                                         AggOp op = AggOp::Count, const std::string& aggPath = "") const;
 
 private:
     explicit Collection(std::shared_ptr<detail::CollectionState> impl);

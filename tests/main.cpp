@@ -462,6 +462,61 @@ void testUpsert() {
     CHECK(c.findById(r2)->at("age").asInt() == 25);
 }
 
+void testAggregations() {
+    Database db;
+    Collection sales = db.createCollection("sales");
+    sales.createIndex("city");
+    sales.insert({{"city", "Berlin"}, {"betrag", 10}, {"kunde", "x"}});
+    sales.insert({{"city", "Berlin"}, {"betrag", 20}, {"kunde", "y"}});
+    sales.insert({{"city", "Hamburg"}, {"betrag", 5}, {"kunde", "x"}});
+    sales.insert({{"city", "Hamburg"}, {"betrag", Value(nullptr)}});
+    sales.insert({{"city", "München"}, {"betrag", 7.5}});
+    sales.insert({{"betrag", 100}});
+
+    CHECK(sales.aggregate(AggOp::Count, "").value().asInt() == 6);
+    CHECK(sales.aggregate(AggOp::Count, "", Field("city") == "Berlin").value().asInt() == 2);
+    CHECK(sales.aggregate(AggOp::Sum, "betrag").value().asDouble() == 142.5);
+    CHECK(sales.aggregate(AggOp::Sum, "betrag", Field("city") == "Berlin").value().asInt() == 30);
+    CHECK(sales.aggregate(AggOp::Avg, "betrag").value().asDouble() == 142.5 / 5.0);
+    CHECK(sales.aggregate(AggOp::Min, "betrag").value().asInt() == 5);
+    CHECK(sales.aggregate(AggOp::Max, "betrag").value().asInt() == 100);
+    CHECK(sales.aggregate(AggOp::Min, "city").value().asString() == "Berlin");
+    CHECK(sales.aggregate(AggOp::Max, "city").value().asString() == "München");
+    CHECK(!sales.aggregate(AggOp::Sum, "betrag", Field("city") == "Nowhere").has_value());
+    CHECK(sales.aggregate(AggOp::Count, "", Field("city") == "Nowhere").value().asInt() == 0);
+
+    auto groups = sales.groupBy("city");
+    CHECK(groups.size() == 4);
+    CHECK(groups[0].key.isNull());
+    CHECK(groups[0].count == 1);
+    CHECK(!groups[0].value.has_value());
+    CHECK(groups[1].key.asString() == "Berlin");
+    CHECK(groups[1].count == 2);
+    CHECK(groups[2].key.asString() == "Hamburg");
+    CHECK(groups[2].count == 2);
+    CHECK(groups[3].key.asString() == "München");
+    CHECK(groups[3].count == 1);
+
+    auto gsum = sales.groupBy("city", Expression{}, AggOp::Sum, "betrag");
+    CHECK(gsum.size() == 4);
+    CHECK(gsum[0].value.value().asInt() == 100);
+    CHECK(gsum[1].value.value().asInt() == 30);
+    CHECK(gsum[2].value.value().asDouble() == 5.0);
+    CHECK(gsum[3].value.value().asDouble() == 7.5);
+
+    auto gavg = sales.groupBy("city", Field("betrag") > 0, AggOp::Avg, "betrag");
+    CHECK(gavg[1].value.value().asDouble() == 15.0);
+
+    {
+        Transaction tx = sales.beginTransaction();
+        CHECK(tx.aggregate(AggOp::Count, "").value().asInt() == 6);
+        tx.insert({{"city", "Berlin"}, {"betrag", 1000}});
+        CHECK(tx.aggregate(AggOp::Sum, "betrag", Field("city") == "Berlin").value().asInt() == 1030);
+        tx.rollback();
+    }
+    CHECK(sales.aggregate(AggOp::Sum, "betrag", Field("city") == "Berlin").value().asInt() == 30);
+}
+
 } // namespace
 
 int main() {
@@ -474,6 +529,7 @@ int main() {
     testTransactions();
     testSnapshotJson();
     testUpsert();
+    testAggregations();
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     if (g_failures == 0)
