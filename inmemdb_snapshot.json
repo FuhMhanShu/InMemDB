@@ -1,0 +1,1 @@
+{"name":"shop","collections":{"products":{"indexes":[{"field":"name","unique":true}],"documents":[{"lager":12,"name":"Tastatur","preis":49.990000000000002,"tags":["elektronik","input"]},{"lager":30,"name":"Maus","preis":19.949999999999999}]}}}

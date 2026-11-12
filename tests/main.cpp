@@ -1,5 +1,6 @@
 #include "memdb/memdb.hpp"
 
+#include <cstdio>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -403,16 +404,17 @@ void testSnapshotJson() {
     CHECK(users3.size() == 2);
     CHECK(users3.count(Field("age") == 36) == 1);
 
-    const std::string path = "/tmp/inmemdb_snapshot_test.json";
+    const std::string path = "inmemdb_snapshot_test.json";
     db.saveToFile(path);
     Database db3 = Database::loadFromFile(path);
     CHECK(db3.name() == "shop");
     CHECK(db3.collection("users").size() == 2);
+    std::remove(path.c_str());
 
     CHECK_THROWS_AS(Database::fromJson("{invalid", ""), JsonError);
     CHECK_THROWS_AS(Database::fromJson("[1,2]", ""), JsonError);
     CHECK_THROWS_AS(users3.loadJson("{}"), JsonError);
-    CHECK_THROWS_AS(Database::loadFromFile("/tmp/nicht_vorhanden_12345.json"), Error);
+    CHECK_THROWS_AS(Database::loadFromFile("definitiv_nicht_vorhanden_12345.json"), Error);
 
     users3.clear();
     CHECK(users3.size() == 0);

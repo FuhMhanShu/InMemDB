@@ -15,10 +15,10 @@ int main() {
     std::string json = db.toJson();
     std::cout << "JSON ( gekuerzt ): " << json.substr(0, 120) << "...\n";
 
-    db.saveToFile("/tmp/inmemdb_snapshot.json");
-    std::cout << "gespeichert nach /tmp/inmemdb_snapshot.json\n";
+    db.saveToFile("inmemdb_snapshot.json");
+    std::cout << "gespeichert nach inmemdb_snapshot.json (im Arbeitsverzeichnis)\n";
 
-    Database geladen = Database::loadFromFile("/tmp/inmemdb_snapshot.json");
+    Database geladen = Database::loadFromFile("inmemdb_snapshot.json");
     Collection p2 = geladen.collection("products");
     std::cout << "geladen: name=" << geladen.name() << ", products=" << p2.size()
               << ", index name vorhanden: " << std::boolalpha << p2.hasIndex("name") << "\n";
