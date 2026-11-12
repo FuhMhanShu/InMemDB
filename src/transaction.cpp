@@ -72,6 +72,16 @@ bool Transaction::replace(DocumentId id, Document doc) {
     return impl_->state->doReplace(id, std::move(doc));
 }
 
+DocumentId Transaction::upsertById(DocumentId id, Document doc) {
+    impl_->checkActive();
+    return impl_->state->doUpsertById(id, std::move(doc));
+}
+
+DocumentId Transaction::upsert(const Expression& q, Document doc) {
+    impl_->checkActive();
+    return impl_->state->doUpsert(q, std::move(doc));
+}
+
 std::size_t Transaction::remove(const Expression& q) {
     impl_->checkActive();
     return impl_->state->doRemove(q);

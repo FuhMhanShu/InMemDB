@@ -68,6 +68,16 @@ bool Collection::replace(DocumentId id, Document doc) {
     return impl_->doReplace(id, std::move(doc));
 }
 
+DocumentId Collection::upsertById(DocumentId id, Document doc) {
+    std::unique_lock lock(impl_->mtx);
+    return impl_->doUpsertById(id, std::move(doc));
+}
+
+DocumentId Collection::upsert(const Expression& q, Document doc) {
+    std::unique_lock lock(impl_->mtx);
+    return impl_->doUpsert(q, std::move(doc));
+}
+
 std::size_t Collection::remove(const Expression& q) {
     std::unique_lock lock(impl_->mtx);
     return impl_->doRemove(q);

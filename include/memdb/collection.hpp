@@ -45,6 +45,8 @@ public:
     std::size_t update(const Expression& q, const std::function<void(Document&)>& mutator);
     bool updateById(DocumentId id, const std::function<void(Document&)>& mutator);
     bool replace(DocumentId id, Document doc);
+    DocumentId upsertById(DocumentId id, Document doc);
+    DocumentId upsert(const Expression& q, Document doc);
 
     std::size_t remove(const Expression& q = Expression{});
     bool removeById(DocumentId id);
