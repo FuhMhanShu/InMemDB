@@ -106,6 +106,16 @@ Cursor Transaction::find(const Expression& q) const {
     return impl_->state->doFind(q);
 }
 
+std::vector<DocumentId> Transaction::findIds(const Expression& q) const {
+    impl_->checkActive();
+    return impl_->state->doFindIds(q);
+}
+
+std::size_t Transaction::forEach(const Expression& q, const std::function<void(const Document&)>& cb) const {
+    impl_->checkActive();
+    return impl_->state->doForEach(q, cb);
+}
+
 std::optional<Document> Transaction::findById(DocumentId id) const {
     impl_->checkActive();
     return impl_->state->doFindById(id);

@@ -48,6 +48,16 @@ int main() {
     std::cout << "find(age>=90): " << cur.size() << " Treffer, ALLE Dokumente kopiert: " << ms(t0, t1) << " ms\n";
 
     t0 = clk::now();
+    auto ids = c.findIds(Field("age") >= 90);
+    t1 = clk::now();
+    std::cout << "findIds(age>=90): " << ids.size() << " IDs OHNE Dokument-Kopien:      " << ms(t0, t1) << " ms\n";
+
+    t0 = clk::now();
+    std::size_t fe = c.forEach(Field("age") >= 90, [](const Document&) {});
+    t1 = clk::now();
+    std::cout << "forEach(age>=90): " << fe << " Treffer ohne Kopien:               " << ms(t0, t1) << " ms\n";
+
+    t0 = clk::now();
     auto one = c.findById(DocumentId(N / 2));
     t1 = clk::now();
     std::cout << "findById (1 Kopie):                              " << ms(t0, t1) << " ms\n";
