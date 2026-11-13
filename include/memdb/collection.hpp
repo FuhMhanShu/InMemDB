@@ -161,7 +161,7 @@ public:
 private:
     explicit Collection(std::shared_ptr<detail::CollectionState> impl);
     static Collection create(std::string name);
-    void loadJsonParsed(const Value& arrayValue);
+    void loadJsonParsed(Value arrayValue);
     std::shared_ptr<detail::CollectionState> impl_;
 
     friend class Database;

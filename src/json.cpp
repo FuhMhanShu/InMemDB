@@ -187,20 +187,25 @@ struct Parser {
         }
         if (pos == start)
             fail("erwartet Zahl, String, Array, Objekt, true/false/null");
-        std::string num(s.substr(start, pos - start));
+        std::size_t n = pos - start;
+        char buf[64];
+        if (n >= sizeof(buf))
+            fail("Zahl zu lang");
+        std::memcpy(buf, s.data() + start, n);
+        buf[n] = '\0';
         if (!isDouble) {
             errno = 0;
             char* end = nullptr;
-            long long v = std::strtoll(num.c_str(), &end, 10);
+            long long v = std::strtoll(buf, &end, 10);
             if (errno == 0 && end && *end == '\0')
                 return Value(static_cast<std::int64_t>(v));
         }
         errno = 0;
         char* end = nullptr;
-        double d = std::strtod(num.c_str(), &end);
+        double d = std::strtod(buf, &end);
         if (end && *end == '\0')
             return Value(d);
-        fail("ungueltige Zahl '" + num + "'");
+        fail(std::string("ungueltige Zahl '") + buf + "'");
     }
 
     Value parseArray() {

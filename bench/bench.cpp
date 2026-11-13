@@ -81,6 +81,12 @@ int main() {
     t1 = clk::now();
     std::cout << "toJson (" << json.size() / 1024 << " KB):                          " << ms(t0, t1) << " ms\n";
 
+    t0 = clk::now();
+    Database dbLoad = Database::fromJson(json, "copy");
+    t1 = clk::now();
+    std::cout << "fromJson (parse+bulk-load " << N << "):  " << ms(t0, t1) << " ms, size="
+              << dbLoad.collection("bench").size() << "\n";
+
     auto doc = c.findById(DocumentId(1)).value();
     t0 = clk::now();
     for (int i = 0; i < 100000; ++i) {
