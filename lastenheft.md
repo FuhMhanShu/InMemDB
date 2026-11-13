@@ -50,6 +50,7 @@ MemDoc ist ein **in-memory, non-relationales (dokumentenorientiertes) Datenbanks
 | **Feld (Field)** | Schlüssel (String) + Wert. Felder sind **pro Dokument individuell**: Hinzufügen, Ändern des Typs, Umbenennen und Entfernen jederzeit möglich, auch nachträglich für bestehende Dokumente. |
 | **Wert (Value)** | Dynamischer Typ pro Feld: `null`, `bool`, `int64`, `double`, `string`, `binary`, verschachteltes **Document**, **Array** (Liste von Values). Der Typ eines Feldes kann sich von Dokument zu Dokument und über die Zeit unterscheiden. |
 | **Verschachtelung** | Dokumente und Arrays können beliebig tief verschachtelt sein; Zugriff über Punktnotation (z. B. `adresse.stadt`). |
+| **Typ-Mapping** | Abbildung der Werttypen auf gängige Datenbanksysteme (SQL, MongoDB/BSON, JSON): siehe [`docs/type-mapping.md`](docs/type-mapping.md). |
 | **Schema** | Es gibt **kein verbindliches Schema**. Optional (Kann): pro Collection ein Validierungsschema, das neue/aktualisierte Dokumente prüft. |
 
 ---
