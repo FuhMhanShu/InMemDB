@@ -79,6 +79,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | FA-17 | **Objektorientierte C++-API** (siehe Abschnitt 6): Klassen `Database`, `Collection`, `Document`, `Value`, `Query`, `Index`; RAII, Smart Pointer, `std::optional`, Exceptions statt Fehlercodes. | M |
 | FA-18 | **Referenzen zwischen Collections/Dokumenten** als Erweiterungsmodul (`ReferenceIndex`, ohne Kernänderung): name-basiert/relativ auflösbar, in beide Richtungen abfragbar (indexbeschleunigt), inkl. Dangling-Erkennung und -Bereinigung; snapshot-fähig. | K |
 | FA-19 | **Verschlüsselte binäre Snapshots** (passwortbasiert): `saveToFileEncrypted`/`loadFromFileEncrypted` – PBKDF2-HMAC-SHA256 + ChaCha20 + HMAC-SHA256 (encrypt-then-MAC), ohne externe Abhängigkeiten; siehe `docs/encrypted-snapshot.md`. | K |
+| FA-20 | **Optionales striktes Schema pro Collection**: pro Feld Datentyp als Metadatum (inkl. `notNull`, verschachtelte Unter-Schemas, Array-Elementtyp). Ist ein Schema gesetzt, darf kein Feld undefiniert sein; Prüfung bei insert/update/replace/upsert/loadJson (`SchemaError`). Ohne Schema bleibt die Collection schema-los. Snapshot-fähig; siehe `docs/schema.md`. | K |
 
 > **Verbindliche Ausprägung von FA-05 (Query-API):** typsicher Ausdruckbaum mit
 > Operator-Overloading, z. B. `(Field("age") >= 18) && Field("tags").contains("cpp")`.

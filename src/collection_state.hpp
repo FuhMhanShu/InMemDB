@@ -7,6 +7,7 @@
 #include "memdb/exceptions.hpp"
 #include "memdb/index.hpp"
 #include "memdb/query.hpp"
+#include "memdb/schema.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -130,6 +131,12 @@ struct CollectionState {
     std::vector<ChangeEvent>* sink = nullptr;
     std::vector<std::pair<std::uint64_t, ChangeCallback>> observers;
     std::uint64_t nextObserverId = 1;
+    std::shared_ptr<const Schema> schema_;
+
+    void validateDoc(const Document& doc) const {
+        if (schema_)
+            validateDocumentAgainstSchema(doc, *schema_);
+    }
 
     void emit(ChangeType type, DocumentId id, const Document& doc) {
         if (sink)
@@ -216,6 +223,7 @@ struct CollectionState {
     DocumentId doInsert(Document doc) {
         DocumentId id(nextId++);
         doc.setId(id);
+        validateDoc(doc);
         validateUnique(id, doc);
         auto [it, ok] = docs.emplace(id, doc);
         indexAdd(id, it->second);
@@ -283,6 +291,7 @@ struct CollectionState {
             Document updated = it->second;
             mutator(updated);
             updated.setId(id);
+            validateDoc(updated);
             validateUnique(id, updated);
             changes.emplace_back(id, std::move(updated));
         }
@@ -303,6 +312,7 @@ struct CollectionState {
         Document updated = it->second;
         mutator(updated);
         updated.setId(id);
+        validateDoc(updated);
         validateUnique(id, updated);
         indexRemove(id, it->second);
         it->second = std::move(updated);
@@ -316,6 +326,7 @@ struct CollectionState {
         if (it == docs.end())
             return false;
         doc.setId(id);
+        validateDoc(doc);
         validateUnique(id, doc);
         indexRemove(id, it->second);
         it->second = std::move(doc);
@@ -328,6 +339,7 @@ struct CollectionState {
         auto it = docs.find(id);
         if (it != docs.end()) {
             doc.setId(id);
+            validateDoc(doc);
             validateUnique(id, doc);
             indexRemove(id, it->second);
             it->second = std::move(doc);
@@ -415,6 +427,22 @@ struct CollectionState {
             idx->entries.clear();
         emit(ChangeType::Clear, DocumentId(0), Document{});
     }
+
+    void doSetSchema(Schema schema) {
+        for (const auto& [id, doc] : docs)
+            validateDocumentAgainstSchema(doc, schema);
+        schema_ = std::make_shared<const Schema>(std::move(schema));
+    }
+
+    std::optional<Schema> doSchema() const {
+        if (!schema_)
+            return std::nullopt;
+        return *schema_;
+    }
+
+    bool doHasSchema() const { return schema_ != nullptr; }
+
+    void doClearSchema() { schema_.reset(); }
 
     Index doCreateIndex(const std::string& fieldPath, bool unique) {
         if (indexes.find(fieldPath) != indexes.end())

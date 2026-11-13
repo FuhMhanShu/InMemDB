@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.9 LANGUAGES CXX)
+project(InMemDB VERSION 0.10 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -8,6 +8,7 @@ add_library(memdb STATIC
     src/query.cpp
     src/json.cpp
     src/crypto.cpp
+    src/schema.cpp
     src/collection.cpp
     src/transaction.cpp
     src/database.cpp

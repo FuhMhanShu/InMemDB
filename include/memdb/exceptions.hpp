@@ -78,4 +78,10 @@ public:
     using Error::Error;
 };
 
+/// @brief Schema-Verletzung (FA-20): undefiniertes Feld oder Typ-Mismatch.
+class SchemaError : public Error {
+public:
+    using Error::Error;
+};
+
 } // namespace memdb
