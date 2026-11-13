@@ -4,6 +4,7 @@
 #include "value.hpp"
 
 #include <cstddef>
+#include <functional>
 #include <initializer_list>
 #include <map>
 #include <memory>
@@ -64,6 +65,8 @@ public:
 
     /// @brief Kopie aller Felder.
     std::map<std::string, Value> fields() const;
+    /// @brief Iteration über alle Felder ohne Kopie (z. B. für Validierung).
+    void forEachField(const std::function<void(const std::string&, const Value&)>& f) const;
 
     /// @brief Vergleich der Felder (ID wird nicht verglichen).
     bool operator==(const Document& other) const;

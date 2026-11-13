@@ -220,12 +220,16 @@ void Collection::loadJson(std::string_view json) {
     Value root = detail::parseJson(json);
     if (!root.isArray())
         throw JsonError("Collection-JSON muss ein Array von Objekten sein");
+    loadJsonParsed(root);
+}
+
+void Collection::loadJsonParsed(const Value& arrayValue) {
     std::vector<ChangeEvent> events;
     {
         std::unique_lock lock(impl_->mtx);
         detail::EventSinkGuard guard(impl_.get(), &events);
         impl_->doClear();
-        for (const auto& item : root.asArray()) {
+        for (const auto& item : arrayValue.asArray()) {
             if (!item.isDocument())
                 throw JsonError("Collection-JSON: Element ist kein Objekt");
             impl_->doInsert(*item.asDocument());
