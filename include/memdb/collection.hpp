@@ -57,7 +57,17 @@ public:
     /// @brief Dokument nach ID lesen; `nullopt`, wenn nicht vorhanden. O(1).
     std::optional<Document> findById(DocumentId id) const;
     /// @brief Alle Dokumente, die `q` matchen (nutzt Indizes, sonst Vollscan).
+    /// @note Kopiert jedes Treffer-Dokument in den Cursor – für große Ergebnismengen
+    ///        siehe die kopierfreien Alternativen `findIds` / `forEach`.
     Cursor find(const Expression& q = Expression{}) const;
+    /// @brief Nur die IDs der Treffer von `q` – **ohne Dokument-Kopien** (schneller
+    ///        für große Ergebnismengen; Dokumente danach einzeln per `findById` laden).
+    std::vector<DocumentId> findIds(const Expression& q = Expression{}) const;
+    /// @brief Callback pro Treffer von `q` – **ohne Dokument-Kopien**. Read-only:
+    ///        Der Callback läuft unter dem Lese-Lock und darf nicht in die Collection
+    ///        schreiben (sonst Deadlock); zum Ändern `update`/`find` verwenden.
+    /// @return Anzahl der Treffer.
+    std::size_t forEach(const Expression& q, const std::function<void(const Document&)>& cb) const;
     /// @brief Erstes Dokument, das `q` matcht, oder `nullopt`.
     std::optional<Document> findOne(const Expression& q = Expression{}) const;
     /// @brief Anzahl der Dokumente, die `q` matchen.

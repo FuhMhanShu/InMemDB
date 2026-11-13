@@ -58,7 +58,9 @@ Expression Expression::exists() const;            // Feld vorhanden
 ```cpp
 Collection users = db.collection("users");
 
-auto cursor = users.find(q);                 // alle Treffer, iterierbar (Cursor)
+auto cursor = users.find(q);                 // alle Treffer, iterierbar (Cursor) – kopiert Dokumente
+auto ids    = users.findIds(q);              // nur IDs, KEINE Dokument-Kopien (schnell bei großen Mengen)
+std::size_t n0 = users.forEach(q, [](const Document& d) { /* read-only */ }); // ohne Kopien, unter Lese-Lock
 std::optional<Document> one = users.findOne(q);
 std::size_t n  = users.count(q);
 

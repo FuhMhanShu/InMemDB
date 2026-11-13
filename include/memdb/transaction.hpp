@@ -58,6 +58,10 @@ public:
 
     /// @brief Wie `Collection::find` (sieht eigene Änderungen).
     Cursor find(const Expression& q = Expression{}) const;
+    /// @brief Wie `Collection::findIds` (ohne Dokument-Kopien).
+    std::vector<DocumentId> findIds(const Expression& q = Expression{}) const;
+    /// @brief Wie `Collection::forEach` (ohne Dokument-Kopien; Callback read-only).
+    std::size_t forEach(const Expression& q, const std::function<void(const Document&)>& cb) const;
     /// @brief Wie `Collection::findById`.
     std::optional<Document> findById(DocumentId id) const;
     /// @brief Wie `Collection::count`.

@@ -76,6 +76,16 @@ Cursor Collection::find(const Expression& q) const {
     return impl_->doFind(q);
 }
 
+std::vector<DocumentId> Collection::findIds(const Expression& q) const {
+    std::shared_lock lock(impl_->mtx);
+    return impl_->doFindIds(q);
+}
+
+std::size_t Collection::forEach(const Expression& q, const std::function<void(const Document&)>& cb) const {
+    std::shared_lock lock(impl_->mtx);
+    return impl_->doForEach(q, cb);
+}
+
 std::optional<Document> Collection::findOne(const Expression& q) const {
     std::shared_lock lock(impl_->mtx);
     return impl_->doFindOne(q);

@@ -975,6 +975,45 @@ void testSchema() {
     CHECK(c.size() == 3);
 }
 
+void testFindIdsForEach() {
+    Database db;
+    Collection c = db.createCollection("items");
+    c.createIndex("age");
+    for (int i = 0; i < 1000; ++i)
+        c.insert({{"name", "n" + std::to_string(i)}, {"age", i}});
+
+    auto ids = c.findIds(Field("age") >= 990);
+    CHECK(ids.size() == 10);
+    CHECK(c.lastQueryCandidateCount() == 10);
+    for (auto id : ids)
+        CHECK(c.findById(id)->at("age").asInt() >= 90);
+
+    std::size_t seen = 0;
+    std::int64_t sumAge = 0;
+    auto n = c.forEach(Field("age") < 10, [&](const Document& d) {
+        ++seen;
+        sumAge += d.at("age").asInt();
+    });
+    CHECK(n == 10);
+    CHECK(seen == 10);
+    CHECK(sumAge == 45);
+
+    auto allIds = c.findIds();
+    CHECK(allIds.size() == 1000);
+    std::size_t all = c.forEach(Expression{}, [](const Document&) {});
+    CHECK(all == 1000);
+
+    {
+        Transaction tx = c.beginTransaction();
+        tx.insert({{"name", "tx"}, {"age", 5000}});
+        CHECK(tx.findIds(Field("age") == 5000).size() == 1);
+        std::size_t cnt = tx.forEach(Field("age") == 5000, [](const Document&) {});
+        CHECK(cnt == 1);
+        tx.rollback();
+    }
+    CHECK(c.findIds(Field("age") == 5000).empty());
+}
+
 } // namespace
 
 int main() {
@@ -992,6 +1031,7 @@ int main() {
     testCrypto();
     testEncryptedSnapshot();
     testSchema();
+    testFindIdsForEach();
     testReferences();
     testReferenceTraversal();
     testReferenceSearch();

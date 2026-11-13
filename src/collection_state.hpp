@@ -281,6 +281,33 @@ struct CollectionState {
         return n;
     }
 
+    std::vector<DocumentId> doFindIds(const Expression& q) const {
+        auto ids = candidates(q);
+        lastCandidateCount = ids.size();
+        std::vector<DocumentId> out;
+        out.reserve(ids.size());
+        for (auto id : ids) {
+            auto it = docs.find(id);
+            if (it != docs.end() && q.evaluate(it->second))
+                out.push_back(id);
+        }
+        return out;
+    }
+
+    std::size_t doForEach(const Expression& q, const std::function<void(const Document&)>& cb) const {
+        auto ids = candidates(q);
+        lastCandidateCount = ids.size();
+        std::size_t n = 0;
+        for (auto id : ids) {
+            auto it = docs.find(id);
+            if (it != docs.end() && q.evaluate(it->second)) {
+                cb(it->second);
+                ++n;
+            }
+        }
+        return n;
+    }
+
     std::size_t doUpdate(const Expression& q, const std::function<void(Document&)>& mutator) {
         auto ids = candidates(q);
         std::vector<std::pair<DocumentId, Document>> changes;
