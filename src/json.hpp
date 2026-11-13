@@ -1,6 +1,7 @@
 #pragma once
 
 #include "memdb/document.hpp"
+#include "memdb/schema.hpp"
 #include "memdb/value.hpp"
 
 #include <string>
@@ -13,5 +14,8 @@ std::string writeJson(const Value& v);
 std::string writeJsonDocument(const Document& doc);
 
 Value parseJson(std::string_view s);
+
+std::string writeJsonSchema(const Schema& schema);
+Schema parseJsonSchema(const Value& v);
 
 } // namespace memdb::detail

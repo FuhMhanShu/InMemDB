@@ -6,6 +6,7 @@
 #include "document.hpp"
 #include "index.hpp"
 #include "query.hpp"
+#include "schema.hpp"
 #include "transaction.hpp"
 
 #include <cstddef>
@@ -135,6 +136,17 @@ public:
     std::uint64_t onChange(ChangeCallback cb);
     /// @brief Observer entfernen; false, wenn Handle unbekannt.
     bool offChange(std::uint64_t handle);
+
+    /// @brief Striktes Schema setzen (FA-20): prüft zuerst alle vorhandenen
+    /// Dokumente; ab dann darf kein Feld undefiniert sein und jeder Typ muss passen.
+    /// @throws SchemaError bei Verletzung (Schema wird dann nicht gesetzt).
+    void setSchema(Schema schema);
+    /// @brief Aktuelles Schema oder `nullopt` (schema-los).
+    std::optional<Schema> schema() const;
+    /// @brief true, wenn ein Schema gesetzt ist.
+    bool hasSchema() const;
+    /// @brief Schema entfernen; Collection ist danach wieder schema-los.
+    void clearSchema();
 
 private:
     explicit Collection(std::shared_ptr<detail::CollectionState> impl);

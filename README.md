@@ -25,6 +25,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Observer: `onChange`/`offChange`, Events nach Commit einer Transaktion (FA-15)
 - Referenzen: `ReferenceIndex` verknüpft Collections/Dokumente name-basiert (relative Pfade), in beide Richtungen abfragbar, inkl. Traversierung (`traverse`/`hasCycle`/`search`, ringverweis-sicher) und Dangling-Bereinigung (FA-18)
 - Verschlüsselte binäre Snapshots: `saveToFileEncrypted`/`loadFromFileEncrypted` (PBKDF2 + ChaCha20 + HMAC-SHA256, FA-19)
+- Striktes optionales Schema pro Collection mit Feldtypen als Metadaten (FA-20)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
@@ -82,6 +83,7 @@ Lauffähige Beispiele in `examples/` (werden mitgebaut und als CTest-Smoke-Tests
 | `10_observer.cpp` | onChange/offChange, Events inkl. Transaktions-Commit |
 | `11_references.cpp` | Referenzen: link/unlink, outgoing/incoming, relative Pfade, dangling/prune, traverse/hasCycle/search (Ringverweis), Snapshot-Roundtrip |
 | `12_encrypted_snapshot.cpp` | DB binär verschlüsselt speichern/laden (FA-19) |
+| `13_schema.cpp` | Striktes Schema: Feldtypen prüfen, undefinierte Felder ablehnen (FA-20) |
 
 ```sh
 cmake --build build -j

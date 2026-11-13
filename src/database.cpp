@@ -86,7 +86,10 @@ std::string Database::toJson() const {
             out += "{\"field\":" + detail::writeJsonString(idx->path) + ",\"unique\":" +
                    (idx->unique ? "true" : "false") + "}";
         }
-        out += "],\"documents\":" + Collection(state).toJson() + "}";
+        out += "]";
+        if (state->schema_)
+            out += ",\"schema\":" + detail::writeJsonSchema(*state->schema_);
+        out += ",\"documents\":" + Collection(state).toJson() + "}";
     }
     out += "}}";
     return out;
@@ -104,6 +107,7 @@ void Database::fromJson(std::string_view json) {
         std::string name;
         std::vector<std::pair<std::string, bool>> indexes;
         std::string documentsJson;
+        std::optional<Schema> schema;
     };
     std::vector<Item> items;
     for (const auto& [name, collValue] : collections->asDocument()->fields()) {
@@ -131,6 +135,8 @@ void Database::fromJson(std::string_view json) {
             docs = cd.find("documents");
             if (!docs || !docs->isArray())
                 throw JsonError("Collection '" + name + "': 'documents' fehlt oder ist kein Array");
+            if (const Value* s = cd.find("schema"))
+                item.schema = detail::parseJsonSchema(*s);
         } else {
             throw JsonError("Collection '" + name + "' muss Array oder Objekt sein");
         }
@@ -155,9 +161,12 @@ void Database::fromJson(std::string_view json) {
         }
     }
     for (std::size_t i = 0; i < cols.size(); ++i) {
-        if (!existed[i])
+        if (!existed[i]) {
             for (const auto& [field, unique] : items[i].indexes)
                 cols[i].createIndex(field, unique);
+            if (items[i].schema)
+                cols[i].setSchema(std::move(*items[i].schema));
+        }
         cols[i].loadJson(items[i].documentsJson);
     }
 }

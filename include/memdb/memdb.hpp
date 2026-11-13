@@ -17,5 +17,6 @@
 #include "index.hpp"
 #include "query.hpp"
 #include "references.hpp"
+#include "schema.hpp"
 #include "transaction.hpp"
 #include "value.hpp"

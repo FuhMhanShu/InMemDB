@@ -351,4 +351,64 @@ Value parseJson(std::string_view s) {
     return v;
 }
 
+namespace {
+
+std::string writeJsonFields(const Schema& schema) {
+    std::string out = "{";
+    bool first = true;
+    for (const auto& [path, fs] : schema.fields()) {
+        if (!first)
+            out += ",";
+        first = false;
+        std::string entry = "{\"type\":" + writeJsonString(typeName(fs.type())) +
+                            ",\"nullable\":" + (fs.nullable() ? "true" : "false");
+        if (fs.elementType())
+            entry += ",\"element\":" + writeJsonString(typeName(*fs.elementType()));
+        if (fs.sub())
+            entry += ",\"fields\":" + writeJsonFields(*fs.sub());
+        entry += "}";
+        out += writeJsonString(path) + ":" + entry;
+    }
+    out += "}";
+    return out;
+}
+
+Schema parseJsonSchemaFields(const Value& fieldsValue) {
+    if (!fieldsValue.isDocument())
+        throw JsonError("Schema-'fields' muss ein Objekt sein");
+    Schema schema;
+    for (const auto& [path, fsv] : fieldsValue.asDocument()->fields()) {
+        if (!fsv.isDocument())
+            throw JsonError("Schema-Feld '" + path + "' muss ein Objekt sein");
+        const Document& fd = *fsv.asDocument();
+        const Value* t = fd.find("type");
+        if (!t || !t->isString())
+            throw JsonError("Schema-Feld '" + path + "' ohne 'type'");
+        FieldSchema& fs = schema.add(path, typeFromName(t->asString()));
+        const Value* n = fd.find("nullable");
+        if (n && n->isBool())
+            fs.setNullable(n->asBool());
+        const Value* e = fd.find("element");
+        if (e && e->isString())
+            fs.elements(typeFromName(e->asString()));
+        const Value* sub = fd.find("fields");
+        if (sub)
+            fs.subSchema(parseJsonSchemaFields(*sub));
+    }
+    return schema;
+}
+
+} // namespace
+
+std::string writeJsonSchema(const Schema& schema) { return "{\"fields\":" + writeJsonFields(schema) + "}"; }
+
+Schema parseJsonSchema(const Value& v) {
+    if (!v.isDocument())
+        throw JsonError("Schema-JSON muss ein Objekt sein");
+    const Value* fields = v.asDocument()->find("fields");
+    if (!fields)
+        throw JsonError("Schema-JSON: 'fields' fehlt");
+    return parseJsonSchemaFields(*fields);
+}
+
 } // namespace memdb::detail

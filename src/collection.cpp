@@ -272,4 +272,24 @@ bool Collection::offChange(std::uint64_t handle) {
     return false;
 }
 
+void Collection::setSchema(Schema schema) {
+    std::unique_lock lock(impl_->mtx);
+    impl_->doSetSchema(std::move(schema));
+}
+
+std::optional<Schema> Collection::schema() const {
+    std::shared_lock lock(impl_->mtx);
+    return impl_->doSchema();
+}
+
+bool Collection::hasSchema() const {
+    std::shared_lock lock(impl_->mtx);
+    return impl_->doHasSchema();
+}
+
+void Collection::clearSchema() {
+    std::unique_lock lock(impl_->mtx);
+    impl_->doClearSchema();
+}
+
 } // namespace memdb

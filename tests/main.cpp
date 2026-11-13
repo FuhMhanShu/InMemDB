@@ -915,6 +915,66 @@ void testEncryptedSnapshot() {
     std::remove(path.c_str());
 }
 
+void testSchema() {
+    Database db;
+    Collection c = db.createCollection("users");
+
+    c.insert({{"name", "ohne-schema-ok"}, {"egal", 1}});
+    CHECK(!c.hasSchema());
+
+    Schema schema;
+    schema.add("name", Value::Type::String).notNull();
+    schema.add("age", Value::Type::Int);
+    schema.add("score", Value::Type::Double);
+    Schema adresse;
+    adresse.add("stadt", Value::Type::String).notNull();
+    schema.add("adresse", Value::Type::Document).subSchema(adresse);
+    schema.add("tags", Value::Type::Array).elements(Value::Type::String);
+    CHECK_THROWS_AS(c.setSchema(schema), SchemaError);
+
+    c.clear();
+    c.setSchema(schema);
+    CHECK(c.hasSchema());
+    CHECK(c.schema()->size() == 5);
+
+    DocumentId ok = c.insert({{"name", "Ada"}, {"age", 36}, {"score", 9},
+                              {"adresse", Value(std::make_shared<Document>(std::initializer_list<std::pair<const std::string, Value>>{{"stadt", "Berlin"}}))},
+                              {"tags", Value(std::vector<Value>{Value("a"), Value("b")})}});
+    CHECK(c.size() == 1);
+
+    CHECK_THROWS_AS(c.insert({{"age", 1}}), SchemaError);
+    CHECK_THROWS_AS(c.insert({{"name", "X"}, {"undefiniert", 1}}), SchemaError);
+    CHECK_THROWS_AS(c.insert({{"name", 5}}), SchemaError);
+    CHECK_THROWS_AS(c.insert({{"name", "X"}, {"age", 3.5}}), SchemaError);
+    CHECK_THROWS_AS(c.insert({{"name", "X"}, {"score", "hoch"}}), SchemaError);
+    CHECK_THROWS_AS(c.insert({{"name", "X"}, {"tags", Value(std::vector<Value>{Value(1)})}}), SchemaError);
+    CHECK_THROWS_AS(c.insert({{"name", "X"}, {"adresse", Value(std::make_shared<Document>(std::initializer_list<std::pair<const std::string, Value>>{{"plz", "1"}}))}}), SchemaError);
+    CHECK(c.size() == 1);
+
+    c.insert({{"name", "Bob"}, {"score", 5}});
+    CHECK(c.size() == 2);
+    CHECK(c.findById(c.findOne(Field("name") == "Bob")->id())->at("score").isInt());
+
+    CHECK_THROWS_AS(c.updateById(ok, [](Document& d) { d.set("age", "alt"); }), SchemaError);
+    CHECK(c.findById(ok)->at("age").asInt() == 36);
+    CHECK_THROWS_AS(c.upsert(Field("name") == "Bob", Document{{"name", "Bob"}, {"score", true}}), SchemaError);
+
+    std::string json = db.toJson();
+    CHECK(json.find("\"schema\"") != std::string::npos);
+    Database db2 = Database::fromJson(json, "");
+    Collection c2 = db2.collection("users");
+    CHECK(c2.hasSchema());
+    CHECK(c2.schema()->size() == 5);
+    CHECK(c2.size() == 2);
+    CHECK_THROWS_AS(c2.insert({{"name", "Neu"}, {"falsch", 1}}), SchemaError);
+    CHECK_THROWS_AS(c2.loadJson("[{\"name\":\"X\",\"age\":\"viel\"}]"), SchemaError);
+
+    c.clearSchema();
+    CHECK(!c.hasSchema());
+    c.insert({{"alles", "erlaubt"}});
+    CHECK(c.size() == 3);
+}
+
 } // namespace
 
 int main() {
@@ -931,6 +991,7 @@ int main() {
     testObserver();
     testCrypto();
     testEncryptedSnapshot();
+    testSchema();
     testReferences();
     testReferenceTraversal();
     testReferenceSearch();
