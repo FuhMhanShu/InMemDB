@@ -97,7 +97,8 @@ int main() {
     CHECK(ada->at("score").asDouble() == 9.5);
     CHECK(ada->at("data").isBinary());
     CHECK(ada->at("data").asBinary() == std::vector<std::uint8_t>({0xDE, 0xAD, 0xBE, 0xEF}));
-    CHECK(ada->at("active").asBool() == true);
+    CHECK(ada->at("active").isInt());   // SQLite INTEGER -> Int (kein Bool)
+    CHECK(ada->at("active").asInt() == 1);
 
     auto cy = users.findOne(Field("name") == "Cy");
     CHECK(cy.has_value());
