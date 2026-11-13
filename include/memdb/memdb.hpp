@@ -14,9 +14,14 @@
 #include "document.hpp"
 #include "document_id.hpp"
 #include "exceptions.hpp"
+#include "import.hpp"
 #include "index.hpp"
 #include "query.hpp"
 #include "references.hpp"
 #include "schema.hpp"
 #include "transaction.hpp"
 #include "value.hpp"
+
+#ifdef INMEMDB_HAS_SQLITE
+#include "import_sqlite.hpp"
+#endif

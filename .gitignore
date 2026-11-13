@@ -3,3 +3,4 @@ build/
 *.a
 inmemdb_snapshot*.json
 inmemdb_encrypted*.bin
+inmemdb_import_test.db

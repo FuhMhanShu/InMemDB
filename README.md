@@ -14,6 +14,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Observer/Callbacks](docs/observer.md) (FA-15, v0.7)
 - [Referenzen zwischen Collections/Dokumenten](docs/references.md) (FA-18, v0.8)
 - [Typ-Mapping zu SQL/MongoDB/JSON](docs/type-mapping.md)
+- [Import aus externen Quellen (z. B. SQLite)](docs/import.md) (FA-21, v0.13)
 
 ## Features (v0.8)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
@@ -27,6 +28,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Referenzen: `ReferenceIndex` verknüpft Collections/Dokumente name-basiert (relative Pfade), in beide Richtungen abfragbar, inkl. Traversierung (`traverse`/`hasCycle`/`search`, ringverweis-sicher) und Dangling-Bereinigung (FA-18)
 - Verschlüsselte binäre Snapshots: `saveToFileEncrypted`/`loadFromFileEncrypted` (PBKDF2 + ChaCha20 + HMAC-SHA256, FA-19)
 - Striktes optionales Schema pro Collection mit Feldtypen als Metadaten (FA-20)
+- Import-Modul: abstrakte `ImportSource` + `Importer`, SQLite-Quelle via `INMEMDB_WITH_SQLITE=ON`, CLI-Tool `sqlite_import` (FA-21)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
