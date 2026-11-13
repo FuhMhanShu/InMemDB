@@ -13,6 +13,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Aggregationen](docs/aggregations.md) (FA-13, v0.6)
 - [Observer/Callbacks](docs/observer.md) (FA-15, v0.7)
 - [Referenzen zwischen Collections/Dokumenten](docs/references.md) (FA-18, v0.8)
+- [Typ-Mapping zu SQL/MongoDB/JSON](docs/type-mapping.md)
 
 ## Features (v0.8)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
