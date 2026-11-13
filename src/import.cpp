@@ -1,14 +1,17 @@
 #include "memdb/import.hpp"
 
 #include "memdb/exceptions.hpp"
+#include "memdb/import_bson.hpp"
 #include "memdb/import_csv.hpp"
+#include "memdb/import_json.hpp"
+#include "memdb/import_snapshot.hpp"
+#include "memdb/import_sqldump.hpp"
 #ifdef INMEMDB_HAS_SQLITE
 #include "memdb/import_sqlite.hpp"
 #endif
 
 #include <algorithm>
 #include <cctype>
-#include <filesystem>
 
 namespace memdb {
 
@@ -40,6 +43,33 @@ ImportRegistry::ImportRegistry() {
                        return std::unique_ptr<ImportSource>(std::make_unique<CsvImportSource>(p));
                    },
                    {".csv"}, "CSV-Datei (Header-Zeile, ohne externe Abhaengigkeiten)");
+    registerSource("json",
+                   [](const std::string& p) {
+                       return std::unique_ptr<ImportSource>(std::make_unique<JsonImportSource>(p));
+                   },
+                   {".json"}, "JSON (Array/einzelnes Objekt; JSONL-Fallback, Auto-Modus)");
+    registerSource("jsonl",
+                   [](const std::string& p) {
+                       JsonImportOptions o;
+                       o.mode = JsonMode::Lines;
+                       return std::unique_ptr<ImportSource>(std::make_unique<JsonImportSource>(p, o));
+                   },
+                   {".jsonl", ".ndjson"}, "JSON Lines (ein Objekt pro Zeile)");
+    registerSource("snapshot",
+                   [](const std::string& p) {
+                       return std::unique_ptr<ImportSource>(std::make_unique<InmemdbSnapshotSource>(p));
+                   },
+                   {".inmemdb.json"}, "InMemDB-JSON-Snapshot (FA-14, mit Schema/Indizes)");
+    registerSource("sqldump",
+                   [](const std::string& p) {
+                       return std::unique_ptr<ImportSource>(std::make_unique<SqlDumpImportSource>(p));
+                   },
+                   {".sql", ".dump"}, "SQL-Dump (CREATE TABLE + INSERT, ohne externe Abhaengigkeiten)");
+    registerSource("bson",
+                   [](const std::string& p) {
+                       return std::unique_ptr<ImportSource>(std::make_unique<BsonImportSource>(p));
+                   },
+                   {".bson"}, "BSON-Datei (z. B. mongodump)");
 #ifdef INMEMDB_HAS_SQLITE
     registerSource("sqlite",
                    [](const std::string& p) {
@@ -112,14 +142,29 @@ std::unique_ptr<ImportSource> ImportRegistry::create(const std::string& name,
 }
 
 std::string ImportRegistry::sourceForFile(const std::string& path) const {
-    std::string ext = normalizeExt(std::filesystem::path(path).extension().string());
+    // Suffix-Matching auf dem ganzen Pfad (case-insensitiv), laengster Suffix gewinnt,
+    // damit z. B. ".inmemdb.json" vor ".json" greift.
+    std::string low = toLower(path);
     std::lock_guard<std::mutex> lk(mutex_);
-    auto it = byExtension_.find(ext);
-    if (it == byExtension_.end())
-        throw Error("ImportRegistry: keine Quelle fuer Dateiendung '" + ext +
-                    "' registriert (z. B. .csv" +
-                    (factories_.count("sqlite") ? ", .db, .sqlite, .sqlite3" : "") + ")");
-    return it->second;
+    std::string bestName;
+    std::size_t bestLen = 0;
+    for (const auto& [ext, name] : byExtension_)
+        if (low.size() >= ext.size() && ext.size() > bestLen &&
+            low.compare(low.size() - ext.size(), std::string::npos, ext) == 0) {
+            bestLen = ext.size();
+            bestName = name;
+        }
+    if (bestName.empty()) {
+        std::string known;
+        for (const auto& [ext, name] : byExtension_) {
+            if (!known.empty())
+                known += ", ";
+            known += ext;
+        }
+        throw Error("ImportRegistry: keine Quelle fuer Datei '" + path +
+                    "' registriert (bekannte Endungen: " + known + ")");
+    }
+    return bestName;
 }
 
 std::unique_ptr<ImportSource> ImportRegistry::createForFile(const std::string& path) const {
@@ -134,9 +179,26 @@ std::optional<Value::Type> sourceTypeToValueType(SourceType t) {
         case SourceType::Real: return Value::Type::Double;
         case SourceType::Text: return Value::Type::String;
         case SourceType::Blob: return Value::Type::Binary;
+        case SourceType::Bool: return Value::Type::Bool;
+        case SourceType::Document: return Value::Type::Document;
+        case SourceType::Array: return Value::Type::Array;
         case SourceType::Unknown: return std::nullopt;
     }
     return std::nullopt;
+}
+
+SourceType sourceTypeFromValueType(Value::Type t) {
+    switch (t) {
+        case Value::Type::Null: return SourceType::Null;
+        case Value::Type::Bool: return SourceType::Bool;
+        case Value::Type::Int: return SourceType::Integer;
+        case Value::Type::Double: return SourceType::Real;
+        case Value::Type::String: return SourceType::Text;
+        case Value::Type::Binary: return SourceType::Blob;
+        case Value::Type::Document: return SourceType::Document;
+        case Value::Type::Array: return SourceType::Array;
+    }
+    return SourceType::Unknown;
 }
 
 ImportStats Importer::import(Database& db, const ImportSource& src, const ImportOptions& opts) {

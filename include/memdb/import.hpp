@@ -16,7 +16,7 @@
 namespace memdb {
 
 /// @brief Deklarierter Spaltentyp einer externen Quelle (FA-21).
-enum class SourceType { Null, Integer, Real, Text, Blob, Unknown };
+enum class SourceType { Null, Integer, Real, Text, Blob, Bool, Document, Array, Unknown };
 
 /// @brief Metadaten einer Spalte der Quelle.
 struct ColumnInfo {
@@ -143,5 +143,9 @@ public:
 /// @brief Default-Mapping deklarierter Quelltypen auf `Value::Type` (Schema).
 /// @return nullopt, wenn kein Mapping sinnvoll ist (z. B. Unknown).
 std::optional<Value::Type> sourceTypeToValueType(SourceType t);
+
+/// @brief Umkehrung: `Value::Type` eines gelesenen Werts auf `SourceType` (für
+/// quellenseitige Typ-Inferenz, z. B. JSON/BSON/SQL-Dump).
+SourceType sourceTypeFromValueType(Value::Type t);
 
 } // namespace memdb
