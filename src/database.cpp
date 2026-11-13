@@ -2,8 +2,11 @@
 #include "memdb/exceptions.hpp"
 
 #include "collection_state.hpp"
+#include "crypto.hpp"
 #include "json.hpp"
 
+#include <array>
+#include <cstring>
 #include <fstream>
 #include <map>
 #include <mutex>
@@ -187,6 +190,102 @@ Database Database::loadFromFile(const std::string& path) {
     std::ostringstream ss;
     ss << in.rdbuf();
     return fromJson(ss.str(), "");
+}
+
+namespace {
+
+constexpr std::size_t kMagicLen = 8;
+constexpr std::size_t kSaltLen = 16;
+constexpr std::size_t kNonceLen = 12;
+constexpr std::size_t kTagLen = 32;
+constexpr std::size_t kHeaderLen = kMagicLen + kSaltLen + 4 + kNonceLen;
+constexpr std::uint32_t kPbkdf2Iterations = 100000;
+const char kMagic[kMagicLen] = {'I', 'N', 'M', 'E', 'M', 'D', 'B', 0x01};
+
+void putU32Le(std::vector<std::uint8_t>& out, std::uint32_t v) {
+    out.push_back(static_cast<std::uint8_t>(v));
+    out.push_back(static_cast<std::uint8_t>(v >> 8));
+    out.push_back(static_cast<std::uint8_t>(v >> 16));
+    out.push_back(static_cast<std::uint8_t>(v >> 24));
+}
+
+std::uint32_t getU32Le(const std::uint8_t* p) {
+    return std::uint32_t(p[0]) | (std::uint32_t(p[1]) << 8) | (std::uint32_t(p[2]) << 16) |
+           (std::uint32_t(p[3]) << 24);
+}
+
+} // namespace
+
+void Database::saveToFileEncrypted(const std::string& path, const std::string& password) const {
+    if (password.empty())
+        throw CryptoError("leeres Passwort nicht erlaubt");
+    const std::string json = toJson();
+
+    auto salt = detail::crypto::randomBytes(kSaltLen);
+    auto nonce = detail::crypto::randomBytes(kNonceLen);
+    auto keys = detail::crypto::pbkdf2HmacSha256(password, salt.data(), salt.size(), kPbkdf2Iterations, 64);
+    const std::uint8_t* encKey = keys.data();
+    const std::uint8_t* macKey = keys.data() + 32;
+
+    std::vector<std::uint8_t> ciphertext(json.size());
+    detail::crypto::chacha20Xor(ciphertext.data(), reinterpret_cast<const std::uint8_t*>(json.data()),
+                                json.size(), encKey, 1, nonce.data());
+
+    std::vector<std::uint8_t> file;
+    file.reserve(kHeaderLen + ciphertext.size() + kTagLen);
+    file.insert(file.end(), kMagic, kMagic + kMagicLen);
+    file.insert(file.end(), salt.begin(), salt.end());
+    putU32Le(file, kPbkdf2Iterations);
+    file.insert(file.end(), nonce.begin(), nonce.end());
+    file.insert(file.end(), ciphertext.begin(), ciphertext.end());
+
+    auto tag = detail::crypto::hmacSha256(macKey, 32, file.data(), file.size());
+    file.insert(file.end(), tag.begin(), tag.end());
+
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out)
+        throw Error("Datei nicht beschreibbar: " + path);
+    out.write(reinterpret_cast<const char*>(file.data()), static_cast<std::streamsize>(file.size()));
+    if (!out)
+        throw Error("Fehler beim Schreiben: " + path);
+}
+
+Database Database::loadFromFileEncrypted(const std::string& path, const std::string& password) {
+    if (password.empty())
+        throw CryptoError("leeres Passwort nicht erlaubt");
+    std::ifstream in(path, std::ios::binary);
+    if (!in)
+        throw Error("Datei nicht lesbar: " + path);
+    std::ostringstream ss;
+    ss << in.rdbuf();
+    const std::string raw = ss.str();
+    if (raw.size() < kHeaderLen + kTagLen)
+        throw CryptoError("verschlüsselte Datei zu klein/beschädigt: " + path);
+    const auto* bytes = reinterpret_cast<const std::uint8_t*>(raw.data());
+    if (std::memcmp(bytes, kMagic, kMagicLen) != 0)
+        throw CryptoError("keine InMemDB-Verschlüsselungsdatei (Magic falsch): " + path);
+
+    const std::uint8_t* salt = bytes + kMagicLen;
+    std::uint32_t iterations = getU32Le(bytes + kMagicLen + kSaltLen);
+    if (iterations == 0 || iterations > 10000000)
+        throw CryptoError("ungültige PBKDF2-Iterationszahl in Datei");
+    const std::uint8_t* nonce = bytes + kMagicLen + kSaltLen + 4;
+    const std::uint8_t* ciphertext = bytes + kHeaderLen;
+    std::size_t ctLen = raw.size() - kHeaderLen - kTagLen;
+    const std::uint8_t* tag = bytes + raw.size() - kTagLen;
+
+    auto keys = detail::crypto::pbkdf2HmacSha256(password, salt, kSaltLen, iterations, 64);
+    const std::uint8_t* encKey = keys.data();
+    const std::uint8_t* macKey = keys.data() + 32;
+
+    auto expected = detail::crypto::hmacSha256(macKey, 32, bytes, raw.size() - kTagLen);
+    if (!detail::crypto::constantTimeEqual(expected.data(), tag, kTagLen))
+        throw CryptoError("falsches Passwort oder Datei beschädigt (HMAC-Prüfung fehlgeschlagen): " + path);
+
+    std::string json(ctLen, '\0');
+    detail::crypto::chacha20Xor(reinterpret_cast<std::uint8_t*>(json.data()), ciphertext, ctLen, encKey, 1,
+                                nonce);
+    return fromJson(json, "");
 }
 
 } // namespace memdb

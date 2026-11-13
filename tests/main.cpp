@@ -1,6 +1,9 @@
 #include "memdb/memdb.hpp"
+#include "crypto.hpp"
 
 #include <cstdio>
+#include <cstring>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -794,6 +797,124 @@ void testReferenceSearch() {
     CHECK(refs.search("users", ada).size() == 2);   // ada, o1 — dangling p1 wird uebersprungen
 }
 
+void testCrypto() {
+    using namespace memdb::detail::crypto;
+
+    const char* abc = "abc";
+    auto h = sha256(reinterpret_cast<const std::uint8_t*>(abc), 3);
+    std::string hex;
+    for (auto b : h) {
+        char buf[3];
+        std::snprintf(buf, sizeof(buf), "%02x", b);
+        hex += buf;
+    }
+    CHECK(hex == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+
+    std::uint8_t key20[20];
+    std::memset(key20, 0x0b, 20);
+    const char* hi = "Hi There";
+    auto mac = hmacSha256(key20, 20, reinterpret_cast<const std::uint8_t*>(hi), 8);
+    std::string macHex;
+    for (auto b : mac) {
+        char buf[3];
+        std::snprintf(buf, sizeof(buf), "%02x", b);
+        macHex += buf;
+    }
+    CHECK(macHex == "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7");
+
+    std::uint8_t ccKey[32];
+    for (int i = 0; i < 32; ++i)
+        ccKey[i] = static_cast<std::uint8_t>(i);
+    std::uint8_t ccNonce[12] = {0, 0, 0, 0, 0, 0, 0, 0x4a, 0, 0, 0, 0};
+    const char* pt =
+        "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, "
+        "sunscreen would be it.";
+    std::vector<std::uint8_t> ct(std::strlen(pt));
+    chacha20Xor(ct.data(), reinterpret_cast<const std::uint8_t*>(pt), ct.size(), ccKey, 1, ccNonce);
+    std::string ctHex;
+    for (auto b : ct) {
+        char buf[3];
+        std::snprintf(buf, sizeof(buf), "%02x", b);
+        ctHex += buf;
+    }
+    CHECK(ctHex.substr(0, 32) == "6e2e359a2568f98041ba0728dd0d6981");
+
+    std::vector<std::uint8_t> back(ct.size());
+    chacha20Xor(back.data(), ct.data(), ct.size(), ccKey, 1, ccNonce);
+    CHECK(std::string(back.begin(), back.end()) == pt);
+
+    auto dk = pbkdf2HmacSha256("password", reinterpret_cast<const std::uint8_t*>("salt"), 4, 1, 32);
+    std::string dkHex;
+    for (auto b : dk) {
+        char buf[3];
+        std::snprintf(buf, sizeof(buf), "%02x", b);
+        dkHex += buf;
+    }
+    CHECK(dkHex == "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b");
+    auto dk2 = pbkdf2HmacSha256("password", reinterpret_cast<const std::uint8_t*>("salt"), 4, 2, 32);
+    std::string dk2Hex;
+    for (auto b : dk2) {
+        char buf[3];
+        std::snprintf(buf, sizeof(buf), "%02x", b);
+        dk2Hex += buf;
+    }
+    CHECK(dk2Hex == "ae4d0c95af6b46d32d0adff928f06dd02a303f8ef3c251dfd6e2d85a95474c43");
+    auto dk3 = pbkdf2HmacSha256("password2", reinterpret_cast<const std::uint8_t*>("salt"), 4, 1, 32);
+    CHECK(dk != dk3);
+}
+
+void testEncryptedSnapshot() {
+    Database db("geheim");
+    Collection c = db.createCollection("users");
+    c.createIndex("name", true);
+    c.insert({{"name", "Ada"}, {"geheimnis", "42"}, {"tags", Value(std::vector<Value>{Value("x")})}});
+    c.insert({{"name", "Bob"}, {"geheimnis", "München ✓"}});
+
+    const std::string path = "inmemdb_encrypted_test.bin";
+    db.saveToFileEncrypted(path, "s3cret-Passwort!");
+
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    CHECK(f.good());
+    CHECK(static_cast<std::size_t>(f.tellg()) > 72);
+    f.seekg(0);
+    std::string raw((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    CHECK(raw.find("Ada") == std::string::npos);
+    CHECK(raw.find("geheimnis") == std::string::npos);
+
+    Database db2 = Database::loadFromFileEncrypted(path, "s3cret-Passwort!");
+    CHECK(db2.name() == "geheim");
+    CHECK(db2.collection("users").size() == 2);
+    CHECK(db2.collection("users").hasIndex("name"));
+    CHECK(db2.collection("users").findOne(Field("name") == "Ada")->at("geheimnis").asString() == "42");
+    CHECK(db2.toJson() == db.toJson());
+
+    CHECK_THROWS_AS(Database::loadFromFileEncrypted(path, "falsches-passwort"), CryptoError);
+    CHECK_THROWS_AS(Database::loadFromFileEncrypted(path, ""), CryptoError);
+
+    {
+        std::vector<char> corrupt(raw.begin(), raw.end());
+        corrupt[corrupt.size() / 2] ^= 0xFF;
+        std::ofstream cf("inmemdb_encrypted_corrupt.bin", std::ios::binary | std::ios::trunc);
+        cf.write(corrupt.data(), static_cast<std::streamsize>(corrupt.size()));
+        cf.close();
+        CHECK_THROWS_AS(Database::loadFromFileEncrypted("inmemdb_encrypted_corrupt.bin", "s3cret-Passwort!"),
+                        CryptoError);
+        std::remove("inmemdb_encrypted_corrupt.bin");
+    }
+    {
+        std::ofstream mf("inmemdb_encrypted_magic.bin", std::ios::binary | std::ios::trunc);
+        std::string bad = "XXXXXXXX" + raw.substr(8);
+        mf.write(bad.data(), static_cast<std::streamsize>(bad.size()));
+        mf.close();
+        CHECK_THROWS_AS(Database::loadFromFileEncrypted("inmemdb_encrypted_magic.bin", "s3cret-Passwort!"),
+                        CryptoError);
+        std::remove("inmemdb_encrypted_magic.bin");
+    }
+    CHECK_THROWS_AS(Database::loadFromFileEncrypted("nicht_vorhanden_98765.bin", "x"), Error);
+
+    std::remove(path.c_str());
+}
+
 } // namespace
 
 int main() {
@@ -808,6 +929,8 @@ int main() {
     testUpsert();
     testAggregations();
     testObserver();
+    testCrypto();
+    testEncryptedSnapshot();
     testReferences();
     testReferenceTraversal();
     testReferenceSearch();

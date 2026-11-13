@@ -71,4 +71,11 @@ public:
     using Error::Error;
 };
 
+/// @brief Kryptografie-/Snapshot-Fehler (FA-19): falsches Passwort, beschädigte
+/// oder ungültige verschlüsselte Datei, leeres Passwort.
+class CryptoError : public Error {
+public:
+    using Error::Error;
+};
+
 } // namespace memdb

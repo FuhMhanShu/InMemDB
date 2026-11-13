@@ -58,6 +58,18 @@ public:
     /// @throws Error bei IO-Fehlern; JsonError bei ungültigem JSON.
     static Database loadFromFile(const std::string& path);
 
+    /// @brief Speichert die gesamte Database binär VERSCHLÜSSELT (FA-19).
+    ///
+    /// Passwortbasiert (PBKDF2-HMAC-SHA256, 100.000 Iterationen, zufälliges Salt),
+    /// Verschlüsselung ChaCha20 (RFC 8439), Integrität/Authentizität per
+    /// HMAC-SHA256 (encrypt-then-MAC). Ohne externe Abhängigkeiten.
+    /// @throws CryptoError bei leerem Passwort; Error bei IO-Fehlern.
+    void saveToFileEncrypted(const std::string& path, const std::string& password) const;
+    /// @brief Lädt eine mit `saveToFileEncrypted` gespeicherte Database.
+    /// @throws CryptoError bei falschem Passwort oder beschädigter Datei;
+    ///         Error bei IO-Fehlern; JsonError bei ungültigem Inhalt.
+    static Database loadFromFileEncrypted(const std::string& path, const std::string& password);
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

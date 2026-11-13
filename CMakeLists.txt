@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.8 LANGUAGES CXX)
+project(InMemDB VERSION 0.9 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -7,6 +7,7 @@ add_library(memdb STATIC
     src/document.cpp
     src/query.cpp
     src/json.cpp
+    src/crypto.cpp
     src/collection.cpp
     src/transaction.cpp
     src/database.cpp
@@ -38,6 +39,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     enable_testing()
     add_executable(memdb_tests tests/main.cpp)
     target_link_libraries(memdb_tests PRIVATE memdb)
+    target_include_directories(memdb_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     if(NOT MSVC)
         target_compile_options(memdb_tests PRIVATE -Wall -Wextra -Wpedantic)
     endif()

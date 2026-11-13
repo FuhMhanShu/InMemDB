@@ -2,3 +2,4 @@ build/
 *.o
 *.a
 inmemdb_snapshot*.json
+inmemdb_encrypted*.bin
