@@ -28,7 +28,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Referenzen: `ReferenceIndex` verknüpft Collections/Dokumente name-basiert (relative Pfade), in beide Richtungen abfragbar, inkl. Traversierung (`traverse`/`hasCycle`/`search`, ringverweis-sicher) und Dangling-Bereinigung (FA-18)
 - Verschlüsselte binäre Snapshots: `saveToFileEncrypted`/`loadFromFileEncrypted` (PBKDF2 + ChaCha20 + HMAC-SHA256, FA-19)
 - Striktes optionales Schema pro Collection mit Feldtypen als Metadaten (FA-20)
-- Import-Modul: abstrakte `ImportSource` + `Importer`, SQLite-Quelle via `INMEMDB_WITH_SQLITE=ON`, CLI-Tool `sqlite_import` (FA-21)
+- Import-Modul: `ImportRegistry` (Factory, Auto-Erkennung per Dateiendung) + `Importer`; Quellen: CSV (ohne Abhängigkeiten) und SQLite via `INMEMDB_WITH_SQLITE=ON`; CLI-Tool `inmemdb_import` (FA-21)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test

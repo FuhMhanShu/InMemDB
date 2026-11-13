@@ -1,8 +1,131 @@
 #include "memdb/import.hpp"
 
 #include "memdb/exceptions.hpp"
+#include "memdb/import_csv.hpp"
+#ifdef INMEMDB_HAS_SQLITE
+#include "memdb/import_sqlite.hpp"
+#endif
+
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
 
 namespace memdb {
+
+namespace {
+
+std::string toLower(std::string s) {
+    for (auto& c : s)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
+
+std::string normalizeExt(std::string ext) {
+    ext = toLower(std::move(ext));
+    if (!ext.empty() && ext.front() != '.')
+        ext.insert(ext.begin(), '.');
+    return ext;
+}
+
+} // namespace
+
+ImportRegistry& ImportRegistry::instance() {
+    static ImportRegistry reg;
+    return reg;
+}
+
+ImportRegistry::ImportRegistry() {
+    registerSource("csv",
+                   [](const std::string& p) {
+                       return std::unique_ptr<ImportSource>(std::make_unique<CsvImportSource>(p));
+                   },
+                   {".csv"}, "CSV-Datei (Header-Zeile, ohne externe Abhaengigkeiten)");
+#ifdef INMEMDB_HAS_SQLITE
+    registerSource("sqlite",
+                   [](const std::string& p) {
+                       return std::unique_ptr<ImportSource>(std::make_unique<SqliteImportSource>(p));
+                   },
+                   {".db", ".sqlite", ".sqlite3"}, "SQLite-Datei (INMEMDB_WITH_SQLITE=ON)");
+#endif
+}
+
+void ImportRegistry::registerSource(std::string name, ImportSourceFactory factory,
+                                    std::vector<std::string> extensions, std::string /*description*/) {
+    name = toLower(std::move(name));
+    if (name.empty() || !factory)
+        throw Error("ImportRegistry::registerSource: Name/Facto leer");
+    std::lock_guard<std::mutex> lk(mutex_);
+    for (auto it = byExtension_.begin(); it != byExtension_.end();)
+        if (it->second == name)
+            it = byExtension_.erase(it);
+        else
+            ++it;
+    factories_[name] = std::move(factory);
+    for (auto& ext : extensions)
+        byExtension_[normalizeExt(std::move(ext))] = name;
+}
+
+void ImportRegistry::unregisterSource(const std::string& name) {
+    std::string n = toLower(name);
+    std::lock_guard<std::mutex> lk(mutex_);
+    factories_.erase(n);
+    for (auto it = byExtension_.begin(); it != byExtension_.end();)
+        if (it->second == n)
+            it = byExtension_.erase(it);
+        else
+            ++it;
+}
+
+bool ImportRegistry::hasSource(const std::string& name) const {
+    std::lock_guard<std::mutex> lk(mutex_);
+    return factories_.count(toLower(name)) != 0;
+}
+
+std::vector<std::string> ImportRegistry::sourceNames() const {
+    std::lock_guard<std::mutex> lk(mutex_);
+    std::vector<std::string> out;
+    out.reserve(factories_.size());
+    for (const auto& [n, f] : factories_)
+        out.push_back(n);
+    return out;
+}
+
+std::unique_ptr<ImportSource> ImportRegistry::create(const std::string& name,
+                                                     const std::string& path) const {
+    std::unique_lock<std::mutex> lk(mutex_);
+    auto it = factories_.find(toLower(name));
+    if (it == factories_.end())
+        throw Error("ImportRegistry: unbekannte Quelle '" + name + "' (registriert: " +
+                    [&] {
+                        std::string s;
+                        for (const auto& [n, f] : factories_) {
+                            if (!s.empty())
+                                s += ", ";
+                            s += n;
+                        }
+                        return s;
+                    }() +
+                    ")");
+    auto factory = it->second;
+    lk.unlock();
+    return factory(path);
+}
+
+std::string ImportRegistry::sourceForFile(const std::string& path) const {
+    std::string ext = normalizeExt(std::filesystem::path(path).extension().string());
+    std::lock_guard<std::mutex> lk(mutex_);
+    auto it = byExtension_.find(ext);
+    if (it == byExtension_.end())
+        throw Error("ImportRegistry: keine Quelle fuer Dateiendung '" + ext +
+                    "' registriert (z. B. .csv" +
+                    (factories_.count("sqlite") ? ", .db, .sqlite, .sqlite3" : "") + ")");
+    return it->second;
+}
+
+std::unique_ptr<ImportSource> ImportRegistry::createForFile(const std::string& path) const {
+    std::string name = sourceForFile(path);
+    return create(name, path);
+}
 
 std::optional<Value::Type> sourceTypeToValueType(SourceType t) {
     switch (t) {
@@ -83,6 +206,12 @@ ImportStats Importer::import(Database& db, const ImportSource& src, const Import
         stats.totalRows += rows;
     }
     return stats;
+}
+
+ImportStats Importer::import(Database& db, const std::string& sourceName, const std::string& path,
+                             const ImportOptions& opts) {
+    auto src = ImportRegistry::instance().create(sourceName, path);
+    return import(db, *src, opts);
 }
 
 } // namespace memdb

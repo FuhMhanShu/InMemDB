@@ -15,6 +15,7 @@
 #include "document_id.hpp"
 #include "exceptions.hpp"
 #include "import.hpp"
+#include "import_csv.hpp"
 #include "index.hpp"
 #include "query.hpp"
 #include "references.hpp"

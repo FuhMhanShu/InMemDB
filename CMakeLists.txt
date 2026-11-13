@@ -10,6 +10,7 @@ add_library(memdb STATIC
     src/crypto.cpp
     src/schema.cpp
     src/import.cpp
+    src/import_csv.cpp
     src/collection.cpp
     src/transaction.cpp
     src/database.cpp
@@ -58,9 +59,14 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_bench bench/bench.cpp)
     target_link_libraries(memdb_bench PRIVATE memdb)
 
+    add_executable(inmemdb_import tools/import_tool.cpp)
+    target_link_libraries(inmemdb_import PRIVATE memdb)
+
+    add_executable(memdb_tests_import_csv tests/test_import_csv.cpp)
+    target_link_libraries(memdb_tests_import_csv PRIVATE memdb)
+    add_test(NAME memdb_tests_import_csv COMMAND memdb_tests_import_csv)
+
     if(INMEMDB_WITH_SQLITE)
-        add_executable(sqlite_import tools/sqlite_import.cpp)
-        target_link_libraries(sqlite_import PRIVATE memdb)
         add_executable(memdb_tests_import tests/test_import.cpp)
         target_link_libraries(memdb_tests_import PRIVATE memdb SQLite::SQLite3)
         target_include_directories(memdb_tests_import PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

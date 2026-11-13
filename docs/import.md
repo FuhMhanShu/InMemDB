@@ -2,29 +2,48 @@
 
 | Feld | Wert |
 |---|---|
-| Status | umgesetzt (v0.13); SQLite-Ableitung optional via `-DINMEMDB_WITH_SQLITE=ON` |
+| Status | umgesetzt (v0.13); Quellen: CSV (immer, ohne Abhängigkeiten) + SQLite (optional via `-DINMEMDB_WITH_SQLITE=ON`) |
 | Bezug | Lastenheft FA-21 (Kann), NFA-06 (keine Pflichtabhängigkeiten), `docs/type-mapping.md` |
 
 ## Architektur
 
 ```
-ImportSource (abstrakt)          Importer (Orchestrator)           Database
-  tables() ──TableInfo──▶   ──▶  pro Tabelle: createCollection    Collections
-  readRows() ──Values──▶         readRows → Document → insertBulk  Indizes (nach Load)
-                               ──▶  createIndex / setSchema / Stats  Schema (FA-20)
+ImportRegistry (Singleton, Factory)          Importer (Orchestrator)              Database
+  registerSource(name, factory, {".csv"})      import(db, source, opts)            Collections
+  create(name, path) / createForFile(path)  └─> pro Tabelle: createCollection      Indizes (nach Load)
+  sourceForFile(path) -> name (per Endung) └─> readRows → Document → insertBulk   Schema (FA-20)
+                                                  createIndex / setSchema / Stats
+        ▲
+        │ registriert von
+  CsvImportSource (immer)          SqliteImportSource (nur INMEMDB_HAS_SQLITE)
 ```
 
-- `ImportSource` (in `include/memdb/import.hpp`): `tables()` liefert Metadaten
-  (`TableInfo` mit `ColumnInfo`/`IndexInfo`), `readRows()` liefert Zeilen als
-  bereits konvertierte `Value`s. **Keine** externen Typen im Header.
-- `Importer::import(db, source, opts)` übernimmt: Collections anlegen (bestehende
-  werden übersprungen), Bulk-Load in Batches (`insertBulk`), Indizes **nach** dem
-  Laden anlegen, optionales Schema aus Spaltentypen ableiten (`setSchema`, bei
-  Typ-Mismatch wird das Schema übersprungen), PK als Feld `pk` mitführen, Stats.
-- Konkrete Ableitungen: `SqliteImportSource` (nur mit `INMEMDB_WITH_SQLITE=ON`).
-  Weitere Quellen (JSON/CSV/SQL-Dump) implementieren nur die zwei Methoden.
+- `ImportSource` (abstrakt, `include/memdb/import.hpp`): `tables()` liefert Metadaten
+  (`TableInfo` mit `ColumnInfo`/`IndexInfo`), `readRows()` liefert Zeilen als bereits
+  konvertierte `Value`s. **Keine** externen Typen im Header.
+- `ImportRegistry::instance()` verwaltet Ableitungen per Factory: `registerSource`
+  (Name + Dateiendungen), `unregisterSource`, `hasSource`, `sourceNames`, `create(name, path)`,
+  `sourceForFile(path)` / `createForFile(path)` (Auto-Erkennung per Endung, case-insensitiv).
+  Thread-sicher (interner Mutex). Eingebaute Quellen werden automatisch registriert:
+  `csv` (`.csv`) und – nur mit `INMEMDB_WITH_SQLITE=ON` – `sqlite` (`.db`, `.sqlite`, `.sqlite3`).
+  Eigene Quellen (z. B. JSON-Export, SQL-Dump) melden sich mit zwei Methoden + einer
+  Factory-Zeile an.
+- `Importer::import(db, source, opts)` bzw. `Importer::import(db, "csv", "users.csv", opts)`
+  übernimmt: Collections anlegen (bestehende werden übersprungen), Bulk-Load in Batches
+  (`insertBulk`), Indizes **nach** dem Laden anlegen, optionales Schema aus Spaltentypen
+  ableiten (`setSchema`, bei Typ-Mismatch wird das Schema übersprungen), PK als Feld `pk`
+  mitführen, Stats (`ImportStats`).
 
-## SQLite-Mapping
+## CSV (`CsvImportSource`, keine Abhängigkeiten)
+
+- Eine Datei = eine Collection; Name default = Dateiname ohne Endung (`Options::tableName` änderbar).
+- Erste Zeile = Header (Spaltennamen), abschaltbar (`hasHeader=false` → `col1..colN`).
+- RFC-4180-ähnlich: `"..."` mit `""`-Escape, Trennzeichen/Zeilenumbrüche innerhalb von
+  Quotes erlaubt, CRLF und LF. Trennzeichen/Quote konfigurierbar (`delimiter`, `quote`).
+- Leere Zelle → `Null`. Ohne `inferTypes` sind alle Spalten `Text`; mit `inferTypes=true`
+  wird pro Spalte geprüft: alle Werte Integer → `Int`, sonst alle Double → `Double`, sonst `Text`.
+
+## SQLite-Mapping (`SqliteImportSource`, nur mit `INMEMDB_WITH_SQLITE=ON`)
 
 | SQLite | InMemDB |
 |---|---|
@@ -35,30 +54,47 @@ ImportSource (abstrakt)          Importer (Orchestrator)           Database
 | `NULL` | `Null` |
 | `BOOL`/`BOOLEAN` | `Int` |
 
-Unique-Indizes der Quelle werden als `createIndex(col, unique=true)` übernommen.
+Einspaltige Indizes der Quelle werden übernommen (`createIndex(col, unique)`).
 
 ## Nutzung
 
 ```cpp
-#ifdef INMEMDB_HAS_SQLITE
-#include <memdb/import_sqlite.hpp>
-#endif
+#include <memdb/memdb.hpp>   // import.hpp + import_csv.hpp (+ import_sqlite.hpp mit Macro)
 
 memdb::Database db("shop");
-memdb::SqliteImportSource src("shop.db");
-memdb::ImportStats stats = memdb::Importer::import(db, src);   // Default-Optionen
-db.saveToFileEncrypted("shop.enc", "passwort");                // FA-19
+
+// 1) direkt über Ableitung
+memdb::CsvImportSource csv("users.csv", {.inferTypes = true});
+memdb::ImportStats s1 = memdb::Importer::import(db, csv);
+
+// 2) über Registry per Name
+memdb::ImportStats s2 = memdb::Importer::import(db, "csv", "orders.csv");
+
+// 3) über Registry per Dateiendung (Auto)
+auto src = memdb::ImportRegistry::instance().createForFile("shop.db");   // -> sqlite (falls gebaut)
+
+// 4) eigene Quelle anmelden
+memdb::ImportRegistry::instance().registerSource(
+    "jsonl", [](const std::string& p) { return std::make_unique<MyJsonlSource>(p); }, {".jsonl"});
+
+db.saveToFileEncrypted("shop.enc", "passwort");   // FA-19
 ```
 
-CLI (Build mit `-DINMEMDB_WITH_SQLITE=ON`):
+CLI (immer gebaut, `inmemdb_import`):
 
 ```sh
-./build/sqlite_import shop.db --out shop.json
-./build/sqlite_import shop.db --out shop.enc --password geheim --no-schema --batch 50000
+./build/inmemdb_import users.csv --infer-types --out users.json
+./build/inmemdb_import shop.db --out shop.enc --password geheim --no-schema --batch 50000
+./build/inmemdb_import daten.txt --source csv --delimiter ';' --no-header
+./build/inmemdb_import --list-sources            # registrierte Quellen anzeigen
 ```
 
+Optionen: `--source NAME`, `--out <datei>`, `--password <pw>` (verschlüsselter Snapshot, FA-19),
+`--no-schema`, `--no-indexes`, `--no-pk-field`, `--batch N`, CSV-spezifisch: `--delimiter C`,
+`--no-header`, `--infer-types`, sowie `--list-sources`.
+
 ## Build & CI
-- Default-Build bleibt ohne externe Abhängigkeiten (Option OFF).
-- CI-Job **Import (sqlite)** installiert `libsqlite3-dev`, baut mit
-  `-DINMEMDB_WITH_SQLITE=ON` und führt inkl. `tests/test_import.cpp` (sqlite
-  `:memory:`-basiert) alle Tests aus.
+- Default-Build bleibt ohne externe Abhängigkeiten (CSV + Registry + Tool immer aktiv).
+- CI-Job **Import (sqlite, INMEMDB_WITH_SQLITE=ON)** installiert `libsqlite3-dev`, baut mit
+  `-DINMEMDB_WITH_SQLITE=ON` und führt inkl. `tests/test_import.cpp` alle Tests aus.
+- Tests: `tests/test_import_csv.cpp` (CSV + Registry, immer) und `tests/test_import.cpp` (SQLite, nur mit Option).

@@ -76,6 +76,18 @@ int main() {
     Collection users = db.collection("users");
     CHECK(users.size() == 3);
 
+    // Registry: eingebaute Quellen (csv immer, sqlite mit INMEMDB_HAS_SQLITE)
+    auto& reg = ImportRegistry::instance();
+    CHECK(reg.hasSource("csv"));
+    CHECK(reg.hasSource("sqlite"));
+    CHECK(reg.createForFile(path) != nullptr);   // .db -> sqlite
+    {
+        Database db2("via-registry");
+        auto stats2 = Importer::import(db2, "sqlite", path);
+        CHECK(stats2.totalRows == 3);
+        CHECK(db2.hasCollection("users"));
+    }
+
     CHECK(users.hasIndex("name"));
     // schema-konformes Dokument (pk notNull!), verletzt aber den Unique-Index auf name
     CHECK_THROWS_AS(users.insert({{"name", "Ada"}, {"pk", 9}}), UniqueConstraintError);
