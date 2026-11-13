@@ -7,7 +7,8 @@ namespace memdb {
 
 struct Document::Impl {
     DocumentId id;
-    std::map<std::string, Value> fields;
+    // transparenter Komparator: find(string_view) ohne std::string-Allokation (Hotpath)
+    std::map<std::string, Value, std::less<>> fields;
 };
 
 namespace {
@@ -62,19 +63,24 @@ void Document::setId(DocumentId id) { impl_->id = id; }
 
 std::size_t Document::fieldCount() const { return impl_->fields.size(); }
 
+void Document::forEachField(const std::function<void(const std::string&, const Value&)>& f) const {
+    for (const auto& [key, value] : impl_->fields)
+        f(key, value);
+}
+
 bool Document::contains(std::string_view key) const {
-    return impl_->fields.find(std::string(key)) != impl_->fields.end();
+    return impl_->fields.find(key) != impl_->fields.end();
 }
 
 const Value* Document::find(std::string_view key) const {
-    auto it = impl_->fields.find(std::string(key));
+    auto it = impl_->fields.find(key);
     return it == impl_->fields.end() ? nullptr : &it->second;
 }
 
 Value& Document::operator[](const std::string& key) { return impl_->fields[key]; }
 
 const Value& Document::at(std::string_view key) const {
-    auto it = impl_->fields.find(std::string(key));
+    auto it = impl_->fields.find(key);
     if (it == impl_->fields.end())
         throw Error("Feld nicht gefunden: " + std::string(key));
     return it->second;
@@ -82,13 +88,19 @@ const Value& Document::at(std::string_view key) const {
 
 void Document::set(std::string key, Value value) { impl_->fields[std::move(key)] = std::move(value); }
 
-bool Document::remove(std::string_view key) { return impl_->fields.erase(std::string(key)) > 0; }
-
-bool Document::rename(std::string_view from, std::string_view to) {
-    auto it = impl_->fields.find(std::string(from));
+bool Document::remove(std::string_view key) {
+    auto it = impl_->fields.find(key);
     if (it == impl_->fields.end())
         return false;
-    if (impl_->fields.find(std::string(to)) != impl_->fields.end())
+    impl_->fields.erase(it);
+    return true;
+}
+
+bool Document::rename(std::string_view from, std::string_view to) {
+    auto it = impl_->fields.find(from);
+    if (it == impl_->fields.end())
+        return false;
+    if (impl_->fields.find(to) != impl_->fields.end())
         return false;
     auto node = impl_->fields.extract(it);
     node.key() = std::string(to);
@@ -118,7 +130,9 @@ const Value* Document::findPath(std::string_view dotPath) const {
     return current;
 }
 
-std::map<std::string, Value> Document::fields() const { return impl_->fields; }
+std::map<std::string, Value> Document::fields() const {
+    return std::map<std::string, Value>(impl_->fields.begin(), impl_->fields.end());
+}
 
 bool Document::operator==(const Document& other) const { return impl_->fields == other.impl_->fields; }
 

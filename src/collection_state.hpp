@@ -298,8 +298,8 @@ struct CollectionState {
         for (auto& [id, updated] : changes) {
             Document& old = docs[id];
             indexRemove(id, old);
-            old = updated;
-            indexAdd(id, updated);
+            old = std::move(updated);
+            indexAdd(id, old);
             emit(ChangeType::Update, id, old);
         }
         return changes.size();

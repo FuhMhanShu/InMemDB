@@ -106,7 +106,7 @@ void Database::fromJson(std::string_view json) {
     struct Item {
         std::string name;
         std::vector<std::pair<std::string, bool>> indexes;
-        std::string documentsJson;
+        const Value* documents = nullptr;
         std::optional<Schema> schema;
     };
     std::vector<Item> items;
@@ -140,7 +140,7 @@ void Database::fromJson(std::string_view json) {
         } else {
             throw JsonError("Collection '" + name + "' muss Array oder Objekt sein");
         }
-        item.documentsJson = detail::writeJson(*docs);
+        item.documents = docs;
         items.push_back(std::move(item));
     }
 
@@ -167,7 +167,7 @@ void Database::fromJson(std::string_view json) {
             if (items[i].schema)
                 cols[i].setSchema(std::move(*items[i].schema));
         }
-        cols[i].loadJson(items[i].documentsJson);
+        cols[i].loadJsonParsed(*items[i].documents);
     }
 }
 

@@ -77,26 +77,21 @@ void checkValue(const std::string& path, const Value& v, Value::Type expected, b
                           ", ist " + typeName(v.type()));
 }
 
-void validateFields(const std::map<std::string, Value>& fields, const Schema& schema,
-                    const std::string& prefix) {
-    for (const auto& [key, value] : fields) {
-        const FieldSchema* fs = schema.find(key);
-        if (!fs)
-            throw SchemaError("Feld '" + prefix + key + "' ist nicht im Schema deklariert");
-        checkValue(prefix + key, value, fs->type(), fs->nullable(), fs);
-    }
-    for (const auto& [key, fs] : schema.fields())
-        if (!fs.nullable()) {
-            auto it = fields.find(key);
-            if (it == fields.end() || it->second.isNull())
-                throw SchemaError("Feld '" + prefix + key + "' fehlt oder ist null (notNull)");
-        }
-}
-
 } // namespace
 
 void validateDocumentAgainstSchema(const Document& doc, const Schema& schema) {
-    validateFields(doc.fields(), schema, "");
+    doc.forEachField([&](const std::string& key, const Value& value) {
+        const FieldSchema* fs = schema.find(key);
+        if (!fs)
+            throw SchemaError("Feld '" + key + "' ist nicht im Schema deklariert");
+        checkValue(key, value, fs->type(), fs->nullable(), fs);
+    });
+    for (const auto& [key, fs] : schema.fields())
+        if (!fs.nullable()) {
+            const Value* v = doc.find(key);
+            if (!v || v->isNull())
+                throw SchemaError("Feld '" + key + "' fehlt oder ist null (notNull)");
+        }
 }
 
 } // namespace memdb

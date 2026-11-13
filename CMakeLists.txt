@@ -46,6 +46,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     endif()
     add_test(NAME memdb_tests COMMAND memdb_tests)
 
+    add_executable(memdb_bench bench/bench.cpp)
+    target_link_libraries(memdb_bench PRIVATE memdb)
+
     file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp)
     foreach(example_src ${EXAMPLE_SOURCES})
         get_filename_component(example_name ${example_src} NAME_WE)
