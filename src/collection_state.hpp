@@ -455,6 +455,43 @@ struct CollectionState {
         emit(ChangeType::Clear, DocumentId(0), Document{});
     }
 
+    // Bulk-Load (loadJson): Dokumente per Move uebernehmen (keine Deep-Copies),
+    // nicht-unique Indizes erst am Ende in einem Durchlauf neu aufbauen,
+    // unique Indizes bleiben live (Unique-Pruefung greift).
+    void doLoadBulk(Value& arrayValue) {
+        if (!arrayValue.isArray())
+            throw JsonError("Collection-JSON muss ein Array von Objekten sein");
+        auto& items = arrayValue.asArray();
+        docs.clear();
+        nextId = 1;
+        for (auto& [path, idx] : indexes)
+            idx->entries.clear();
+        emit(ChangeType::Clear, DocumentId(0), Document{});
+        for (auto& item : items) {
+            if (!item.isDocument())
+                throw JsonError("Collection-JSON: Element ist kein Objekt");
+            Document doc = std::move(*item.asDocument());
+            DocumentId id(nextId++);
+            doc.setId(id);
+            validateDoc(doc);
+            validateUnique(id, doc);
+            for (auto& [path, idx] : indexes)
+                if (idx->unique)
+                    if (const Value* v = doc.findPath(path))
+                        idx->entries[*v].insert(id);
+            docs.emplace(id, std::move(doc));
+        }
+        for (auto& [path, idx] : indexes) {
+            if (idx->unique)
+                continue;
+            for (const auto& [id, doc] : docs)
+                if (const Value* v = doc.findPath(path))
+                    idx->entries[*v].insert(id);
+        }
+        for (const auto& [id, doc] : docs)
+            emit(ChangeType::Insert, id, doc);
+    }
+
     void doSetSchema(Schema schema) {
         for (const auto& [id, doc] : docs)
             validateDocumentAgainstSchema(doc, schema);

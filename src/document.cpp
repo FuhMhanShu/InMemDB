@@ -77,6 +77,11 @@ const Value* Document::find(std::string_view key) const {
     return it == impl_->fields.end() ? nullptr : &it->second;
 }
 
+Value* Document::findMutable(std::string_view key) {
+    auto it = impl_->fields.find(key);
+    return it == impl_->fields.end() ? nullptr : &it->second;
+}
+
 Value& Document::operator[](const std::string& key) { return impl_->fields[key]; }
 
 const Value& Document::at(std::string_view key) const {

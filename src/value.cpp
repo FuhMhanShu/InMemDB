@@ -93,6 +93,12 @@ const std::vector<Value>& Value::asArray() const {
     return std::get<std::vector<Value>>(storage_);
 }
 
+std::vector<Value>& Value::asArray() {
+    if (!isArray())
+        throw TypeError("asArray(): Wert ist kein Array");
+    return std::get<std::vector<Value>>(storage_);
+}
+
 bool equal(const Value& a, const Value& b) {
     if (a.isNumber() && b.isNumber()) {
         if (a.isInt() && b.isInt())

@@ -71,6 +71,9 @@ public:
     std::shared_ptr<Document> asDocument() const;
     /// @throws TypeError
     const std::vector<Value>& asArray() const;
+    /// @brief Nicht-konstante Referenz (z. B. zum Herausbewegen von Elementen beim Bulk-Load).
+    /// @throws TypeError
+    std::vector<Value>& asArray();
 
 private:
     using Storage = std::variant<std::nullptr_t, bool, std::int64_t, double, std::string,

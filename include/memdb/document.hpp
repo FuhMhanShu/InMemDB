@@ -46,6 +46,8 @@ public:
 
     /// @brief Zeiger auf den Wert des Feldes oder `nullptr`, wenn nicht vorhanden.
     const Value* find(std::string_view key) const;
+    /// @brief Nicht-konstante Variante von `find` (In-Place-Änderung / Herausbewegen).
+    Value* findMutable(std::string_view key);
     /// @brief Referenz auf den Wert; legt das Feld notfalls als `null` an.
     Value& operator[](const std::string& key);
     /// @brief Wert des Feldes.

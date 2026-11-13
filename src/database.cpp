@@ -106,18 +106,17 @@ void Database::fromJson(std::string_view json) {
     struct Item {
         std::string name;
         std::vector<std::pair<std::string, bool>> indexes;
-        const Value* documents = nullptr;
+        Value documents;
         std::optional<Schema> schema;
     };
     std::vector<Item> items;
     for (const auto& [name, collValue] : collections->asDocument()->fields()) {
         Item item;
         item.name = name;
-        const Value* docs = nullptr;
         if (collValue.isArray()) {
-            docs = &collValue;
+            item.documents = collValue;
         } else if (collValue.isDocument()) {
-            const Document& cd = *collValue.asDocument();
+            Document& cd = *collValue.asDocument();
             if (const Value* ix = cd.find("indexes")) {
                 if (!ix->isArray())
                     throw JsonError("Collection '" + name + "': 'indexes' muss ein Array sein");
@@ -132,15 +131,15 @@ void Database::fromJson(std::string_view json) {
                     item.indexes.emplace_back(f->asString(), u && u->isBool() && u->asBool());
                 }
             }
-            docs = cd.find("documents");
+            Value* docs = cd.findMutable("documents");
             if (!docs || !docs->isArray())
                 throw JsonError("Collection '" + name + "': 'documents' fehlt oder ist kein Array");
             if (const Value* s = cd.find("schema"))
                 item.schema = detail::parseJsonSchema(*s);
+            item.documents = std::move(*docs);
         } else {
             throw JsonError("Collection '" + name + "' muss Array oder Objekt sein");
         }
-        item.documents = docs;
         items.push_back(std::move(item));
     }
 
@@ -167,7 +166,7 @@ void Database::fromJson(std::string_view json) {
             if (items[i].schema)
                 cols[i].setSchema(std::move(*items[i].schema));
         }
-        cols[i].loadJsonParsed(*items[i].documents);
+        cols[i].loadJsonParsed(std::move(items[i].documents));
     }
 }
 
