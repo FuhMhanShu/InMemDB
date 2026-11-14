@@ -13,8 +13,13 @@ namespace memdb {
 struct ExprNode {
     virtual ~ExprNode() = default;
     virtual bool eval(const Document& doc) const = 0;
-    /// Feldartigen Knoten: Wert zum Dokument auflösen (nullptr = fehlt).
-    virtual const Value* resolve(const Document& doc) const { (void)doc; return nullptr; }
+    /// Feldartigen Knoten: Wert zum Dokument auflösen (by value, damit auch
+    /// Referenz-Auflösung (FA-18) kein Dangling-Zeiger in ein temporäres Dokument
+    /// zurückliefert); nullopt = Feld fehlt.
+    virtual std::optional<Value> resolve(const Document& doc) const {
+        (void)doc;
+        return std::nullopt;
+    }
     /// Index-Pfad feldartiger Knoten (für Index-Hinweis).
     virtual std::optional<std::string> indexPath() const { return std::nullopt; }
     /// Ist der Knoten ein Feldausdruck (Vergleiche/Operatoren erlaubt)?
@@ -27,7 +32,11 @@ struct PathNode : ExprNode {
     std::string path;
     explicit PathNode(std::string p) : path(std::move(p)) {}
     bool eval(const Document& doc) const override { return doc.findPath(path) != nullptr; }
-    const Value* resolve(const Document& doc) const override { return doc.findPath(path); }
+    std::optional<Value> resolve(const Document& doc) const override {
+        if (const Value* v = doc.findPath(path))
+            return *v;
+        return std::nullopt;
+    }
     std::optional<std::string> indexPath() const override { return path; }
     bool isFieldLike() const override { return true; }
 };
@@ -42,8 +51,8 @@ struct RefPathNode : ExprNode {
     RefPathNode(Database& d, std::string s, std::string fc, std::string rel, std::string p)
         : db(&d), storage(std::move(s)), fromCollection(std::move(fc)), relation(std::move(rel)),
           path(std::move(p)) {}
-    bool eval(const Document& doc) const override { return resolve(doc) != nullptr; }
-    const Value* resolve(const Document& doc) const override {
+    bool eval(const Document& doc) const override { return resolve(doc).has_value(); }
+    std::optional<Value> resolve(const Document& doc) const override {
         ReferenceIndex refs(*db, storage);
         for (const auto& r : refs.references(fromCollection, RefDirection::Outgoing, doc.id())) {
             if (r.relation != relation || !r.toId)
@@ -51,9 +60,9 @@ struct RefPathNode : ExprNode {
             auto target = db->collection(r.toCollection).findById(*r.toId);
             if (target)
                 if (const Value* v = target->findPath(path))
-                    return v;
+                    return *v; // Kopie: target ist temporär
         }
-        return nullptr;
+        return std::nullopt;
     }
     bool isFieldLike() const override { return true; }
 };
@@ -66,7 +75,7 @@ struct CompareNode : ExprNode {
     CompareNode(std::shared_ptr<ExprNode> l, Op o, Value v)
         : lhs(std::move(l)), op(o), rhs(std::move(v)) {}
     bool eval(const Document& doc) const override {
-        const Value* l = lhs->resolve(doc);
+        auto l = lhs->resolve(doc);
         if (!l)
             return op == Op::Ne;
         if (op == Op::Eq)
@@ -91,7 +100,7 @@ struct ContainsNode : ExprNode {
     Value needle;
     ContainsNode(std::shared_ptr<ExprNode> l, Value v) : lhs(std::move(l)), needle(std::move(v)) {}
     bool eval(const Document& doc) const override {
-        const Value* l = lhs->resolve(doc);
+        auto l = lhs->resolve(doc);
         if (!l)
             return false;
         if (l->isArray()) {
@@ -109,7 +118,7 @@ struct ContainsNode : ExprNode {
 struct ExistsNode : ExprNode {
     std::shared_ptr<ExprNode> lhs;
     explicit ExistsNode(std::shared_ptr<ExprNode> l) : lhs(std::move(l)) {}
-    bool eval(const Document& doc) const override { return lhs->resolve(doc) != nullptr; }
+    bool eval(const Document& doc) const override { return lhs->resolve(doc).has_value(); }
 };
 
 struct MatchesNode : ExprNode {
@@ -117,7 +126,7 @@ struct MatchesNode : ExprNode {
     std::string pattern;
     MatchesNode(std::shared_ptr<ExprNode> l, std::string p) : lhs(std::move(l)), pattern(std::move(p)) {}
     bool eval(const Document& doc) const override {
-        const Value* l = lhs->resolve(doc);
+        auto l = lhs->resolve(doc);
         if (!l || !l->isString())
             return false;
         try {
@@ -134,7 +143,7 @@ struct InNode : ExprNode {
     InNode(std::shared_ptr<ExprNode> l, std::vector<Value> vs)
         : lhs(std::move(l)), values(std::move(vs)) {}
     bool eval(const Document& doc) const override {
-        const Value* l = lhs->resolve(doc);
+        auto l = lhs->resolve(doc);
         if (!l)
             return false;
         for (const auto& v : values)
@@ -150,7 +159,7 @@ struct PredicateNode : ExprNode {
     PredicateNode(std::shared_ptr<ExprNode> l, std::function<bool(const Value&)> f)
         : lhs(std::move(l)), fn(std::move(f)) {}
     bool eval(const Document& doc) const override {
-        const Value* l = lhs->resolve(doc);
+        auto l = lhs->resolve(doc);
         return l && fn(*l);
     }
 };

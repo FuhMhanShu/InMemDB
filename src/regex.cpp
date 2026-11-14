@@ -3,6 +3,7 @@
 #include <array>
 #include <cctype>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace memdb::detail {
