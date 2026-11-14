@@ -110,7 +110,7 @@ int main() {
     users.setSchema(std::move(sch));
 
     // 7) Observer (FA-15) + Aggregation (FA-13)
-    auto h = users.onChange([](const ChangeEvent& ev) { /* ev.type, ev.collection, ev.document */ });
+    auto h = users.onChange([](const ChangeEvent& e) { std::cout << "change: " << (int)e.type << "\n"; });
     std::cout << users.aggregate(AggOp::Avg, "age").value().asDouble() << "\n";
     users.offChange(h);
 
