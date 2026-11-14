@@ -27,6 +27,16 @@ namespace detail {
 struct CollectionState;
 }
 
+/// @brief Status des Hybrid-/Out-of-Core-Modus einer Collection (v0.18).
+struct OverflowInfo {
+    bool enabled = false;
+    std::string spillFile;      ///< Datei mit den ausgelagerten Dokumenten
+    std::size_t maxInMemory = 0;///< Obergrenze Dokumente im RAM
+    std::size_t inMemory = 0;   ///< Dokumente aktuell im RAM
+    std::size_t spilled = 0;    ///< Dokumente aktuell im Spill-File
+    std::uint64_t spillBytes = 0; ///< Dateigroesse des Spill-Files
+};
+
 /// @brief Benannte, schema-lose Menge von Dokumenten mit CRUD, Queries,
 /// Indizes, Transaktionen, Aggregationen, JSON-Snapshot und Observern.
 ///
@@ -123,8 +133,23 @@ public:
     /// @brief Dokument nach ID löschen; false, wenn nicht vorhanden.
     bool removeById(DocumentId id);
 
-    /// @brief Anzahl der Dokumente.
+    /// @brief Anzahl der Dokumente (inkl. ausgelagerter, falls Hybrid-Modus aktiv).
     std::size_t size() const;
+
+    /// @name Hybrid / Out-of-Core (v0.18, opt-in)
+    /// Ab `maxInMemoryDocs` im RAM werden die aeltesten Dokumente (FIFO) in eine
+    /// Spill-Datei ausgelagert (Append-only-Log: `[u64 id][u32 len][JSON]`) und bei
+    /// Bedarf wieder eingelesen. Abfragen/Updates/Removes sehen RAM + Spill.
+    /// @throws Error waehrend einer aktiven Transaktion.
+    /// @{
+    void setOverflow(const std::string& spillFile, std::size_t maxInMemoryDocs);
+    /// @brief Hybrid-Modus aus: alles zurueck ins RAM laden, Spill-Datei loeschen.
+    void disableOverflow();
+    OverflowInfo overflowInfo() const;
+    /// @brief Spill-Datei kompaktieren (alte/overwritte Records entfernen).
+    /// @return freigegebene Bytes.
+    std::uint64_t compactSpill();
+    /// @}
 
     /// @brief Sekundärindex auf Feldpfad anlegen (FA-10).
     /// @throws IndexExistsError wenn bereits vorhanden; UniqueConstraintError bei Duplikaten (unique=true).

@@ -15,3 +15,4 @@ examples/qt_hello/Makefile*
 examples/qt_hello/.qmake.stash
 examples/qt_hello/qt_hello
 qt_demo.inmemdb.json
+inmemdb_hybrid_test.spill*
