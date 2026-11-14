@@ -22,6 +22,7 @@
 #include "import_sqldump.hpp"
 #include "index.hpp"
 #include "query.hpp"
+#include "query_dsl.hpp"
 #include "references.hpp"
 #include "schema.hpp"
 #include "transaction.hpp"

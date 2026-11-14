@@ -1,5 +1,6 @@
 #include "memdb/collection.hpp"
 #include "memdb/exceptions.hpp"
+#include "memdb/query_dsl.hpp"
 
 #include "collection_state.hpp"
 #include "json.hpp"
@@ -94,6 +95,60 @@ std::optional<Document> Collection::findOne(const Expression& q) const {
 std::size_t Collection::count(const Expression& q) const {
     std::shared_lock lock(impl_->mtx);
     return impl_->doCount(q);
+}
+
+Cursor Collection::find(std::string_view dsl) const { return find(parseQuery(dsl)); }
+
+std::vector<DocumentId> Collection::findIds(std::string_view dsl) const {
+    return findIds(parseQuery(dsl));
+}
+
+std::size_t Collection::forEach(std::string_view dsl,
+                                const std::function<void(const Document&)>& cb) const {
+    return forEach(parseQuery(dsl), cb);
+}
+
+std::optional<Document> Collection::findOne(std::string_view dsl) const {
+    return findOne(parseQuery(dsl));
+}
+
+std::size_t Collection::count(std::string_view dsl) const { return count(parseQuery(dsl)); }
+
+std::size_t Collection::update(std::string_view dsl,
+                               const std::function<void(Document&)>& mutator) {
+    return update(parseQuery(dsl), mutator);
+}
+
+std::size_t Collection::remove(std::string_view dsl) { return remove(parseQuery(dsl)); }
+
+Cursor Collection::find(std::string_view dsl, Database& db) const {
+    return find(parseQuery(dsl, &db, name()));
+}
+
+std::vector<DocumentId> Collection::findIds(std::string_view dsl, Database& db) const {
+    return findIds(parseQuery(dsl, &db, name()));
+}
+
+std::size_t Collection::forEach(std::string_view dsl, Database& db,
+                                const std::function<void(const Document&)>& cb) const {
+    return forEach(parseQuery(dsl, &db, name()), cb);
+}
+
+std::optional<Document> Collection::findOne(std::string_view dsl, Database& db) const {
+    return findOne(parseQuery(dsl, &db, name()));
+}
+
+std::size_t Collection::count(std::string_view dsl, Database& db) const {
+    return count(parseQuery(dsl, &db, name()));
+}
+
+std::size_t Collection::update(std::string_view dsl, Database& db,
+                               const std::function<void(Document&)>& mutator) {
+    return update(parseQuery(dsl, &db, name()), mutator);
+}
+
+std::size_t Collection::remove(std::string_view dsl, Database& db) {
+    return remove(parseQuery(dsl, &db, name()));
 }
 
 std::size_t Collection::update(const Expression& q, const std::function<void(Document&)>& mutator) {
