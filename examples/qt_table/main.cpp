@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
         // v0.21 Bulk-Update via DSL; der Observer des Models triggert refresh() automatisch
         users.update("age >= 18", "age = age + 1");
     });
+    model.setQuery(queryEdit->text()); // initialer Filter aus dem LineEdit
     window.resize(640, 320);
     window.show();
 
