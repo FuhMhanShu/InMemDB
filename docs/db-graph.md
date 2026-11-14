@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.15) |
-| Bezug | Lastenheft FA-22 (Kann), FA-14 (Snapshot), FA-18 (Referenzen), FA-20 (Schema), FA-10 (Indizes) |
+| Bezug | Anforderungen FA-22 (Kann), FA-14 (Snapshot), FA-18 (Referenzen), FA-20 (Schema), FA-10 (Indizes) |
 | Abhängigkeiten | **keine** (nur C++17 + eigener JSON-Writer/Parser) |
 
 Ziel: Eine bestehende Database – Collections inkl. optionalem Schema/Indizes und deren

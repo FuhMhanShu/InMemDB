@@ -5,7 +5,7 @@
 | Status | beschlossen (v0.1) |
 | Entscheidung | **Variante A: typsicher Ausdruckbaum mit Operator-Overloading** |
 | String-DSL | Kann-Feature, **umgesetzt in v0.14**: siehe [`query-dsl.md`](query-dsl.md) |
-| Bezieht sich auf | Lastenheft FA-05 (Abfragen), NFA-03 (Erweiterbarkeit) |
+| Bezieht sich auf | Anforderungen FA-05 (Abfragen), NFA-03 (Erweiterbarkeit) |
 
 ---
 

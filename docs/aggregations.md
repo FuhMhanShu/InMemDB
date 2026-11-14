@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.6) |
-| Bezug | Lastenheft FA-13 (Kann) |
+| Bezug | Anforderungen FA-13 (Kann) |
 
 ## API
 

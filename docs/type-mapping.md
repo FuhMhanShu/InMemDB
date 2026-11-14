@@ -1,6 +1,6 @@
 # Typ-Mapping: InMemDB ↔ gängige Datenbanksysteme
 
-Bezug: Lastenheft Abschnitt 3 (Datenmodell), FA-14 (JSON-Snapshot), FA-19 (verschlüsselte Snapshots), FA-20 (Schema).
+Bezug: Anforderungen Abschnitt 3 (Datenmodell), FA-14 (JSON-Snapshot), FA-19 (verschlüsselte Snapshots), FA-20 (Schema).
 
 ## 1. Werttypen (`memdb::Value::Type`)
 

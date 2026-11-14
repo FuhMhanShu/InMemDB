@@ -4,7 +4,7 @@ In-Memory, non-relationales (dokumentenorientiertes) Datenbanksystem als
 objektorientierte C++-Bibliothek. Dokumente sind schema-los: Felder sind
 jederzeit pro Dokument beliebig erweiterbar.
 
-- [Lastenheft](lastenheft.md) (v0.1)
+- [Anforderungen](anforderungen.md) (v0.15)
 - [Query-API](docs/query-api.md) (verbindliche Ausprägung)
 - [String-DSL für Queries](docs/query-dsl.md) (NFA-03, v0.14: `find("age >= 18 && ...")`, eigene Operatoren, `@relation`-Joins)
 - [Architektur-Entscheidungen](docs/architecture.md) (statische Lib mit Pimpl)
@@ -18,7 +18,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Import aus externen Quellen (z. B. SQLite)](docs/import.md) (FA-21, v0.13)
 - [Datenbank-Graph (JSON/Mermaid/Markdown, LLM-freundlich)](docs/db-graph.md) (FA-22, v0.15)
 
-## Features (v0.8)
+## Features (v0.15)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")` – oder als String-DSL: `find("age >= 18 && tags.contains('cpp')")` mit registrierbaren Operatoren (`matches`, `in`, eigene) und `@relation.path`-Joins (v0.14)
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen

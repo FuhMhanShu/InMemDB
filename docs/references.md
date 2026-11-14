@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.8) |
-| Bezug | Lastenheft FA-18 (Kann), Ausblick Abschnitt 10 |
+| Bezug | Anforderungen FA-18 (Kann), Ausblick Abschnitt 10 |
 
 ## Idee
 

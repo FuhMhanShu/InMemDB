@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.10) |
-| Bezug | Lastenheft FA-20 (Kann), Abschnitt 3 (Schema) |
+| Bezug | Anforderungen FA-20 (Kann), Abschnitt 3 (Schema) |
 
 ## Semantik
 - **Ohne Schema bleibt eine Collection schema-los** – beliebige Felder und Typen.

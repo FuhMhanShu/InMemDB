@@ -1,12 +1,12 @@
-# Lastenheft
+# Anforderungen
 
 ## In-Memory Non-Relational Database System (C++, objektorientiert)
 
 | Feld | Wert |
 |---|---|
-| Projekttitel | MemDoc (Arbeitsname) – In-Memory Document Store |
-| Version | 0.1 (Entwurf) |
-| Status | In Abstimmung |
+| Projekttitel | InMemDB – In-Memory Document Store |
+| Version | 0.15 |
+| Status | fortgeschrieben; FA-01…FA-22 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
 | Bereitstellungsform | Eingebettete Bibliothek als **kompilierte statische Library mit Pimpl-Idiom** (öffentliche Header unter `include/memdb/`, Implementierung gekapselt in `src/`); kein Server, kein Netzwerk. Header-only wurde verworfen – siehe `docs/architecture.md`. |
@@ -16,7 +16,7 @@
 ## 1. Zielbestimmung
 
 ### 1.1 Produktzweck
-MemDoc ist ein **in-memory, non-relationales (dokumentenorientiertes) Datenbanksystem**, das als C++-Bibliothek in Anwendungen eingebettet wird. Kernmerkmal: **Dokumente besitzen keine feste Struktur – Felder sind jederzeit und pro Dokument beliebig erweiterbar, änderbar und löschbar** (schema-less / schemalos zur Laufzeit).
+InMemDB ist ein **in-memory, non-relationales (dokumentenorientiertes) Datenbanksystem**, das als C++-Bibliothek in Anwendungen eingebettet wird. Kernmerkmal: **Dokumente besitzen keine feste Struktur – Felder sind jederzeit und pro Dokument beliebig erweiterbar, änderbar und löschbar** (schema-less / schemalos zur Laufzeit).
 
 ### 1.2 Nutzen
 - Schnelle prototypische und produktive Datenhaltung ohne Schema-Definition oder Migrationen.
@@ -87,7 +87,8 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 > **Verbindliche Ausprägung von FA-05 (Query-API):** typsicher Ausdruckbaum mit
 > Operator-Overloading, z. B. `(Field("age") >= 18) && Field("tags").contains("cpp")`.
 > Details und Semantik siehe [`docs/query-api.md`](docs/query-api.md).
-> Eine String-DSL (`find("age >= 18 && ...")`) bleibt Kann-Feature und ist in v1 nicht umgesetzt.
+> Eine String-DSL (`find("age >= 18 && ...")`) war Kann-Feature und ist **in v0.14 umgesetzt** –
+> siehe [`docs/query-dsl.md`](docs/query-dsl.md).
 
 ---
 
