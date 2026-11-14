@@ -87,6 +87,46 @@ ReferenceIndex::ReferenceIndex(Database& db, std::string storageCollection)
         coll_.createIndex("to_key");
 }
 
+std::vector<DocumentId> ReferenceIndex::joinIds(const std::string& fromCollection,
+                                                const std::string& relation,
+                                                const std::string& toCollection,
+                                                const Expression& toQuery) const {
+    if (!db_->hasCollection(toCollection))
+        throw CollectionNotFoundError("Join: Ziel-Collection nicht gefunden: " + toCollection);
+    if (!db_->hasCollection(fromCollection))
+        throw CollectionNotFoundError("Join: Quell-Collection nicht gefunden: " + fromCollection);
+    Collection to = db_->collection(toCollection);
+    std::vector<DocumentId> targetIds = to.findIds(toQuery); // indexbeschleunigt, falls Index
+    Collection from = db_->collection(fromCollection);
+    std::set<DocumentId> out;
+    for (DocumentId tid : targetIds) {
+        // to_key-Index der Speicher-Collection: alle eingehenden Referenzen auf tid
+        for (const Reference& r : references(toCollection, RefDirection::Incoming, tid)) {
+            if (r.relation != relation || !r.fromId)
+                continue;
+            if (r.fromCollection != fromCollection)
+                continue;
+            if (from.findById(*r.fromId).has_value()) // Quelle existiert noch
+                out.insert(*r.fromId);
+        }
+    }
+    return std::vector<DocumentId>(out.begin(), out.end());
+}
+
+std::vector<Document> ReferenceIndex::join(const std::string& fromCollection,
+                                           const std::string& relation,
+                                           const std::string& toCollection,
+                                           const Expression& toQuery) const {
+    std::vector<DocumentId> ids = joinIds(fromCollection, relation, toCollection, toQuery);
+    Collection from = db_->collection(fromCollection);
+    std::vector<Document> out;
+    out.reserve(ids.size());
+    for (DocumentId id : ids)
+        if (auto d = from.findById(id))
+            out.push_back(std::move(*d));
+    return out;
+}
+
 std::string ReferenceIndex::resolve(const std::string& fromCollection, const std::string& relPath) const {
     if (relPath.empty())
         throw ReferenceError("Relativer Pfad darf nicht leer sein");

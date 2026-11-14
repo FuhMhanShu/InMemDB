@@ -28,7 +28,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Upsert: `upsertById(id, doc)` / `upsert(query, doc)` (FA-07)
 - Aggregationen: `aggregate(Min/Max/Sum/Avg/Count, feld, q)` und `groupBy(...)` (FA-13)
 - Observer: `onChange`/`offChange`, Events nach Commit einer Transaktion (FA-15)
-- Referenzen: `ReferenceIndex` verknüpft Collections/Dokumente name-basiert (relative Pfade), in beide Richtungen abfragbar, inkl. Traversierung (`traverse`/`hasCycle`/`search`, ringverweis-sicher) und Dangling-Bereinigung (FA-18)
+- Referenzen: `ReferenceIndex` verknüpft Collections/Dokumente name-basiert (relative Pfade), in beide Richtungen abfragbar, inkl. Traversierung (`traverse`/`hasCycle`/`search`, ringverweis-sicher), Dangling-Bereinigung (FA-18) und index-beschleunigtem Join bei Abfrage (`joinIds`/`join`, v0.17); in Queries als `@kunde.name == 'Ada'`
 - Verschlüsselte binäre Snapshots: `saveToFileEncrypted`/`loadFromFileEncrypted` (PBKDF2 + ChaCha20 + HMAC-SHA256, FA-19)
 - Striktes optionales Schema pro Collection mit Feldtypen als Metadaten (FA-20)
 - Import-Modul: `ImportRegistry` (Factory, Auto-Erkennung per Dateiendung) + `Importer`; Quellen ohne Abhängigkeiten: CSV, JSON/JSONL, Snapshot-Reimport, SQL-Dump, BSON; optional SQLite via `INMEMDB_WITH_SQLITE=ON`; CLI-Tool `inmemdb_import` (FA-21)

@@ -41,8 +41,19 @@ bool ring = refs.hasCycle("users", userId);                            // Ringve
 auto hits = refs.search("users", userId, Field("status") == "offen");  // traversierende Suche
 // SearchHit { collection, id, document, path } — path = Kanten vom Startknoten bis zum Treffer
 
+// v0.17: index-beschleunigter Join bei Abfrage (statt Traversierung pro Dokument):
+auto orderIds = refs.joinIds("orders", "kunde", "users", Field("stadt") == "Berlin");
+// -> IDs der Bestellungen, deren Kunde in Berlin wohnt
+// Ablauf: toQuery auf users (Index!) -> Ziel-IDs -> to_key-Index -> Quell-IDs. O(#Zieltreffer).
+auto docs     = refs.join("orders", "kunde", "users", parseQuery("vip == true")); // Dokumente direkt
+
 std::string t = refs.resolve("a/b", "../c");   // -> "c"
 ```
+
+**Join vs. `@relation.path` in der DSL** (`docs/query-dsl.md`): `@kunde.stadt == 'Berlin'`
+löst pro Quelldokument über die Referenzen auf (korrekt, aber O(n) mit je einer Index-Abfrage
+pro Dokument). `joinIds`/`join` drehen die Richtung um und sind O(#Zieltreffer) – für große
+Quell-Collections die deutlich schnellere Variante.
 
 `struct Reference { std::string fromCollection; std::optional<DocumentId> fromId;
 std::string toCollection; std::optional<DocumentId> toId; std::string relation; }`

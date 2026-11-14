@@ -91,6 +91,22 @@ public:
                                   RefDirection dir = RefDirection::Outgoing,
                                   std::size_t maxDepth = std::numeric_limits<std::size_t>::max()) const;
 
+    /// @brief Index-beschleunigter Join bei Abfrage (Ausblick FA-18, v0.17):
+    /// IDs der Dokumente in `fromCollection`, die über `relation` mit einem Dokument
+    /// in `toCollection` verknüpft sind, das `toQuery` erfüllt.
+    /// Ablauf: `toQuery` auf der Ziel-Collection (indexbeschleunigt, falls Index) →
+    /// Ziel-IDs → `to_key`-Index der Speicher-Collection → Quell-IDs.
+    /// Komplexität O(#Zieltreffer), nicht O(#Quelldokumente) – im Gegensatz zu
+    /// `@relation.path` in einer DSL-Query (Traversierung pro Dokument).
+    std::vector<DocumentId> joinIds(const std::string& fromCollection, const std::string& relation,
+                                    const std::string& toCollection,
+                                    const Expression& toQuery = Expression{}) const;
+
+    /// @brief Wie `joinIds`, liefert die Quell-Dokumente selbst.
+    std::vector<Document> join(const std::string& fromCollection, const std::string& relation,
+                               const std::string& toCollection,
+                               const Expression& toQuery = Expression{}) const;
+
     /// @brief Löst einen relativen Pfad gegen eine Quell-Collection auf
     /// (`./users`, `../orders`, `/abs`; nackter Name bleibt unverändert).
     std::string resolve(const std::string& fromCollection, const std::string& relPath) const;

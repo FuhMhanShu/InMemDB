@@ -168,7 +168,7 @@ Namespace `memdb`. Wesentliche Klassen:
 ## 10. Ausblick (nicht in v1)
 
 - Persistente Speicherung (Append-only-Log, Memory-Mapped Files).
-- Eingebettete Referenzen zwischen Dokumenten (statt Kopie) mit optionalem "Join" bei Abfrage. Teilweise umgesetzt in v0.8 als FA-18 (`ReferenceIndex`, siehe `docs/references.md`); "Join" bei Abfrage weiterhin offen.
+- Eingebettete Referenzen zwischen Dokumenten (statt Kopie) mit optionalem "Join" bei Abfrage. Umgesetzt: v0.8 FA-18 (`ReferenceIndex`, `docs/references.md`), v0.17 index-beschleunigter Join bei Abfrage (`ReferenceIndex::joinIds`/`join`; DSL-seitig `@relation.path`, siehe `docs/query-dsl.md`).
 - Out-of-Core-/Hybrid-Modus für Daten größer als RAM.
 - Netzwerk-Schnittstelle / Server-Modus.
 
