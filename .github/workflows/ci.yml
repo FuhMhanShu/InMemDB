@@ -61,11 +61,7 @@ jobs:
       - name: Build Qt-Beispiel (Variante A, vorgebaute Lib)
         run: |
           mkdir -p build-qt-a && cd build-qt-a
-          sed -e 's|^DEFINES += INMEMDB_BUILD_SOURCES|#DEFINES += INMEMDB_BUILD_SOURCES|' \
-              -e "s|^INMEMDB_DIR = .*|INMEMDB_DIR = $GITHUB_WORKSPACE|" \
-              -e "s|^SOURCES += main.cpp|SOURCES += $GITHUB_WORKSPACE/examples/qt_hello/main.cpp|" \
-              ../examples/qt_hello/hello.pro > hello-a.pro
-          qmake hello-a.pro && make -j && ./qt_hello
+          qmake ../examples/qt_hello/hello.pro "DEFINES-=INMEMDB_BUILD_SOURCES" && make -j && ./qt_hello
 
       - name: Build Qt-Beispiel (Variante B, Quellen direkt mitkompilieren)
         run: |
