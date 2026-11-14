@@ -53,9 +53,13 @@ value     := number | 'string' / "string" | true | false | null
 Eingebaut: `contains(v)` (Array-Element/String-Substring), `exists()`,
 `matches('regex')`, `in(v1, v2, ...)`.
 
-`matches` nutzt eine eingebaute Mini-RegEx (Thompson-NFA, kein Backtracking; Full-Match):
-Literale, `.`, `*` `+` `?`, Klassen `[...]`/`[^...]` mit Bereichen, `\x`-Escapes,
-Anker `^` `$`, Alternativen `|`, Gruppen `(...)`. Beispiel: `name.matches('^[A-Z][a-z]+$')`.
+`matches` nutzt eine eingebaute Mini-RegEx (Thompson-NFA mit Visited-Set, kein Backtracking,
+kein Hang bei verschachtelten Schleifen wie `(a*)*`; Full-Match):
+Literale, `.`, Quantoren `*` `+` `?` `{n}` `{n,}` `{n,m}` (lazy `*?` etc. erlaubt, ohne Wirkung
+bei Full-Match), Klassen `[...]`/`[^...]` mit Bereichen `a-z` und Kurzschriften
+`\d \D \s \S \w \W`, `\x`-Escapes (`\n \r \t \f \v \a \0` + Literal), Anker `^` `$`,
+Alternativen `|`, Gruppen `(...)` und `(?:...)` (v0.20). Beispiele: `name.matches('^[A-Z][a-z]+$')`,
+`tel.matches('^\\d{3}-\\d{4}$')`.
 
 **Eigene Operatoren registrieren** (NFA-03 Open/Closed, thread-sicheres Singleton):
 
