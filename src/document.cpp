@@ -113,6 +113,24 @@ bool Document::rename(std::string_view from, std::string_view to) {
     return true;
 }
 
+void Document::setPath(std::string_view dotPath, Value value) {
+    Document* doc = this;
+    std::size_t start = 0;
+    while (true) {
+        auto dot = dotPath.find('.', start);
+        auto segment = dotPath.substr(start, dot == std::string_view::npos ? dot : dot - start);
+        if (dot == std::string_view::npos) {
+            doc->set(std::string(segment), std::move(value));
+            return;
+        }
+        Value& slot = (*doc)[std::string(segment)]; // legt null an, falls fehlt
+        if (!slot.isDocument() || !slot.asDocument())
+            slot = Value(std::make_shared<Document>());
+        doc = slot.asDocument().get();
+        start = dot + 1;
+    }
+}
+
 const Value* Document::findPath(std::string_view dotPath) const {
     const Value* current = nullptr;
     const Document* doc = this;

@@ -18,6 +18,11 @@ users.findOne("name.matches('^A.*')");
 users.update("age < 18", [](Document& d) { d.set("active", true); });
 users.remove("stadt == 'Hamburg'");
 
+// Bulk-Update per DSL mit Projektion (v0.21): Query waehlt, Set-DSL beschreibt die Aenderung
+users.update("age >= 18", "adult = true, status = 'adult', age = age + 1");
+users.update("", "adresse.plz = '10115'");                 // leere Query = alle Dokumente
+orders.update("@kunde.age >= 18", "vip = true", db);        // mit Referenz-Kontext
+
 // mit Referenz-Kontext (FA-18): '@relation.pfad'
 orders.count("@kunde.name == 'Ada' && total >= 200", db);
 
@@ -74,6 +79,29 @@ QueryFunctionRegistry::instance().unregisterFunction("even");
 
 Die Factory bekommt den Feldausdruck (`Field` oder `@ref`) und die Argumente und liefert
 eine `Expression` – beliebig kombinierbar mit `&&`/`||`/`!`/Vergleichen.
+
+## Bulk-Update: Set-DSL mit Projektion (v0.21)
+
+`update(queryDsl, setDsl)` (Collection und Transaction, optional mit `Database&` für
+`@relation` in der Query) ist das DSL-Aquivalent zu `update(q, mutator)` – ohne C++-Lambda.
+Die Set-DSL beschreibt die Projektion (Zielpfad = Wertausdruck); Wertausdrücke werden vor dem
+Schreiben gegen das alte Dokument ausgewertet (Snapshot-Semantik innerhalb eines Dokuments).
+
+```
+setDsl  := assign (',' assign)*
+assign  := path '=' vexpr                 // path darf gepunktet sein: adresse.plz = '10115'
+vexpr   := mul (('+'|'-') mul)*
+mul     := unary (('*'|'/'|'%') unary)*
+unary   := '-' unary | primary
+primary := '(' vexpr ')' | number | string | true | false | null | feldPfad
+```
+
+Beispiele: `"adult = true"`, `"age = age + 1"`, `"total = price * qty"`, `"full = vorname + ' ' + nachname"`,
+`"copy = anderesFeld"`, `"x = (a + b) * 2"`. `+` bei zwei Strings konkateniert; Zahlen bleiben int
+(Overflow -> double), `/` liefert double, `%` nur int. Fehlende Felder liefern `null`.
+Zuweisungen auf gepunktete Pfade legen Unterdokumente an (`Document::setPath`).
+Syntaxfehler -> `QueryError` (mit Position), Typfehler/Division durch 0 -> `Error` bei Auswertung;
+dadurch bricht der gesamte Update-Aufruf ab, bevor etwas geschrieben wird (atomar auf Collection-Ebene).
 
 ## `@relation.path` – Join über Referenzen (FA-18)
 

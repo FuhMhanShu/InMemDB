@@ -12,6 +12,19 @@ namespace memdb {
 
 namespace {
 
+// Mutator aus geparster Set-DSL: alle Ausdruecke zuerst gegen das alte Doc auswerten
+// (Snapshot-Semantik), dann per setPath schreiben.
+std::function<void(Document&)> makeSetMutator(std::vector<std::pair<std::string, SetExpression>> assigns) {
+    return [assigns = std::move(assigns)](Document& d) {
+        std::vector<std::pair<std::string, Value>> vals;
+        vals.reserve(assigns.size());
+        for (const auto& [path, expr] : assigns)
+            vals.emplace_back(path, expr(d));
+        for (auto& [path, v] : vals)
+            d.setPath(path, std::move(v));
+    };
+}
+
 void fireEvents(const std::shared_ptr<detail::CollectionState>& state, const std::vector<ChangeEvent>& events) {
     if (events.empty())
         return;
@@ -119,6 +132,10 @@ std::size_t Collection::update(std::string_view dsl,
     return update(parseQuery(dsl), mutator);
 }
 
+std::size_t Collection::update(std::string_view dsl, std::string_view setDsl) {
+    return update(parseQuery(dsl), makeSetMutator(parseUpdateSet(setDsl)));
+}
+
 std::size_t Collection::remove(std::string_view dsl) { return remove(parseQuery(dsl)); }
 
 Cursor Collection::find(std::string_view dsl, Database& db) const {
@@ -145,6 +162,10 @@ std::size_t Collection::count(std::string_view dsl, Database& db) const {
 std::size_t Collection::update(std::string_view dsl, Database& db,
                                const std::function<void(Document&)>& mutator) {
     return update(parseQuery(dsl, &db, name()), mutator);
+}
+
+std::size_t Collection::update(std::string_view dsl, std::string_view setDsl, Database& db) {
+    return update(parseQuery(dsl, &db, name()), makeSetMutator(parseUpdateSet(setDsl)));
 }
 
 std::size_t Collection::remove(std::string_view dsl, Database& db) {

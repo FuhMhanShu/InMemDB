@@ -65,6 +65,11 @@ public:
     /// `nullptr`, wenn der Pfad nicht existiert.
     const Value* findPath(std::string_view dotPath) const;
 
+    /// @brief Feld per Punktnotation setzen (`"adresse.plz"` = value); legt fehlende
+    /// Zwischendokumente an (v0.21, fuer Bulk-Update-Set-DSL). Nicht-Dokument-Zwischenwerte
+    /// werden durch ein neues Dokument ersetzt.
+    void setPath(std::string_view dotPath, Value value);
+
     /// @brief Kopie aller Felder.
     std::map<std::string, Value> fields() const;
     /// @brief Iteration über alle Felder ohne Kopie (z. B. für Validierung).

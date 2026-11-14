@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.20 LANGUAGES CXX)
+project(InMemDB VERSION 0.21 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -92,6 +92,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     target_link_libraries(memdb_tests_regex PRIVATE memdb)
     target_include_directories(memdb_tests_regex PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME memdb_tests_regex COMMAND memdb_tests_regex)
+
+    add_executable(memdb_tests_dsl_update tests/test_dsl_update.cpp)
+    target_link_libraries(memdb_tests_dsl_update PRIVATE memdb)
+    add_test(NAME memdb_tests_dsl_update COMMAND memdb_tests_dsl_update)
 
     add_executable(memdb_tests_import_csv tests/test_import_csv.cpp)
     target_link_libraries(memdb_tests_import_csv PRIVATE memdb)

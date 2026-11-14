@@ -94,6 +94,11 @@ public:
     std::optional<Document> findOne(std::string_view dsl) const;
     std::size_t count(std::string_view dsl) const;
     std::size_t update(std::string_view dsl, const std::function<void(Document&)>& mutator);
+    /// @brief Bulk-Update per DSL mit Projektion (v0.21): Query waehlt, Set-DSL beschreibt die
+    /// Aenderung, z. B. `update("age >= 18", "adult = true, status = 'adult', age = age + 1")`.
+    /// Set-Grammatik siehe `parseUpdateSet` (`docs/query-dsl.md`).
+    /// @throws QueryError bei Syntaxfehler, Error bei Typfehlern in der Set-DSL.
+    std::size_t update(std::string_view dsl, std::string_view setDsl);
     std::size_t remove(std::string_view dsl);
 
     /// @brief DSL-Varianten mit Referenz-Kontext: `@relation.path` (FA-18) wird über `db`
@@ -107,6 +112,8 @@ public:
     std::size_t count(std::string_view dsl, Database& db) const;
     std::size_t update(std::string_view dsl, Database& db,
                        const std::function<void(Document&)>& mutator);
+    /// @brief Wie `update(dsl, setDsl)`, aber mit Referenz-Kontext (`@relation.path`) in der Query.
+    std::size_t update(std::string_view dsl, std::string_view setDsl, Database& db);
     std::size_t remove(std::string_view dsl, Database& db);
     /// @}
 
