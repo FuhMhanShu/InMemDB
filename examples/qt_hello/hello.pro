@@ -19,4 +19,4 @@ DEFINES += INMEMDB_BUILD_SOURCES
 
 include($$INMEMDB_DIR/InMemDB.pri)
 
-SOURCES += main.cpp
+SOURCES += $$_PRO_FILE_PWD_/main.cpp
