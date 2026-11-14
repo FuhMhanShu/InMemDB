@@ -50,6 +50,43 @@ Der `.pri` hängt dann alle `src/*.cpp` (außer dem optionalen SQLite-Modul) an 
 - Einbindung: `DEFINES += INMEMDB_HAS_SQLITE` und `LIBS += -lsqlite3`
   (bei Variante B zusätzlich `SOURCES += $$INMEMDB_DIR/src/import_sqlite.cpp`).
 
+## Qt-Modell-Adapter (v0.23) – ohne harte Abhängigkeiten
+
+`include/memdb/qt/memdb_qt_model.hpp` stellt `memdb::qt::MemDbTableModel` bereit – ein
+`QAbstractTableModel` über einer `memdb::Collection` (nur **QtCore**, kein Widgets nötig):
+
+- Zeilen = Dokumente (alle oder per DSL-Query gefiltert via `setQuery("age >= 18")`),
+  Spalten = sortierte Vereinigung aller Feldnamen (schema-los: neue Felder erscheinen
+  als Spalte beim nächsten `refresh()`).
+- `setData()` schreibt zurück (`Collection::updateById`); Collection-Änderungen (Observer,
+  auch nach Tx-Commit) triggern `refresh()` über eine queued Qt-Connection (thread-sicher).
+
+**Keine harte Abhängigkeit:** Der Adapter ist header-only und wird nur kompiliert, wenn
+`INMEMDB_WITH_QT` definiert ist. `InMemDB.pri` setzt dieses Define automatisch, sobald das
+einbindende qmake-Projekt `QT += core` hat (und nimmt das Header für moc in `HEADERS` auf).
+Ohne Qt (`CONFIG -= qt`, z. B. `InMemDB.pro`) bleibt InMemDB vollständig Qt-frei; das
+Header schützen sich mit `#error` selbst.
+
+```qmake
+# meine-app.pro
+QT += core gui widgets
+INMEMDB_DIR = /pfad/zu/InMemDB
+include($$INMEMDB_DIR/InMemDB.pri)   # setzt INMEMDB_WITH_QT + moc-Header automatisch
+SOURCES += main.cpp
+```
+
+```cpp
+#include <memdb/qt/memdb_qt_model.hpp>
+memdb::qt::MemDbTableModel model(users);   // Collection-Handle
+model.setQuery("age >= 18");               // optionaler DSL-Filter
+tableView.setModel(&model);
+// users.update("age >= 18", "age = age + 1");  // v0.21 – Model refresht automatisch
+```
+
+Beispiel: `examples/qt_table/` (QTableView + DSL-Filter + Bulk-Update-Button), headless
+testbar: `QT_QPA_PLATFORM=offscreen ./qt_table`. CI baut und smoketestet es im Job
+**qmake/Qt-Einbindung**.
+
 ## Beispiel
 
 `examples/qt_hello/` (Qt-Console-App, nutzt C++-API + String-DSL + DbGraph):

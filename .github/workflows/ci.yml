@@ -67,6 +67,10 @@ jobs:
         run: |
           mkdir -p build-qt-b && cd build-qt-b
           qmake ../examples/qt_hello/hello.pro && make -j && ./qt_hello
+      - name: Build & Smoke-Run Qt-Modell-Adapter (qt_table, headless offscreen)
+        run: |
+          mkdir -p build-qt-table && cd build-qt-table
+          qmake ../examples/qt_table/table.pro && make -j && QT_QPA_PLATFORM=offscreen ./qt_table
 
   docs:
     name: Docs (doxygen)

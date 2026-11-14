@@ -21,7 +21,17 @@ isEmpty(INMEMDB_DIR): INMEMDB_DIR = $$PWD
 isEmpty(INMEMDB_BUILD_DIR): INMEMDB_BUILD_DIR = $$INMEMDB_DIR
 
 INCLUDEPATH += $$INMEMDB_DIR/include
+INCLUDEPATH += $$INMEMDB_DIR/include/memdb/qt
 CONFIG += c++17
+
+# Optionaler Qt-Modell-Adapter (v0.23, header-only, nur QtCore): Sobald das einbindende
+# qmake-Projekt QT += core hat, wird INMEMDB_WITH_QT gesetzt und das Adapter-Header
+# (moc) aufgenommen. Ohne Qt (z. B. reines C++-Projekt / InMemDB.pro mit CONFIG -= qt)
+# bleibt InMemDB vollstaendig Qt-frei.
+contains(QT, core) {
+    DEFINES += INMEMDB_WITH_QT
+    HEADERS += $$INMEMDB_DIR/include/memdb/qt/memdb_qt_model.hpp
+}
 
 contains(DEFINES, INMEMDB_BUILD_SOURCES) {
     # Variante B: Quellen direkt ins Projekt aufnehmen
