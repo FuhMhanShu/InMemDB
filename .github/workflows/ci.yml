@@ -45,6 +45,30 @@ jobs:
       - name: Test (inkl. Import-Tests)
         run: ctest --test-dir build --output-on-failure -C Release
 
+  qmake-qt:
+    name: qmake/Qt-Einbindung (FA-23)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt5 qmake
+        run: sudo apt-get update && sudo apt-get install -y qtbase5-dev qt5-qmake g++ make
+
+      - name: Build Library per qmake (InMemDB.pro)
+        run: qmake InMemDB.pro -o Makefile.lib && make -f Makefile.lib -j
+
+      - name: Build Qt-Beispiel (Variante A, vorgebaute Lib)
+        run: |
+          mkdir -p build-qt-a && cd build-qt-a
+          sed 's/^DEFINES += INMEMDB_BUILD_SOURCES/#DEFINES += INMEMDB_BUILD_SOURCES/' ../examples/qt_hello/hello.pro > hello-a.pro
+          qmake hello-a.pro && make -j && ./qt_hello
+
+      - name: Build Qt-Beispiel (Variante B, Quellen direkt mitkompilieren)
+        run: |
+          mkdir -p build-qt-b && cd build-qt-b
+          qmake ../examples/qt_hello/hello.pro && make -j && ./qt_hello
+
   docs:
     name: Docs (doxygen)
     runs-on: ubuntu-latest

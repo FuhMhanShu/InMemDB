@@ -17,8 +17,9 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Typ-Mapping zu SQL/MongoDB/JSON](docs/type-mapping.md)
 - [Import aus externen Quellen (z. B. SQLite)](docs/import.md) (FA-21, v0.13)
 - [Datenbank-Graph (JSON/Mermaid/Markdown, LLM-freundlich)](docs/db-graph.md) (FA-22, v0.15)
+- [Qt/qmake-Einbindung](docs/qt-qmake.md) (`InMemDB.pro` + `InMemDB.pri`, FA-23, v0.16)
 
-## Features (v0.15)
+## Features (v0.16)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")` – oder als String-DSL: `find("age >= 18 && tags.contains('cpp')")` mit registrierbaren Operatoren (`matches`, `in`, eigene) und `@relation.path`-Joins (v0.14)
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
@@ -32,6 +33,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Striktes optionales Schema pro Collection mit Feldtypen als Metadaten (FA-20)
 - Import-Modul: `ImportRegistry` (Factory, Auto-Erkennung per Dateiendung) + `Importer`; Quellen ohne Abhängigkeiten: CSV, JSON/JSONL, Snapshot-Reimport, SQL-Dump, BSON; optional SQLite via `INMEMDB_WITH_SQLITE=ON`; CLI-Tool `inmemdb_import` (FA-21)
 - Datenbank-Graph als JSON/Mermaid/Markdown (Collections + Schema/Indizes + FA-18-Referenzen), auch aus Snapshot-Datei; CLI `inmemdb_graph` (FA-22)
+- Qt/qmake-Einbindung via `InMemDB.pri` (Lib linken oder Quellen mitkompilieren) + `InMemDB.pro`; Beispiel `examples/qt_hello` (FA-23)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
