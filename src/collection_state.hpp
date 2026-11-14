@@ -9,7 +9,12 @@
 #include "memdb/query.hpp"
 #include "memdb/schema.hpp"
 
+#include "json.hpp"
+
+#include <atomic>
 #include <cstdint>
+#include <cstdio>
+#include <fstream>
 #include <functional>
 #include <limits>
 #include <map>
@@ -162,6 +167,188 @@ struct CollectionState {
                 idx->entries[*v].insert(id);
     }
 
+    // --- Hybrid / Out-of-Core (v0.18), opt-in ---
+    // Spill-Record: [u64 id][u32 len][JSON bytes]; spillIndex: id -> Offset.
+    bool overflowEnabled = false;
+    std::string spillPath;
+    std::size_t maxInMemory = 0;
+    std::map<DocumentId, std::uint64_t> spillIndex;
+    std::uint64_t spillBytes = 0;
+    std::atomic<std::size_t> txLocks{0}; // >0 waehrend Transaktion: kein Evict
+    std::fstream spillFile;
+
+    bool hasDoc(DocumentId id) const { return docs.count(id) != 0 || spillIndex.count(id) != 0; }
+
+    std::optional<Document> loadSpilled(DocumentId id) const {
+        auto it = spillIndex.find(id);
+        if (it == spillIndex.end() || !spillFile.is_open())
+            return std::nullopt;
+        auto& f = const_cast<std::fstream&>(spillFile);
+        f.seekg(static_cast<std::streamoff>(it->second));
+        std::uint64_t rid = 0;
+        std::uint32_t len = 0;
+        f.read(reinterpret_cast<char*>(&rid), 8);
+        f.read(reinterpret_cast<char*>(&len), 4);
+        if (!f || rid != id.value() || len > 64u * 1024 * 1024)
+            return std::nullopt;
+        std::string buf(len, '\0');
+        f.read(buf.data(), static_cast<std::streamsize>(len));
+        if (!f)
+            return std::nullopt;
+        Value v = detail::parseJson(buf);
+        if (!v.isDocument())
+            return std::nullopt;
+        Document d;
+        v.asDocument()->forEachField([&](const std::string& k, const Value& val) { d.set(k, val); });
+        d.setId(id);
+        return d;
+    }
+
+    Document loadDoc(DocumentId id) const {
+        auto it = docs.find(id);
+        if (it != docs.end())
+            return it->second;
+        return *loadSpilled(id);
+    }
+
+    void spillAppend(DocumentId id, const Document& doc) {
+        std::string json = detail::writeJsonDocument(doc);
+        std::uint64_t off = spillBytes;
+        std::uint64_t rid = id.value();
+        std::uint32_t len = static_cast<std::uint32_t>(json.size());
+        spillFile.seekp(0, std::ios::end);
+        spillFile.write(reinterpret_cast<const char*>(&rid), 8);
+        spillFile.write(reinterpret_cast<const char*>(&len), 4);
+        spillFile.write(json.data(), static_cast<std::streamsize>(json.size()));
+        spillFile.flush();
+        spillBytes += 12 + len;
+        spillIndex[id] = off;
+    }
+
+    void maybeEvict() {
+        if (!overflowEnabled || txLocks.load() > 0)
+            return;
+        while (docs.size() > maxInMemory && !docs.empty()) {
+            auto it = docs.begin(); // niedrigste ID zuerst (FIFO)
+            spillAppend(it->first, it->second);
+            indexRemove(it->first, it->second);
+            docs.erase(it);
+        }
+    }
+
+    void enableOverflow(const std::string& path, std::size_t maxInMem) {
+        if (txLocks.load() > 0)
+            throw Error("setOverflow: waehrend aktiver Transaktion nicht erlaubt");
+        spillPath = path;
+        maxInMemory = maxInMem;
+        overflowEnabled = true;
+        spillFile.open(path, std::ios::in | std::ios::out | std::ios::binary);
+        if (!spillFile.is_open()) {
+            spillFile.clear();
+            { std::ofstream c(path, std::ios::binary | std::ios::trunc); }
+            spillFile.open(path, std::ios::in | std::ios::out | std::ios::binary);
+        }
+        if (!spillFile.is_open())
+            throw Error("Spill-Datei nicht oeffnen: " + path);
+        // Index aus evtl. bestehender Datei aufbauen (Recovery); letzte Version gewinnt
+        spillIndex.clear();
+        spillFile.seekg(0);
+        std::uint64_t off = 0;
+        while (true) {
+            std::uint64_t rid = 0;
+            std::uint32_t len = 0;
+            spillFile.read(reinterpret_cast<char*>(&rid), 8);
+            if (!spillFile)
+                break;
+            spillFile.read(reinterpret_cast<char*>(&len), 4);
+            if (!spillFile || len > 64u * 1024 * 1024)
+                break;
+            std::streamoff dataPos = spillFile.tellg();
+            spillIndex[DocumentId(rid)] = off;
+            spillFile.seekg(dataPos + static_cast<std::streamoff>(len));
+            off = static_cast<std::uint64_t>(spillFile.tellg());
+            if (spillFile.eof())
+                break;
+        }
+        spillFile.clear();
+        spillBytes = off;
+        maybeEvict();
+    }
+
+    void disableOverflow() {
+        if (!overflowEnabled)
+            return;
+        for (const auto& [id, off] : spillIndex) {
+            if (docs.count(id))
+                continue;
+            if (auto d = loadSpilled(id)) {
+                auto [it, ok] = docs.emplace(id, std::move(*d));
+                indexAdd(id, it->second);
+            }
+        }
+        spillIndex.clear();
+        if (spillFile.is_open())
+            spillFile.close();
+        std::remove(spillPath.c_str());
+        overflowEnabled = false;
+        spillPath.clear();
+        spillBytes = 0;
+        maxInMemory = 0;
+    }
+
+    std::uint64_t compactSpill() {
+        if (!overflowEnabled)
+            return 0;
+        std::string tmp = spillPath + ".tmp";
+        std::uint64_t oldBytes = spillBytes;
+        {
+            std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+            std::map<DocumentId, std::uint64_t> newIndex;
+            std::uint64_t off = 0;
+            for (const auto& [id, oldoff] : spillIndex) {
+                if (auto d = loadSpilled(id)) {
+                    std::string json = detail::writeJsonDocument(*d);
+                    std::uint64_t rid = id.value();
+                    std::uint32_t len = static_cast<std::uint32_t>(json.size());
+                    out.write(reinterpret_cast<const char*>(&rid), 8);
+                    out.write(reinterpret_cast<const char*>(&len), 4);
+                    out.write(json.data(), static_cast<std::streamsize>(json.size()));
+                    newIndex[id] = off;
+                    off += 12 + len;
+                }
+            }
+            out.flush();
+        }
+        spillIndex.clear();
+        if (spillFile.is_open())
+            spillFile.close();
+        std::remove(spillPath.c_str());
+        std::rename(tmp.c_str(), spillPath.c_str());
+        spillFile.open(spillPath, std::ios::in | std::ios::out | std::ios::binary);
+        // Offsets neu aufbauen
+        spillFile.seekg(0);
+        std::uint64_t off = 0;
+        while (true) {
+            std::uint64_t rid = 0;
+            std::uint32_t len = 0;
+            spillFile.read(reinterpret_cast<char*>(&rid), 8);
+            if (!spillFile)
+                break;
+            spillFile.read(reinterpret_cast<char*>(&len), 4);
+            if (!spillFile || len > 64u * 1024 * 1024)
+                break;
+            std::streamoff dataPos = spillFile.tellg();
+            spillIndex[DocumentId(rid)] = off;
+            spillFile.seekg(dataPos + static_cast<std::streamoff>(len));
+            off = static_cast<std::uint64_t>(spillFile.tellg());
+            if (spillFile.eof())
+                break;
+        }
+        spillFile.clear();
+        spillBytes = off;
+        return oldBytes > spillBytes ? oldBytes - spillBytes : 0;
+    }
+
     void validateUnique(DocumentId id, const Document& doc) const {
         for (const auto& [path, idx] : indexes) {
             if (!idx->unique)
@@ -217,6 +404,9 @@ struct CollectionState {
             for (const auto& [id, doc] : docs)
                 ids.push_back(id);
         }
+        if (overflowEnabled) // ausgelagerte Dokumente beim Scan mitnehmen
+            for (const auto& [id, off] : spillIndex)
+                ids.push_back(id);
         return ids;
     }
 
@@ -228,6 +418,7 @@ struct CollectionState {
         auto [it, ok] = docs.emplace(id, doc);
         indexAdd(id, it->second);
         emit(ChangeType::Insert, id, it->second);
+        maybeEvict();
         return id;
     }
 
@@ -236,14 +427,15 @@ struct CollectionState {
         ids.reserve(docs_.size());
         for (auto& doc : docs_)
             ids.push_back(doInsert(std::move(doc)));
+        maybeEvict();
         return ids;
     }
 
     std::optional<Document> doFindById(DocumentId id) const {
         auto it = docs.find(id);
-        if (it == docs.end())
-            return std::nullopt;
-        return it->second;
+        if (it != docs.end())
+            return it->second;
+        return loadSpilled(id);
     }
 
     Cursor doFind(const Expression& q) const {
@@ -251,9 +443,11 @@ struct CollectionState {
         lastCandidateCount = ids.size();
         std::vector<Document> result;
         for (auto id : ids) {
-            auto it = docs.find(id);
-            if (it != docs.end() && q.evaluate(it->second))
-                result.push_back(it->second);
+            if (!hasDoc(id))
+                continue;
+            Document d = loadDoc(id);
+            if (q.evaluate(d))
+                result.push_back(std::move(d));
         }
         return Cursor(std::move(result));
     }
@@ -262,9 +456,11 @@ struct CollectionState {
         auto ids = candidates(q);
         lastCandidateCount = ids.size();
         for (auto id : ids) {
-            auto it = docs.find(id);
-            if (it != docs.end() && q.evaluate(it->second))
-                return it->second;
+            if (!hasDoc(id))
+                continue;
+            Document d = loadDoc(id);
+            if (q.evaluate(d))
+                return d;
         }
         return std::nullopt;
     }
@@ -274,8 +470,10 @@ struct CollectionState {
         lastCandidateCount = ids.size();
         std::size_t n = 0;
         for (auto id : ids) {
-            auto it = docs.find(id);
-            if (it != docs.end() && q.evaluate(it->second))
+            if (!hasDoc(id))
+                continue;
+            Document d = loadDoc(id);
+            if (q.evaluate(d))
                 ++n;
         }
         return n;
@@ -287,8 +485,10 @@ struct CollectionState {
         std::vector<DocumentId> out;
         out.reserve(ids.size());
         for (auto id : ids) {
-            auto it = docs.find(id);
-            if (it != docs.end() && q.evaluate(it->second))
+            if (!hasDoc(id))
+                continue;
+            Document d = loadDoc(id);
+            if (q.evaluate(d))
                 out.push_back(id);
         }
         return out;
@@ -299,9 +499,11 @@ struct CollectionState {
         lastCandidateCount = ids.size();
         std::size_t n = 0;
         for (auto id : ids) {
-            auto it = docs.find(id);
-            if (it != docs.end() && q.evaluate(it->second)) {
-                cb(it->second);
+            if (!hasDoc(id))
+                continue;
+            Document d = loadDoc(id);
+            if (q.evaluate(d)) {
+                cb(d);
                 ++n;
             }
         }
@@ -312,10 +514,11 @@ struct CollectionState {
         auto ids = candidates(q);
         std::vector<std::pair<DocumentId, Document>> changes;
         for (auto id : ids) {
-            auto it = docs.find(id);
-            if (it == docs.end() || !q.evaluate(it->second))
+            if (!hasDoc(id))
                 continue;
-            Document updated = it->second;
+            Document updated = loadDoc(id);
+            if (!q.evaluate(updated))
+                continue;
             mutator(updated);
             updated.setId(id);
             validateDoc(updated);
@@ -323,19 +526,33 @@ struct CollectionState {
             changes.emplace_back(id, std::move(updated));
         }
         for (auto& [id, updated] : changes) {
-            Document& old = docs[id];
-            indexRemove(id, old);
-            old = std::move(updated);
-            indexAdd(id, old);
-            emit(ChangeType::Update, id, old);
+            auto it = docs.find(id);
+            if (it != docs.end()) {
+                indexRemove(id, it->second);
+                it->second = std::move(updated);
+                indexAdd(id, it->second);
+                emit(ChangeType::Update, id, it->second);
+            } else { // ausgelagert: neue Version ans Spill anhaengen
+                spillAppend(id, updated);
+                emit(ChangeType::Update, id, updated);
+            }
         }
         return changes.size();
     }
 
     bool doUpdateById(DocumentId id, const std::function<void(Document&)>& mutator) {
         auto it = docs.find(id);
-        if (it == docs.end())
-            return false;
+        if (it == docs.end()) {
+            if (!spillIndex.count(id))
+                return false;
+            Document updated = *loadSpilled(id);
+            mutator(updated);
+            updated.setId(id);
+            validateDoc(updated);
+            spillAppend(id, updated); // neue Version ans Spill
+            emit(ChangeType::Update, id, updated);
+            return true;
+        }
         Document updated = it->second;
         mutator(updated);
         updated.setId(id);
@@ -350,8 +567,15 @@ struct CollectionState {
 
     bool doReplace(DocumentId id, Document doc) {
         auto it = docs.find(id);
-        if (it == docs.end())
-            return false;
+        if (it == docs.end()) {
+            if (!spillIndex.count(id))
+                return false;
+            doc.setId(id);
+            validateDoc(doc);
+            spillAppend(id, doc);
+            emit(ChangeType::Replace, id, doc);
+            return true;
+        }
         doc.setId(id);
         validateDoc(doc);
         validateUnique(id, doc);
@@ -374,6 +598,13 @@ struct CollectionState {
             emit(ChangeType::Update, id, it->second);
             return id;
         }
+        if (spillIndex.count(id)) { // ausgelagert: im Spill aktualisieren
+            doc.setId(id);
+            validateDoc(doc);
+            spillAppend(id, doc);
+            emit(ChangeType::Update, id, doc);
+            return id;
+        }
         return doInsert(std::move(doc));
     }
 
@@ -391,38 +622,56 @@ struct CollectionState {
         auto ids = candidates(q);
         std::vector<DocumentId> toRemove;
         for (auto id : ids) {
-            auto it = docs.find(id);
-            if (it != docs.end() && q.evaluate(it->second))
+            if (!hasDoc(id))
+                continue;
+            Document d = loadDoc(id);
+            if (q.evaluate(d))
                 toRemove.push_back(id);
         }
         for (auto id : toRemove) {
-            indexRemove(id, docs[id]);
-            emit(ChangeType::Remove, id, docs[id]);
-            docs.erase(id);
+            auto it = docs.find(id);
+            if (it != docs.end()) {
+                indexRemove(id, it->second);
+                emit(ChangeType::Remove, id, it->second);
+                docs.erase(it);
+            } else if (spillIndex.count(id)) {
+                Document d = *loadSpilled(id);
+                spillIndex.erase(id); // Datei behaelt den Record bis compactSpill()
+                emit(ChangeType::Remove, id, d);
+            }
         }
         return toRemove.size();
     }
 
     bool doRemoveById(DocumentId id) {
         auto it = docs.find(id);
-        if (it == docs.end())
-            return false;
-        indexRemove(id, it->second);
-        emit(ChangeType::Remove, id, it->second);
-        docs.erase(it);
-        return true;
+        if (it != docs.end()) {
+            indexRemove(id, it->second);
+            emit(ChangeType::Remove, id, it->second);
+            docs.erase(it);
+            return true;
+        }
+        if (spillIndex.count(id)) {
+            Document d = *loadSpilled(id);
+            spillIndex.erase(id);
+            emit(ChangeType::Remove, id, d);
+            return true;
+        }
+        return false;
     }
 
-    std::size_t doSize() const { return docs.size(); }
+    std::size_t doSize() const { return docs.size() + spillIndex.size(); }
 
     std::optional<Value> doAggregate(AggOp op, const std::string& fieldPath, const Expression& q) const {
         Accumulator acc(op);
         for (auto id : candidates(q)) {
-            auto it = docs.find(id);
-            if (it == docs.end() || !q.evaluate(it->second))
+            if (!hasDoc(id))
+                continue;
+            Document d = loadDoc(id);
+            if (!q.evaluate(d))
                 continue;
             acc.addDoc();
-            acc.addValue(it->second.findPath(fieldPath));
+            acc.addValue(d.findPath(fieldPath));
         }
         return acc.result();
     }
@@ -431,14 +680,16 @@ struct CollectionState {
                                            const std::string& aggPath) const {
         std::map<Value, Accumulator, ValueLess> groups;
         for (auto id : candidates(q)) {
-            auto it = docs.find(id);
-            if (it == docs.end() || !q.evaluate(it->second))
+            if (!hasDoc(id))
                 continue;
-            const Value* k = it->second.findPath(keyPath);
+            Document d = loadDoc(id);
+            if (!q.evaluate(d))
+                continue;
+            const Value* k = d.findPath(keyPath);
             Value key = k ? *k : Value(nullptr);
             auto& acc = groups.try_emplace(key, op).first->second;
             acc.addDoc();
-            acc.addValue(it->second.findPath(aggPath));
+            acc.addValue(d.findPath(aggPath));
         }
         std::vector<GroupAggregate> out;
         out.reserve(groups.size());
@@ -452,6 +703,14 @@ struct CollectionState {
         nextId = 1;
         for (auto& [path, idx] : indexes)
             idx->entries.clear();
+        if (overflowEnabled) {
+            spillIndex.clear();
+            if (spillFile.is_open())
+                spillFile.close();
+            { std::ofstream t(spillPath, std::ios::binary | std::ios::trunc); }
+            spillFile.open(spillPath, std::ios::in | std::ios::out | std::ios::binary);
+            spillBytes = 0;
+        }
         emit(ChangeType::Clear, DocumentId(0), Document{});
     }
 
@@ -466,6 +725,14 @@ struct CollectionState {
         nextId = 1;
         for (auto& [path, idx] : indexes)
             idx->entries.clear();
+        if (overflowEnabled) {
+            spillIndex.clear();
+            if (spillFile.is_open())
+                spillFile.close();
+            { std::ofstream t(spillPath, std::ios::binary | std::ios::trunc); }
+            spillFile.open(spillPath, std::ios::in | std::ios::out | std::ios::binary);
+            spillBytes = 0;
+        }
         emit(ChangeType::Clear, DocumentId(0), Document{});
         for (auto& item : items) {
             if (!item.isDocument())

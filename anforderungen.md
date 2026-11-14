@@ -169,7 +169,7 @@ Namespace `memdb`. Wesentliche Klassen:
 
 - Persistente Speicherung (Append-only-Log, Memory-Mapped Files).
 - Eingebettete Referenzen zwischen Dokumenten (statt Kopie) mit optionalem "Join" bei Abfrage. Umgesetzt: v0.8 FA-18 (`ReferenceIndex`, `docs/references.md`), v0.17 index-beschleunigter Join bei Abfrage (`ReferenceIndex::joinIds`/`join`; DSL-seitig `@relation.path`, siehe `docs/query-dsl.md`).
-- Out-of-Core-/Hybrid-Modus für Daten größer als RAM.
+- Out-of-Core-/Hybrid-Modus für Daten größer als RAM. **Umgesetzt (v0.18, opt-in):** `Collection::setOverflow(spillFile, maxInMemory)` lagert älteste Dokumente in eine Spill-Datei aus und liest sie on-demand; siehe `docs/hybrid-outofcore.md`.
 - Netzwerk-Schnittstelle / Server-Modus.
 
 ---

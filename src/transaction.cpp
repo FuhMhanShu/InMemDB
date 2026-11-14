@@ -17,14 +17,24 @@ struct Transaction::Impl {
     std::map<DocumentId, Document> backupDocs;
     std::uint64_t backupNextId = 0;
     std::map<std::string, std::unique_ptr<detail::FieldIndex>> backupIndexes;
+    std::map<DocumentId, std::uint64_t> backupSpillIndex; // Hybrid-Modus (v0.18)
     std::vector<ChangeEvent> events;
     bool active = true;
 
     explicit Impl(std::shared_ptr<detail::CollectionState> s) : state(std::move(s)), lock(state->mtx) {
         backupDocs = state->docs;
         backupNextId = state->nextId;
+        backupSpillIndex = state->spillIndex;
+        ++state->txLocks; // waehrend der Transaktion kein Evict ins Spill
         for (const auto& [path, idx] : state->indexes)
             backupIndexes.emplace(path, std::make_unique<detail::FieldIndex>(*idx));
+    }
+
+    ~Impl() {
+        if (state) {
+            --state->txLocks;
+            state->maybeEvict(); // nach Tx-Ende evtl. ueberfuellig geworden
+        }
     }
 
     void checkActive() const {
@@ -35,6 +45,7 @@ struct Transaction::Impl {
     void restore() {
         state->docs = backupDocs;
         state->nextId = backupNextId;
+        state->spillIndex = backupSpillIndex; // Spill-Index mit zuruecksetzen (Records bleiben im File)
         state->indexes.clear();
         for (const auto& [path, idx] : backupIndexes)
             state->indexes.emplace(path, std::make_unique<detail::FieldIndex>(*idx));

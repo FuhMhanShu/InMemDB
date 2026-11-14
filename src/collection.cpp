@@ -235,6 +235,37 @@ bool Collection::removeById(DocumentId id) {
     return ok;
 }
 
+void Collection::setOverflow(const std::string& spillFile, std::size_t maxInMemoryDocs) {
+    if (impl_->txLocks.load() > 0) // vor dem Lock pruefen (sonst Deadlock im eigenen Tx-Kontext)
+        throw Error("setOverflow: waehrend aktiver Transaktion nicht erlaubt");
+    std::unique_lock lock(impl_->mtx);
+    impl_->enableOverflow(spillFile, maxInMemoryDocs);
+}
+
+void Collection::disableOverflow() {
+    if (impl_->txLocks.load() > 0)
+        throw Error("disableOverflow: waehrend aktiver Transaktion nicht erlaubt");
+    std::unique_lock lock(impl_->mtx);
+    impl_->disableOverflow();
+}
+
+OverflowInfo Collection::overflowInfo() const {
+    std::shared_lock lock(impl_->mtx);
+    OverflowInfo info;
+    info.enabled = impl_->overflowEnabled;
+    info.spillFile = impl_->spillPath;
+    info.maxInMemory = impl_->maxInMemory;
+    info.inMemory = impl_->docs.size();
+    info.spilled = impl_->spillIndex.size();
+    info.spillBytes = impl_->spillBytes;
+    return info;
+}
+
+std::uint64_t Collection::compactSpill() {
+    std::unique_lock lock(impl_->mtx);
+    return impl_->compactSpill();
+}
+
 std::size_t Collection::size() const {
     std::shared_lock lock(impl_->mtx);
     return impl_->doSize();
