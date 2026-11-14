@@ -16,6 +16,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Referenzen zwischen Collections/Dokumenten](docs/references.md) (FA-18, v0.8)
 - [Typ-Mapping zu SQL/MongoDB/JSON](docs/type-mapping.md)
 - [Import aus externen Quellen (z. B. SQLite)](docs/import.md) (FA-21, v0.13)
+- [Datenbank-Graph (JSON/Mermaid/Markdown, LLM-freundlich)](docs/db-graph.md) (FA-22, v0.15)
 
 ## Features (v0.8)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
@@ -30,6 +31,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Verschlüsselte binäre Snapshots: `saveToFileEncrypted`/`loadFromFileEncrypted` (PBKDF2 + ChaCha20 + HMAC-SHA256, FA-19)
 - Striktes optionales Schema pro Collection mit Feldtypen als Metadaten (FA-20)
 - Import-Modul: `ImportRegistry` (Factory, Auto-Erkennung per Dateiendung) + `Importer`; Quellen ohne Abhängigkeiten: CSV, JSON/JSONL, Snapshot-Reimport, SQL-Dump, BSON; optional SQLite via `INMEMDB_WITH_SQLITE=ON`; CLI-Tool `inmemdb_import` (FA-21)
+- Datenbank-Graph als JSON/Mermaid/Markdown (Collections + Schema/Indizes + FA-18-Referenzen), auch aus Snapshot-Datei; CLI `inmemdb_graph` (FA-22)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
@@ -89,6 +91,7 @@ Lauffähige Beispiele in `examples/` (werden mitgebaut und als CTest-Smoke-Tests
 | `12_encrypted_snapshot.cpp` | DB binär verschlüsselt speichern/laden (FA-19) |
 | `13_schema.cpp` | Striktes Schema: Feldtypen prüfen, undefinierte Felder ablehnen (FA-20) |
 | `14_query_dsl.cpp` | String-DSL: `find("age >= 18 && ...")`, `matches`/`in`, eigener Operator, `@kunde.*`-Join (v0.14) |
+| `15_db_graph.cpp` | Datenbank-Graph: Mermaid/JSON/Markdown aus DB oder Snapshot (FA-22) |
 
 ```sh
 cmake --build build -j
