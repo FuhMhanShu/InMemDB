@@ -6,3 +6,4 @@ inmemdb_encrypted*.bin
 inmemdb_import_test.db
 inmemdb_import_csv_test*.csv
 inmemdb_fmt_*
+inmemdb_graph_test.inmemdb.json
