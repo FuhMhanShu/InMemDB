@@ -10,12 +10,36 @@ namespace memdb::detail {
 
 namespace {
 
+// Maximale Expansion von {n,m} (Schutz gegen Pattern wie a{1000000000})
+constexpr int kMaxRepeat = 1000;
+
 struct Ast {
-    enum class T { Empty, Char, Any, Class, Concat, Alt, Star, Plus, Opt, Start, End } t;
+    enum class T { Empty, Char, Any, Class, Concat, Alt, Star, Plus, Opt, Rep, Start, End } t;
     char c = 0;
     std::array<bool, 256> cls{};
+    int repMin = 0;
+    int repMax = 0; // -1 = unbegrenzt
     std::vector<Ast> kids;
 };
+
+bool isShorthand(char c) { return c == 'd' || c == 'D' || c == 's' || c == 'S' || c == 'w' || c == 'W'; }
+
+// Fuellt cls mit den Bits einer Kurzschrift (d=Ziffern, s=Whitespace, w=Word [A-Za-z0-9_]);
+// Grossbuchstaben setzen das Komplement.
+void applyShorthand(char c, std::array<bool, 256>& cls) {
+    bool neg = (c >= 'A' && c <= 'Z');
+    char base = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+    for (int k = 0; k < 256; ++k) {
+        bool bit = false;
+        if (base == 'd')
+            bit = k >= '0' && k <= '9';
+        else if (base == 's')
+            bit = k == ' ' || k == '\t' || k == '\n' || k == '\r' || k == '\f' || k == '\v';
+        else if (base == 'w')
+            bit = (k >= '0' && k <= '9') || (k >= 'A' && k <= 'Z') || (k >= 'a' && k <= 'z') || k == '_';
+        cls[k] = neg ? !bit : bit;
+    }
+}
 
 struct Parser {
     std::string_view p;
@@ -25,6 +49,7 @@ struct Parser {
 
     bool eof() const { return i >= p.size(); }
     char peek() const { return eof() ? '\0' : p[i]; }
+    char peekAt(std::size_t off) const { return i + off >= p.size() ? '\0' : p[i + off]; }
 
     [[noreturn]] void fail(const std::string& msg) {
         throw std::invalid_argument("RegEx an Position " + std::to_string(i) + ": " + msg);
@@ -39,9 +64,60 @@ struct Parser {
             case 'n': return '\n';
             case 'r': return '\r';
             case 't': return '\t';
+            case 'f': return '\f';
+            case 'v': return '\v';
+            case 'a': return '\a';
             case '0': return '\0';
-            default: return c;
+            default: return c; // \. \\ \[ \| ... -> literales Zeichen
         }
+    }
+
+    int parseNum() {
+        if (eof() || peek() < '0' || peek() > '9')
+            fail("Zahl erwartet");
+        int v = 0;
+        while (!eof() && peek() >= '0' && peek() <= '9') {
+            v = v * 10 + (p[i++] - '0');
+            if (v > kMaxRepeat * 10)
+                fail("Zahl zu gross");
+        }
+        return v;
+    }
+
+    // {n} {n,} {n,m} (mit optionalem Lazy-'?') -> Rep; false wenn kein '{' vorliegt
+    bool parseBrace(Ast& out) {
+        if (peek() != '{')
+            return false;
+        std::size_t save = i;
+        ++i;
+        if (eof() || peek() < '0' || peek() > '9') { // kein {n..}: '{' literal
+            i = save;
+            return false;
+        }
+        int n = parseNum();
+        int m = n;
+        if (peek() == ',') {
+            ++i;
+            if (peek() == '}')
+                m = -1; // {n,}
+            else
+                m = parseNum();
+        }
+        if (peek() != '}') {
+            i = save;
+            return false; // '{' literal
+        }
+        ++i;
+        if (m != -1 && m < n)
+            fail("ungueltige Wiederholung {" + std::to_string(n) + "," + std::to_string(m) + "}");
+        if (n > kMaxRepeat || (m != -1 && m > kMaxRepeat))
+            fail("Wiederholung groesser als " + std::to_string(kMaxRepeat));
+        if (peek() == '?')
+            ++i; // Lazy-Marker: bei Full-Match ohne semantische Wirkung
+        out.t = Ast::T::Rep;
+        out.repMin = n;
+        out.repMax = m;
+        return true;
     }
 
     Ast parseAlt() {
@@ -76,14 +152,25 @@ struct Parser {
 
     Ast parseQuant() {
         Ast a = parseAtom();
-        if (!eof() && (peek() == '*' || peek() == '+' || peek() == '?')) {
-            char q = p[i++];
-            Ast n;
-            n.t = q == '*' ? Ast::T::Star : (q == '+' ? Ast::T::Plus : Ast::T::Opt);
-            n.kids = {std::move(a)};
-            return n;
+        for (;;) {
+            if (!eof() && (peek() == '*' || peek() == '+' || peek() == '?')) {
+                char q = p[i++];
+                if (peek() == '?')
+                    ++i; // Lazy-Marker (bei Full-Match ohne Wirkung)
+                Ast n;
+                n.t = q == '*' ? Ast::T::Star : (q == '+' ? Ast::T::Plus : Ast::T::Opt);
+                n.kids = {std::move(a)};
+                a = std::move(n);
+                continue;
+            }
+            Ast r;
+            if (parseBrace(r)) {
+                r.kids = {std::move(a)};
+                a = std::move(r);
+                continue;
+            }
+            return a;
         }
-        return a;
     }
 
     Ast parseAtom() {
@@ -92,6 +179,12 @@ struct Parser {
         char c = p[i];
         if (c == '(') {
             ++i;
+            if (peek() == '?') { // (?:...) Non-Capturing; andere (?...) nicht unterstuetzt
+                ++i;
+                if (peek() != ':')
+                    fail("nur (?:...) wird unterstuetzt");
+                ++i;
+            }
             Ast g = parseAlt();
             if (eof() || peek() != ')')
                 fail("')' erwartet");
@@ -112,6 +205,11 @@ struct Parser {
                 ++i;
             }
             while (!eof() && peek() != ']') {
+                if (p[i] == '\\' && i + 1 < p.size() && isShorthand(p[i + 1])) {
+                    applyShorthand(p[i + 1], cl.cls);
+                    i += 2;
+                    continue;
+                }
                 char lo;
                 if (p[i] == '\\')
                     lo = esc();
@@ -159,6 +257,13 @@ struct Parser {
             return a;
         }
         if (c == '\\') {
+            if (i + 1 < p.size() && isShorthand(p[i + 1])) {
+                Ast cl;
+                cl.t = Ast::T::Class;
+                applyShorthand(p[i + 1], cl.cls);
+                i += 2;
+                return cl;
+            }
             Ast a;
             a.t = Ast::T::Char;
             a.c = esc();
@@ -291,6 +396,35 @@ struct Compiler {
                 f.outs.push_back({sp, 1});
                 return f;
             }
+            case Ast::T::Rep: { // {n} {n,} {n,m}: n Pflicht-Kopien + Star bzw. (m-n) Opt-Kopien
+                std::vector<Frag> parts;
+                for (int k = 0; k < a.repMin; ++k)
+                    parts.push_back(compile(a.kids[0]));
+                if (a.repMax == -1) {
+                    Ast s;
+                    s.t = Ast::T::Star;
+                    s.kids.push_back(a.kids[0]);
+                    parts.push_back(compile(s));
+                } else {
+                    for (int k = a.repMin; k < a.repMax; ++k) {
+                        Ast o;
+                        o.t = Ast::T::Opt;
+                        o.kids.push_back(a.kids[0]);
+                        parts.push_back(compile(o));
+                    }
+                }
+                if (parts.empty()) {
+                    Ast e;
+                    e.t = Ast::T::Empty;
+                    return compile(e);
+                }
+                Frag f = std::move(parts[0]);
+                for (std::size_t k = 1; k < parts.size(); ++k) {
+                    patch(f.outs, parts[k].start);
+                    f.outs = std::move(parts[k].outs);
+                }
+                return f;
+            }
         }
         throw std::invalid_argument("RegEx: ungueltiger AST");
     }
@@ -320,56 +454,47 @@ bool regexMatchImpl(std::string_view pattern, std::string_view text) {
     int match = c.emit(Inst{Inst::Match});
     c.patch(f.outs, match);
 
-    // Simulation: current = Menge von Programmzustaenden nach Epsilon-Closure
-    auto closure = [&](std::vector<int>& list, int pc) {
+    // Epsilon-Closure inkl. Anker-Auswertung an Position tp.
+    // Visited-Set pro Aufruf (stamp): verhindert Endlosschleifen bei Rueckkanten
+    // (z. B. (a*)* oder ()*).
+    std::vector<int> stamp(prog.insts.size(), 0);
+    int stampCounter = 0;
+    auto closure = [&](std::vector<int>& list, int pc, std::size_t tp) {
+        ++stampCounter;
         std::vector<int> stack{pc};
         while (!stack.empty()) {
             int s = stack.back();
             stack.pop_back();
+            if (s < 0 || stamp[s] == stampCounter)
+                continue;
+            stamp[s] = stampCounter;
             const Inst& in = prog.insts[s];
-            if (in.op == Inst::Split) {
-                stack.push_back(in.out);
-                stack.push_back(in.out2);
-            } else if (in.op == Inst::Jmp) {
-                stack.push_back(in.out);
-            } else {
-                list.push_back(s);
+            switch (in.op) {
+                case Inst::Split:
+                    stack.push_back(in.out);
+                    stack.push_back(in.out2);
+                    break;
+                case Inst::Jmp:
+                    stack.push_back(in.out);
+                    break;
+                case Inst::AssertStart:
+                    if (tp == 0)
+                        stack.push_back(in.out);
+                    break; // sonst Pfad stirbt
+                case Inst::AssertEnd:
+                    if (tp == text.size())
+                        stack.push_back(in.out);
+                    break;
+                default:
+                    list.push_back(s);
+                    break;
             }
-        }
-    };
-
-    // Anker expandieren: AssertStart nur an tp==0, AssertEnd nur am Textende
-    auto expandAsserts = [&](std::vector<int>& list, std::size_t tp) {
-        bool changed = true;
-        while (changed) {
-            changed = false;
-            std::vector<int> add;
-            for (int pc : list) {
-                const Inst& in = prog.insts[pc];
-                if ((in.op == Inst::AssertStart && tp == 0) ||
-                    (in.op == Inst::AssertEnd && tp == text.size())) {
-                    std::vector<int> tmp;
-                    closure(tmp, in.out);
-                    add.insert(add.end(), tmp.begin(), tmp.end());
-                    changed = true;
-                }
-            }
-            // Assert-Instruktionen selbst entfernen, gefundene Nachfolger anhaengen
-            std::vector<int> keep;
-            for (int pc : list) {
-                Inst::Op op = prog.insts[pc].op;
-                if (op != Inst::AssertStart && op != Inst::AssertEnd)
-                    keep.push_back(pc);
-            }
-            keep.insert(keep.end(), add.begin(), add.end());
-            list = std::move(keep);
         }
     };
 
     std::vector<int> cur;
-    closure(cur, f.start);
+    closure(cur, f.start, 0);
     for (std::size_t tp = 0; tp <= text.size(); ++tp) {
-        expandAsserts(cur, tp);
         if (tp == text.size()) {
             for (int pc : cur)
                 if (prog.insts[pc].op == Inst::Match)
@@ -388,7 +513,7 @@ bool regexMatchImpl(std::string_view pattern, std::string_view text) {
                 default: ok = false; break;
             }
             if (ok)
-                closure(next, in.out);
+                closure(next, in.out, tp + 1);
         }
         cur = std::move(next);
     }

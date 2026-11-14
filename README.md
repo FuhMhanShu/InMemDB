@@ -20,7 +20,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Hybrid / Out-of-Core](docs/hybrid-outofcore.md) (Spill-to-Disk, opt-in, v0.18)
 - [Qt/qmake-Einbindung](docs/qt-qmake.md) (`InMemDB.pro` + `InMemDB.pri`, FA-23, v0.16)
 
-## Features (v0.19)
+## Features (v0.20)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")` – oder als String-DSL: `find("age >= 18 && tags.contains('cpp')")` mit registrierbaren Operatoren (`matches`, `in`, eigene) und `@relation.path`-Joins (v0.14)
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
@@ -37,6 +37,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Qt/qmake-Einbindung via `InMemDB.pri` (Lib linken oder Quellen mitkompilieren) + `InMemDB.pro`; Beispiel `examples/qt_hello` (FA-23)
 - Hybrid/Out-of-Core: `setOverflow(spillFile, maxInMemory)` lagert älteste Dokumente in eine Datei aus, liest on-demand; Transaktionen berücksichtigen den Spill (v0.18)
 - Performance-Reste beseitigt (v0.19): Transaktionen per Copy-on-Write-Undo (O(1) Begin/Commit statt Voll-Backup – 835 ms → 0,3 ms bei 1 Mio. Docs), JSON-Parser-Fastpaths (80-MB-Snapshot 2,36 s → 1,44 s), Event-Reservierung bei `insertBulk`; Details in `docs/transactions.md`
+- Bessere `matches`-Regex (v0.20): `{n,m}`, `\d\w\s`-Klassen, `(?:...)`, Lazy-Quantoren; kein Hang mehr bei `(a*)*` (Visited-Set im Thompson-NFA)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
