@@ -17,8 +17,9 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Typ-Mapping zu SQL/MongoDB/JSON](docs/type-mapping.md)
 - [Import aus externen Quellen (z. B. SQLite)](docs/import.md) (FA-21, v0.13)
 - [Datenbank-Graph (JSON/Mermaid/Markdown, LLM-freundlich)](docs/db-graph.md) (FA-22, v0.15)
+- [Qt/qmake-Einbindung](docs/qt-qmake.md) (`InMemDB.pro` + `InMemDB.pri`, FA-23, v0.16)
 
-## Features (v0.15)
+## Features (v0.16)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")` – oder als String-DSL: `find("age >= 18 && tags.contains('cpp')")` mit registrierbaren Operatoren (`matches`, `in`, eigene) und `@relation.path`-Joins (v0.14)
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
@@ -32,6 +33,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Striktes optionales Schema pro Collection mit Feldtypen als Metadaten (FA-20)
 - Import-Modul: `ImportRegistry` (Factory, Auto-Erkennung per Dateiendung) + `Importer`; Quellen ohne Abhängigkeiten: CSV, JSON/JSONL, Snapshot-Reimport, SQL-Dump, BSON; optional SQLite via `INMEMDB_WITH_SQLITE=ON`; CLI-Tool `inmemdb_import` (FA-21)
 - Datenbank-Graph als JSON/Mermaid/Markdown (Collections + Schema/Indizes + FA-18-Referenzen), auch aus Snapshot-Datei; CLI `inmemdb_graph` (FA-22)
+- Qt/qmake-Einbindung via `InMemDB.pri` (Lib linken oder Quellen mitkompilieren) + `InMemDB.pro`; Beispiel `examples/qt_hello` (FA-23)
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
@@ -57,19 +59,78 @@ In der CI läuft dafür der Job **Docs (doxygen)**.
 
 ## Nutzung
 
+Alles in einem lauffähigen Beispiel – schema-lose Dokumente, Index, Query als
+C++-Ausdruckbaum **oder** String-DSL, striktes Schema, Referenzen mit Join-in-Query,
+Transaktion, Observer, Aggregation, verschlüsselter Snapshot, Import, Graph-Export:
+
 ```cpp
 #include <memdb/memdb.hpp>
+#include <iostream>
 using namespace memdb;
 
-Database db("meine-db");
-Collection users = db.createCollection("users");
+int main() {
+    Database db("shop");
 
-DocumentId id = users.insert({{"name", "Ada"}, {"age", 36}});
+    // 1) Schema-lose Dokumente: Felder pro Dokument beliebig erweiterbar
+    Collection users = db.createCollection("users");
+    DocumentId ada = users.insert({{"name", "Ada"}, {"age", 36}, {"stadt", "Berlin"},
+                                   {"tags", std::vector<Value>{Value("cpp"), Value("db")}}});
+    users.insert({{"name", "Bob"}, {"age", 17}, {"stadt", "Hamburg"}});  // anderes Feld-Set: ok
+    users.insert({{"name", "Cy"}, {"age", 40}, {"stadt", "Berlin"}, {"vip", true}});
 
-auto q = (Field("age") >= 18) && Field("name").contains("d");
-for (const Document& d : users.find(q))
-    ...
+    // 2) Index + Unique-Constraint (FA-10)
+    users.createIndex("name", true);
+
+    // 3) Queries: C++-Ausdruckbaum ODER String-DSL (NFA-03) – beides dieselbe Expression
+    auto q = (Field("age") >= 18) && (Field("stadt") == "Berlin");
+    for (const Document& d : users.find(q))
+        std::cout << d.at("name").asString() << "\n";          // Ada, Cy
+    std::cout << users.count("age >= 18 && stadt == 'Berlin'") << "\n";   // DSL
+    std::cout << users.count("tags.contains('cpp')") << "\n";             // Function-Operator
+    std::cout << users.count("name.matches('^[A-C].*')") << "\n";         // Mini-RegEx
+
+    // 4) Referenzen (FA-18) + Join direkt in der Query: '@kunde.name'
+    Collection orders = db.createCollection("orders");
+    DocumentId o1 = orders.insert({{"total", 500}});
+    ReferenceIndex refs(db);
+    refs.link("orders", o1, "users", ada, "kunde");
+    std::cout << orders.count("@kunde.name == 'Ada' && total >= 100", db) << "\n";  // 1
+
+    // 5) Transaktion (FA-12): alles oder nichts
+    {
+        auto tx = users.beginTransaction();
+        tx.update("age < 18", [](Document& d) { d.set("minor", true); });
+        tx.commit();   // sonst rollback() bzw. RAII-Rollback
+    }
+
+    // 6) Optionales striktes Schema (FA-20): ab jetzt keine undefinierten Felder mehr
+    Schema sch;
+    sch.add("name", Value::Type::String).notNull();
+    sch.add("age", Value::Type::Int);
+    users.setSchema(std::move(sch));
+
+    // 7) Observer (FA-15) + Aggregation (FA-13)
+    auto h = users.onChange([](const ChangeEvent& e) { std::cout << "change: " << (int)e.type << "\n"; });
+    std::cout << users.aggregate(AggOp::Avg, "age").value().asDouble() << "\n";
+    users.offChange(h);
+
+    // 8) Snapshot: JSON (FA-14) oder binär verschlüsselt (FA-19)
+    db.saveToFile("shop.inmemdb.json");
+    db.saveToFileEncrypted("shop.enc", "geheim");
+    Database copy = Database::loadFromFileEncrypted("shop.enc", "geheim");
+
+    // 9) Import externer Quellen (FA-21) + Datenbank-Graph als Mermaid/JSON (FA-22)
+    Importer::import(db, "csv", "kunden.csv");                  // oder CLI: inmemdb_import kunden.csv
+    std::cout << DbGraph::fromDatabase(db).toMermaid() << "\n"; // rendert direkt als Diagramm
+}
 ```
+
+Im Detail: [Query-API & String-DSL](docs/query-api.md) · [String-DSL/Operatoren/@ref-Joins](docs/query-dsl.md) ·
+[Indizes](docs/indexes.md) · [Transaktionen](docs/transactions.md) · [Schema](docs/schema.md) ·
+[Referenzen](docs/references.md) · [Observer](docs/observer.md) · [Aggregationen](docs/aggregations.md) ·
+[Snapshot/JSON](docs/snapshot-json.md) · [Verschlüsselte Snapshots](docs/encrypted-snapshot.md) ·
+[Import](docs/import.md) · [Datenbank-Graph](docs/db-graph.md) · [Qt/qmake](docs/qt-qmake.md) ·
+[Typ-Mapping](docs/type-mapping.md) · [Architektur](docs/architecture.md)
 
 ## Beispiele
 
