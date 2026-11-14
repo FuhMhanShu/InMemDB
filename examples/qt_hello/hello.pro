@@ -8,8 +8,9 @@ CONFIG -= app_bundle
 TEMPLATE = app
 TARGET = qt_hello
 
-# Pfad zum InMemDB-Repo (hier: zwei Ebenen hoch)
-INMEMDB_DIR = $$clean_path($$PWD/../..)
+# Pfad zum InMemDB-Repo (hier: zwei Ebenen hoch); $$_PRO_FILE_PWD_ = Verzeichnis dieser .pro
+# (auch im Shadow-Build korrekt, im Gegensatz zu $$PWD = Aufrufverzeichnis von qmake)
+INMEMDB_DIR = $$clean_path($$_PRO_FILE_PWD_/../..)
 
 # Variante B: InMemDB-Quellen direkt mitkompilieren (kein Vorab-Build der Lib nötig).
 # Variante A stattdessen: Zeile auskommentieren und vorher "qmake InMemDB.pro && make"

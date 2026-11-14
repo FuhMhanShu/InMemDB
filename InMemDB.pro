@@ -8,22 +8,22 @@ TARGET = InMemDB
 CONFIG += staticlib c++17
 CONFIG -= qt
 
-DESTDIR = $$PWD
-OBJECTS_DIR = $$PWD/build-qmake/obj
-MOC_DIR = $$PWD/build-qmake/moc
-UI_DIR = $$PWD/build-qmake/ui
-RCC_DIR = $$PWD/build-qmake/rcc
+DESTDIR = $$_PRO_FILE_PWD_
+OBJECTS_DIR = $$_PRO_FILE_PWD_/build-qmake/obj
+MOC_DIR = $$_PRO_FILE_PWD_/build-qmake/moc
+UI_DIR = $$_PRO_FILE_PWD_/build-qmake/ui
+RCC_DIR = $$_PRO_FILE_PWD_/build-qmake/rcc
 
-INCLUDEPATH += $$PWD/include
+INCLUDEPATH += $$_PRO_FILE_PWD_/include
 
 # alle Implementierungen außer dem optionalen SQLite-Modul
-SOURCES += $$files($$PWD/src/*.cpp, false)
-SOURCES -= $$PWD/src/import_sqlite.cpp
-HEADERS += $$files($$PWD/include/memdb/*.hpp, false)
+SOURCES += $$files($$_PRO_FILE_PWD_/src/*.cpp, false)
+SOURCES -= $$_PRO_FILE_PWD_/src/import_sqlite.cpp
+HEADERS += $$files($$_PRO_FILE_PWD_/include/memdb/*.hpp, false)
 
 # Optionales SQLite-Modul (FA-21): qmake "CONFIG+=inmemdb_sqlite" InMemDB.pro
 inmemdb_sqlite {
     DEFINES += INMEMDB_HAS_SQLITE
     LIBS += -lsqlite3
-    SOURCES += $$PWD/src/import_sqlite.cpp
+    SOURCES += $$_PRO_FILE_PWD_/src/import_sqlite.cpp
 }
