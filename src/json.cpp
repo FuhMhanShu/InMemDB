@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <charconv>
 #include <cstring>
 #include <memory>
 
@@ -131,6 +132,13 @@ struct Parser {
         while (true) {
             if (pos >= s.size())
                 fail("ungueltiger String (fehlendes '\"')");
+            // Fast-Path: kompletter Lauf bis '"' oder '\' auf einmal anhaengen
+            std::size_t runStart = pos;
+            while (pos < s.size() && s[pos] != '"' && s[pos] != '\\')
+                ++pos;
+            out.append(s.data() + runStart, pos - runStart);
+            if (pos >= s.size())
+                fail("ungueltiger String (fehlendes '\"')");
             char c = s[pos++];
             if (c == '"')
                 break;
@@ -194,17 +202,25 @@ struct Parser {
         std::memcpy(buf, s.data() + start, n);
         buf[n] = '\0';
         if (!isDouble) {
+            std::int64_t v = 0;
+            auto r = std::from_chars(buf, buf + n, v);
+            if (r.ec == std::errc() && r.ptr == buf + n)
+                return Value(v);
             errno = 0;
             char* end = nullptr;
-            long long v = std::strtoll(buf, &end, 10);
+            long long fb = std::strtoll(buf, &end, 10);
             if (errno == 0 && end && *end == '\0')
-                return Value(static_cast<std::int64_t>(v));
+                return Value(static_cast<std::int64_t>(fb));
+        } else {
+            double d = 0.0;
+            auto r = std::from_chars(buf, buf + n, d);
+            if (r.ec == std::errc() && r.ptr == buf + n)
+                return Value(d);
+            char* end = nullptr;
+            double fb = std::strtod(buf, &end);
+            if (end && *end == '\0')
+                return Value(fb);
         }
-        errno = 0;
-        char* end = nullptr;
-        double d = std::strtod(buf, &end);
-        if (end && *end == '\0')
-            return Value(d);
         fail(std::string("ungueltige Zahl '") + buf + "'");
     }
 

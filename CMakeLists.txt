@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.18 LANGUAGES CXX)
+project(InMemDB VERSION 0.19 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -83,6 +83,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_tests_hybrid tests/test_hybrid.cpp)
     target_link_libraries(memdb_tests_hybrid PRIVATE memdb)
     add_test(NAME memdb_tests_hybrid COMMAND memdb_tests_hybrid)
+
+    add_executable(memdb_tests_tx_cow tests/test_tx_cow.cpp)
+    target_link_libraries(memdb_tests_tx_cow PRIVATE memdb)
+    add_test(NAME memdb_tests_tx_cow COMMAND memdb_tests_tx_cow)
 
     add_executable(memdb_tests_import_csv tests/test_import_csv.cpp)
     target_link_libraries(memdb_tests_import_csv PRIVATE memdb)

@@ -60,7 +60,7 @@ CMakeLists.txt    Library-Target `memdb` (STATIC) + Tests via CTest + optionale 
 Alle zustandsändernden Operationen liegen als lock-freie `do*`-Methoden in
 `src/collection_state.hpp` (`detail::CollectionState`) und werden von **beiden** Hüllen
 geteilt: `Collection` (public, `shared_mutex`: shared für Lesen / unique für Schreiben) und
-`Transaction` (Exklusiv-Lock + Voll-Backup für Rollback, FA-12). Dadurch ist die
+`Transaction` (Exklusiv-Lock + CoW-Undo-Log für Rollback, FA-12; seit v0.19 O(1) statt O(n) pro Begin). Dadurch ist die
 Transaktionslogik exakt dieselbe Code-Basis wie der Normalbetrieb – keine doppelte Logik.
 
 ### Erweiterungsmodule ohne Kernänderung (NFA-03, Open/Closed)

@@ -74,7 +74,16 @@ int main() {
         tx.commit();
     }
     t1 = clk::now();
-    std::cout << "Transaction begin+commit auf " << N << " Docs (komplette Backup-Kopie): " << ms(t0, t1) << " ms\n";
+    std::cout << "Transaction begin+commit auf " << N << " Docs (CoW-Undo v0.19, O(1)): " << ms(t0, t1) << " ms\n";
+
+    t0 = clk::now();
+    {
+        Transaction tx = c.beginTransaction();
+        tx.insert({{"name", "tx-rb"}});
+        tx.rollback();
+    }
+    t1 = clk::now();
+    std::cout << "Transaction begin+rollback auf " << N << " Docs (Undo-Replay+Reindex): " << ms(t0, t1) << " ms\n";
 
     t0 = clk::now();
     std::string json = db.toJson();

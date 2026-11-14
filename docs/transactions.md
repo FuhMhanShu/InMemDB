@@ -29,10 +29,13 @@ Innerhalb der Transaktion sind alle Lese-/Schreiboperationen verfügbar
   `shared_mutex` der Collection – währenddessen blockieren alle anderen
   Zugriffe (lesen und schreiben). Damit ist die Transaktion vollständig
   serialisiert (Snapshot-Isolation, FA-16).
-- **Atomarität/Rollback:** Beim Begin wird eine vollständige Kopie des
-  Collection-Zustands (Dokumente, ID-Zähler, Indizes) als Backup gesichert.
-  `rollback()` – oder der Destruktor ohne `commit()` – stellt das Backup
-  wieder her (alles-oder-nichts).
+- **Atomarität/Rollback (Copy-on-Write, v0.19):** Beim Begin wird nur ein
+  Undo-Log aktiviert (`CollectionState::undo`); jede schreibende Operation
+  protokolliert vor ihrer ersten Änderung pro Dokument dessen alten Zustand
+  (`noteUndo`). `rollback()` – oder der Destruktor ohne `commit()` – spielt
+  das Undo-Log zurück und baut die Index-Einträge neu auf (alles-oder-nichts).
+  Kosten: O(1) für `beginTransaction()`/`commit()`, O(angefasste Dokumente + Reindex)
+  nur beim Rollback – statt O(Collection) Voll-Backup bei jedem Begin (bis v0.18).
 - **Commit:** Änderungen bleiben bestehen, Lock wird freigegeben.
 - Nach `commit()`/`rollback()` wirft jeder weitere Aufruf `Error`
   („Transaktion ist nicht mehr aktiv").
@@ -41,12 +44,21 @@ Innerhalb der Transaktion sind alle Lese-/Schreiboperationen verfügbar
   kann danach gezielt zurückgerollt werden.
 - Index-Nutzung (FA-10) funktioniert innerhalb der Transaktion wie außerhalb.
 
-## Implementierungs-Hinweis (v1)
-Rollback per vollständiger Kopie – einfach und korrekt, aber O(Collection) pro
-`beginTransaction()`. Für große Collections ist als Ausblick ein Undo-Log /
-Copy-on-Write vorgesehen (siehe Ausblick in den Anforderungen).
+## Implementierungs-Hinweis (v0.19: CoW-Undo)
+Rollback per Undo-Log (Copy-on-Write): `beginTransaction()` kostet O(1) + O(#Indizes)
+(Index-Struktur wird als Pfad/Unique-Liste gesichert, nicht die Einträge).
+Jede Mutation ruft `CollectionState::noteUndo(id)`/`noteUndoClear()` auf, bevor sie
+wirkt; das Undo-Log enthält höchstens einen Eintrag pro angefasstem Dokument.
+`restore()` replays das Log, stellt `nextId`/`spillIndex` wieder her und baut die
+Indizes vollständig neu auf (nur beim Rollback, nie beim Commit).
+
+Gemessen (1 Mio. Dokumente, Release, x86-64): `beginTransaction()` + 1 Änderung +
+`commit()`: 835 ms (v0.18, Voll-Backup) → **0,3 ms** (v0.19); Rollback derselben Tx:
+1911 ms → **558 ms** (Reindex dominiert, fällt nur bei Rollback an). Hybrid-Modus: während
+der Tx ist Evict blockiert (`txLocks`); beim Rollback wird die Spill-Datei per Truncate
+auf den Pre-Tx-Stand gekürzt, beim Commit nach Clear geleert.
 
 Intern: `src/collection_state.hpp` kapselt den Collection-Zustand
 (`memdb::detail::CollectionState`) mit lock-freien `do*`-Operationen; sowohl
 `Collection` (mit `shared_lock`/`unique_lock`) als auch `Transaction`
-(exklusiver Lock + Backup) rufen dieselben Operationen.
+(exklusiver Lock + CoW-Undo) rufen dieselben Operationen.

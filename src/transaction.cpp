@@ -14,24 +14,33 @@ namespace memdb {
 struct Transaction::Impl {
     std::shared_ptr<detail::CollectionState> state;
     std::unique_lock<std::shared_mutex> lock;
-    std::map<DocumentId, Document> backupDocs;
+    // Copy-on-Write-Undo (v0.19): statt Voll-Backup (O(n) bei Tx-Start) nur angefasste
+    // Dokumente ueber CollectionState::noteUndo protokollieren -> O(1) Start/Commit,
+    // O(angefasste Docs + Reindex) nur beim Rollback.
+    detail::CollectionState::TxUndo undo;
     std::uint64_t backupNextId = 0;
-    std::map<std::string, std::unique_ptr<detail::FieldIndex>> backupIndexes;
+    std::map<std::string, bool> backupIndexPaths; // Index-Struktur (path -> unique), meist wenige Eintraege
     std::map<DocumentId, std::uint64_t> backupSpillIndex; // Hybrid-Modus (v0.18)
+    std::uint64_t backupSpillBytes = 0;
     std::vector<ChangeEvent> events;
     bool active = true;
 
     explicit Impl(std::shared_ptr<detail::CollectionState> s) : state(std::move(s)), lock(state->mtx) {
-        backupDocs = state->docs;
+        state->undo = &undo;
+        ++state->txLocks; // waehrend der Transaktion kein Evict ins Spill
         backupNextId = state->nextId;
         backupSpillIndex = state->spillIndex;
-        ++state->txLocks; // waehrend der Transaktion kein Evict ins Spill
+        backupSpillBytes = state->spillBytes;
         for (const auto& [path, idx] : state->indexes)
-            backupIndexes.emplace(path, std::make_unique<detail::FieldIndex>(*idx));
+            backupIndexPaths.emplace(path, idx->unique);
     }
 
-    ~Impl() {
-        if (state) {
+    ~Impl() { releaseState(); }
+
+    // Undo-Hook abmelden + Evict wieder erlauben (idempotent)
+    void releaseState() {
+        if (state && state->undo == &undo) {
+            state->undo = nullptr;
             --state->txLocks;
             state->maybeEvict(); // nach Tx-Ende evtl. ueberfuellig geworden
         }
@@ -43,12 +52,27 @@ struct Transaction::Impl {
     }
 
     void restore() {
-        state->docs = backupDocs;
-        state->nextId = backupNextId;
-        state->spillIndex = backupSpillIndex; // Spill-Index mit zuruecksetzen (Records bleiben im File)
+        if (undo.cleared)
+            state->docs = undo.clearedDocs;
+        for (auto& [id, old] : undo.docs) {
+            if (old)
+                state->docs[id] = *old;
+            else
+                state->docs.erase(id);
+        }
+        // Index-Struktur wiederherstellen und Eintraege komplett neu aufbauen
         state->indexes.clear();
-        for (const auto& [path, idx] : backupIndexes)
-            state->indexes.emplace(path, std::make_unique<detail::FieldIndex>(*idx));
+        for (const auto& [path, uniq] : backupIndexPaths) {
+            auto idx = std::make_unique<detail::FieldIndex>();
+            idx->path = path;
+            idx->unique = uniq;
+            state->indexes.emplace(path, std::move(idx));
+        }
+        for (const auto& [id, doc] : state->docs)
+            state->indexAdd(id, doc);
+        state->nextId = backupNextId;
+        state->spillIndex = backupSpillIndex;
+        state->truncateSpill(backupSpillBytes); // Spill-Datei auf Pre-Tx-Stand kuerzen (setzt spillBytes)
     }
 };
 
@@ -183,9 +207,12 @@ std::vector<GroupAggregate> Transaction::groupBy(const std::string& keyPath, con
 
 void Transaction::commit() {
     impl_->checkActive();
+    if (impl_->undo.cleared)
+        impl_->state->truncateSpill(0); // Clear/LoadBulk in Tx: Spill-Datei endgueltig leeren
     impl_->active = false;
     std::vector<ChangeEvent> events = std::move(impl_->events);
     impl_->events.clear();
+    impl_->releaseState(); // Undo-Hook abmelden + txLocks-- (noch unter exklusivem Lock)
     impl_->lock.unlock();
     if (!events.empty()) {
         std::vector<ChangeCallback> cbs;
@@ -206,6 +233,7 @@ void Transaction::rollback() {
         impl_->restore();
         impl_->events.clear();
         impl_->active = false;
+        impl_->releaseState();
         impl_->lock.unlock();
     }
 }

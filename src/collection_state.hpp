@@ -14,6 +14,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
+#include <fcntl.h>
 #include <fstream>
 #include <functional>
 #include <limits>
@@ -22,9 +23,32 @@
 #include <mutex>
 #include <set>
 #include <shared_mutex>
+#include <string>
 #include <vector>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace memdb::detail {
+
+// Datei physikalisch auf 'bytes' kuerzen (Rollback entfernt so Tx-Spill-Appends)
+inline void truncateFileTo(const std::string& path, std::uint64_t bytes) {
+#ifdef _WIN32
+    int fd = _open(path.c_str(), _O_RDWR | _O_BINARY);
+    if (fd >= 0) {
+        _chsize_s(fd, static_cast<__int64>(bytes));
+        _close(fd);
+    }
+#else
+    int fd = ::open(path.c_str(), O_RDWR);
+    if (fd >= 0) {
+        ::ftruncate(fd, static_cast<off_t>(bytes));
+        ::close(fd);
+    }
+#endif
+}
 
 struct ValueLess {
     static int rank(const Value& v) {
@@ -175,6 +199,30 @@ struct CollectionState {
     std::map<DocumentId, std::uint64_t> spillIndex;
     std::uint64_t spillBytes = 0;
     std::atomic<std::size_t> txLocks{0}; // >0 waehrend Transaktion: kein Evict
+
+    // Copy-on-Write-Undo fuer Transaktionen (v0.19): statt Voll-Backup nur angefasste Docs
+    struct TxUndo {
+        std::map<DocumentId, std::optional<Document>> docs; // alter Zustand (nullopt = gab es nicht)
+        bool cleared = false;
+        std::map<DocumentId, Document> clearedDocs;         // nur bei Clear/Load waehrend Tx
+    };
+    TxUndo* undo = nullptr;
+
+    void noteUndo(DocumentId id) {
+        if (undo && undo->docs.count(id) == 0) {
+            auto it = docs.find(id);
+            undo->docs[id] = it != docs.end() ? std::optional<Document>(it->second) : std::nullopt;
+        }
+    }
+    void noteUndoClear() {
+        if (undo && !undo->cleared) {
+            undo->cleared = true;
+            // Bereits per noteUndo erfasste IDs ueberlagern wir beim Restore separat
+            for (const auto& [id, doc] : docs)
+                if (undo->docs.count(id) == 0)
+                    undo->clearedDocs.emplace(id, doc);
+        }
+    }
     std::fstream spillFile;
 
     bool hasDoc(DocumentId id) const { return docs.count(id) != 0 || spillIndex.count(id) != 0; }
@@ -216,13 +264,24 @@ struct CollectionState {
         std::uint64_t off = spillBytes;
         std::uint64_t rid = id.value();
         std::uint32_t len = static_cast<std::uint32_t>(json.size());
-        spillFile.seekp(0, std::ios::end);
+        spillFile.seekp(static_cast<std::streamoff>(spillBytes)); // == Dateiende (Invariante)
         spillFile.write(reinterpret_cast<const char*>(&rid), 8);
         spillFile.write(reinterpret_cast<const char*>(&len), 4);
         spillFile.write(json.data(), static_cast<std::streamsize>(json.size()));
         spillFile.flush();
         spillBytes += 12 + len;
         spillIndex[id] = off;
+    }
+
+    // Spill-Datei physikalisch kuerzen und spillBytes setzen (Rollback/Commit nach Clear)
+    void truncateSpill(std::uint64_t bytes) {
+        if (!overflowEnabled || spillPath.empty())
+            return;
+        spillFile.flush();
+        spillFile.clear();
+        truncateFileTo(spillPath, bytes);
+        spillBytes = bytes;
+        spillFile.clear();
     }
 
     void maybeEvict() {
@@ -415,6 +474,7 @@ struct CollectionState {
         doc.setId(id);
         validateDoc(doc);
         validateUnique(id, doc);
+        noteUndo(id);
         auto [it, ok] = docs.emplace(id, doc);
         indexAdd(id, it->second);
         emit(ChangeType::Insert, id, it->second);
@@ -425,6 +485,8 @@ struct CollectionState {
     std::vector<DocumentId> doInsertBulk(std::vector<Document> docs_) {
         std::vector<DocumentId> ids;
         ids.reserve(docs_.size());
+        if (sink)
+            sink->reserve(sink->size() + docs_.size()); // Observer-Events ohne Realloc
         for (auto& doc : docs_)
             ids.push_back(doInsert(std::move(doc)));
         maybeEvict();
@@ -528,6 +590,7 @@ struct CollectionState {
         for (auto& [id, updated] : changes) {
             auto it = docs.find(id);
             if (it != docs.end()) {
+                noteUndo(id);
                 indexRemove(id, it->second);
                 it->second = std::move(updated);
                 indexAdd(id, it->second);
@@ -542,6 +605,7 @@ struct CollectionState {
 
     bool doUpdateById(DocumentId id, const std::function<void(Document&)>& mutator) {
         auto it = docs.find(id);
+        noteUndo(id);
         if (it == docs.end()) {
             if (!spillIndex.count(id))
                 return false;
@@ -567,6 +631,7 @@ struct CollectionState {
 
     bool doReplace(DocumentId id, Document doc) {
         auto it = docs.find(id);
+        noteUndo(id);
         if (it == docs.end()) {
             if (!spillIndex.count(id))
                 return false;
@@ -588,6 +653,7 @@ struct CollectionState {
 
     DocumentId doUpsertById(DocumentId id, Document doc) {
         auto it = docs.find(id);
+        noteUndo(id);
         if (it != docs.end()) {
             doc.setId(id);
             validateDoc(doc);
@@ -631,6 +697,7 @@ struct CollectionState {
         for (auto id : toRemove) {
             auto it = docs.find(id);
             if (it != docs.end()) {
+                noteUndo(id);
                 indexRemove(id, it->second);
                 emit(ChangeType::Remove, id, it->second);
                 docs.erase(it);
@@ -645,6 +712,7 @@ struct CollectionState {
 
     bool doRemoveById(DocumentId id) {
         auto it = docs.find(id);
+        noteUndo(id);
         if (it != docs.end()) {
             indexRemove(id, it->second);
             emit(ChangeType::Remove, id, it->second);
@@ -699,17 +767,21 @@ struct CollectionState {
     }
 
     void doClear() {
+        noteUndoClear();
         docs.clear();
         nextId = 1;
         for (auto& [path, idx] : indexes)
             idx->entries.clear();
         if (overflowEnabled) {
             spillIndex.clear();
-            if (spillFile.is_open())
-                spillFile.close();
-            { std::ofstream t(spillPath, std::ios::binary | std::ios::trunc); }
-            spillFile.open(spillPath, std::ios::in | std::ios::out | std::ios::binary);
-            spillBytes = 0;
+            if (undo == nullptr) {
+                // waehrend Tx Datei/Bytes stehenlassen: Rollback braucht die Records
+                if (spillFile.is_open())
+                    spillFile.close();
+                { std::ofstream t(spillPath, std::ios::binary | std::ios::trunc); }
+                spillFile.open(spillPath, std::ios::in | std::ios::out | std::ios::binary);
+                spillBytes = 0;
+            }
         }
         emit(ChangeType::Clear, DocumentId(0), Document{});
     }
@@ -721,17 +793,21 @@ struct CollectionState {
         if (!arrayValue.isArray())
             throw JsonError("Collection-JSON muss ein Array von Objekten sein");
         auto& items = arrayValue.asArray();
+        noteUndoClear();
         docs.clear();
         nextId = 1;
         for (auto& [path, idx] : indexes)
             idx->entries.clear();
         if (overflowEnabled) {
             spillIndex.clear();
-            if (spillFile.is_open())
-                spillFile.close();
-            { std::ofstream t(spillPath, std::ios::binary | std::ios::trunc); }
-            spillFile.open(spillPath, std::ios::in | std::ios::out | std::ios::binary);
-            spillBytes = 0;
+            if (undo == nullptr) {
+                // waehrend Tx Datei/Bytes stehenlassen: Rollback braucht die Records
+                if (spillFile.is_open())
+                    spillFile.close();
+                { std::ofstream t(spillPath, std::ios::binary | std::ios::trunc); }
+                spillFile.open(spillPath, std::ios::in | std::ios::out | std::ios::binary);
+                spillBytes = 0;
+            }
         }
         emit(ChangeType::Clear, DocumentId(0), Document{});
         for (auto& item : items) {
