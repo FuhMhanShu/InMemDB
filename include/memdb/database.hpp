@@ -1,6 +1,7 @@
 #pragma once
 
 #include "collection.hpp"
+#include "metrics.hpp"
 
 #include <memory>
 #include <string>
@@ -36,6 +37,10 @@ public:
     bool hasCollection(const std::string& name) const;
     /// @brief Namen aller Collections (sortiert).
     std::vector<std::string> collectionNames() const;
+    /// @brief Aggregierte Metriken ueber alle Collections (v0.22), siehe `Collection::metrics()`.
+    DatabaseMetrics metrics() const;
+    /// @brief Metriken einer einzelnen Collection (v0.22).
+    CollectionMetrics metrics(const std::string& collectionName) const;
     /// @brief Collection inkl. aller Dokumente löschen; false, wenn nicht vorhanden.
     bool dropCollection(const std::string& name);
     /// @brief Alle Collections löschen.

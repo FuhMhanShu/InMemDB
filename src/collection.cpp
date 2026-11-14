@@ -317,6 +317,50 @@ std::size_t Collection::lastQueryCandidateCount() const {
     return impl_->lastCandidateCount;
 }
 
+CollectionMetrics Collection::metrics() const {
+    std::shared_lock lock(impl_->mtx);
+    CollectionMetrics m;
+    const auto& s = impl_->metrics;
+    m.inserts = s.inserts.load();
+    m.updates = s.updates.load();
+    m.removes = s.removes.load();
+    m.queries = s.queries.load();
+    m.indexQueries = s.indexQueries.load();
+    m.scannedDocs = s.scannedDocs.load();
+    m.changeEvents = s.changeEvents.load();
+    m.spillReads = s.spillReads.load();
+    m.spillWrites = s.spillWrites.load();
+    m.txCommits = s.txCommits.load();
+    m.txRollbacks = s.txRollbacks.load();
+    m.docs = impl_->doSize();
+    m.indexCount = impl_->indexes.size();
+    m.lastCandidateCount = impl_->lastCandidateCount;
+    m.lastQueryUsedIndex = s.lastUsedIndex;
+    m.lastQueryMs = s.lastQueryMs;
+    m.totalQueryMs = s.totalQueryMs;
+    return m;
+}
+
+void Collection::resetMetrics() {
+    std::unique_lock lock(impl_->mtx);
+    auto& s = impl_->metrics;
+    s.inserts = 0;
+    s.updates = 0;
+    s.removes = 0;
+    s.queries = 0;
+    s.indexQueries = 0;
+    s.scannedDocs = 0;
+    s.changeEvents = 0;
+    s.spillReads = 0;
+    s.spillWrites = 0;
+    s.txCommits = 0;
+    s.txRollbacks = 0;
+    s.lastQueryMs = 0.0;
+    s.totalQueryMs = 0.0;
+    s.lastUsedIndex = false;
+    impl_->lastCandidateCount = 0;
+}
+
 Transaction Collection::beginTransaction() { return Transaction(impl_); }
 
 std::string Collection::toJson() const {
