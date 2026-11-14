@@ -52,6 +52,7 @@ struct Transaction::Impl {
     }
 
     void restore() {
+        ++state->metrics.txRollbacks;
         if (undo.cleared)
             state->docs = undo.clearedDocs;
         for (auto& [id, old] : undo.docs) {
@@ -219,6 +220,7 @@ std::vector<GroupAggregate> Transaction::groupBy(const std::string& keyPath, con
 
 void Transaction::commit() {
     impl_->checkActive();
+    ++impl_->state->metrics.txCommits;
     if (impl_->undo.cleared)
         impl_->state->truncateSpill(0); // Clear/LoadBulk in Tx: Spill-Datei endgueltig leeren
     impl_->active = false;

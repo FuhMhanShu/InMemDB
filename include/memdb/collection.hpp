@@ -5,6 +5,7 @@
 #include "cursor.hpp"
 #include "document.hpp"
 #include "index.hpp"
+#include "metrics.hpp"
 #include "query.hpp"
 #include "schema.hpp"
 #include "transaction.hpp"
@@ -171,6 +172,13 @@ public:
     /// @brief Diagnose: Kandidatenzahl der letzten find/findOne/count-Abfrage
     /// (Index-Nutzung nachweisbar; Vollscan = size()).
     std::size_t lastQueryCandidateCount() const;
+
+    /// @brief Metrik-/Diagnose-Snapshot der Collection (v0.22): Zaehler fuer Schreib- und
+    /// Lesezugriffe, Index-Nutzung, Query-Dauer, Spill-IO, Transaktionen; plus Ist-Werte
+    /// (docs, indexCount, lastCandidateCount). Siehe `docs/metrics.md`.
+    CollectionMetrics metrics() const;
+    /// @brief Alle Metrik-Zaehler dieser Collection zuruecksetzen (Ist-Werte bleiben).
+    void resetMetrics();
 
     /// @brief Startet eine atomare Transaktion auf dieser Collection (FA-12).
     Transaction beginTransaction();

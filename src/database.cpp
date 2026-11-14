@@ -50,6 +50,32 @@ bool Database::hasCollection(const std::string& name) const {
     return impl_->collections.find(name) != impl_->collections.end();
 }
 
+DatabaseMetrics Database::metrics() const {
+    DatabaseMetrics out;
+    for (const auto& name : collectionNames()) {
+        CollectionMetrics m = collection(name).metrics();
+        out.collectionCount++;
+        out.totalDocs += m.docs;
+        out.sum.inserts += m.inserts;
+        out.sum.updates += m.updates;
+        out.sum.removes += m.removes;
+        out.sum.queries += m.queries;
+        out.sum.indexQueries += m.indexQueries;
+        out.sum.scannedDocs += m.scannedDocs;
+        out.sum.changeEvents += m.changeEvents;
+        out.sum.spillReads += m.spillReads;
+        out.sum.spillWrites += m.spillWrites;
+        out.sum.txCommits += m.txCommits;
+        out.sum.txRollbacks += m.txRollbacks;
+        out.sum.totalQueryMs += m.totalQueryMs;
+    }
+    return out;
+}
+
+CollectionMetrics Database::metrics(const std::string& collectionName) const {
+    return collection(collectionName).metrics();
+}
+
 std::vector<std::string> Database::collectionNames() const {
     std::shared_lock lock(impl_->mtx);
     std::vector<std::string> names;

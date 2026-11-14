@@ -12,6 +12,7 @@
 #include "json.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <fcntl.h>
@@ -150,6 +151,25 @@ struct Accumulator {
     }
 };
 
+// Metrik-/Diagnose-Zaehler (v0.22): alle Zugriffe erfolgen unter mtx, die atomics
+// machen die Zaehler zusaetzlich robust gegen kuenftige lock-freie Pfade.
+struct Metrics {
+    std::atomic<std::uint64_t> inserts{0};
+    std::atomic<std::uint64_t> updates{0};
+    std::atomic<std::uint64_t> removes{0};
+    std::atomic<std::uint64_t> queries{0};
+    std::atomic<std::uint64_t> indexQueries{0};
+    std::atomic<std::uint64_t> scannedDocs{0};
+    std::atomic<std::uint64_t> changeEvents{0};
+    std::atomic<std::uint64_t> spillReads{0};
+    std::atomic<std::uint64_t> spillWrites{0};
+    std::atomic<std::uint64_t> txCommits{0};
+    std::atomic<std::uint64_t> txRollbacks{0};
+    double lastQueryMs = 0.0;
+    double totalQueryMs = 0.0;
+    bool lastUsedIndex = false;
+};
+
 struct CollectionState {
     std::string name;
     std::map<DocumentId, Document> docs;
@@ -157,6 +177,7 @@ struct CollectionState {
     std::map<std::string, std::unique_ptr<FieldIndex>> indexes;
     mutable std::shared_mutex mtx;
     mutable std::size_t lastCandidateCount = 0;
+    mutable Metrics metrics;
     std::vector<ChangeEvent>* sink = nullptr;
     std::vector<std::pair<std::uint64_t, ChangeCallback>> observers;
     std::uint64_t nextObserverId = 1;
@@ -168,8 +189,10 @@ struct CollectionState {
     }
 
     void emit(ChangeType type, DocumentId id, const Document& doc) {
-        if (sink)
+        if (sink) {
             sink->push_back(ChangeEvent{type, name, id, doc});
+            ++metrics.changeEvents;
+        }
     }
 
     void indexRemove(DocumentId id, const Document& doc) {
@@ -249,6 +272,7 @@ struct CollectionState {
         Document d;
         v.asDocument()->forEachField([&](const std::string& k, const Value& val) { d.set(k, val); });
         d.setId(id);
+        ++metrics.spillReads;
         return d;
     }
 
@@ -271,6 +295,7 @@ struct CollectionState {
         spillFile.flush();
         spillBytes += 12 + len;
         spillIndex[id] = off;
+        ++metrics.spillWrites;
     }
 
     // Spill-Datei physikalisch kuerzen und spillBytes setzen (Rollback/Commit nach Clear)
@@ -420,7 +445,9 @@ struct CollectionState {
         }
     }
 
-    std::vector<DocumentId> candidates(const Expression& q) const {
+    // metered=false: Schreibpfade (update/remove/upsert) zaehlen nicht als Query
+    std::vector<DocumentId> candidates(const Expression& q, bool metered = true) const {
+        auto t0 = std::chrono::steady_clock::now();
         std::vector<DocumentId> ids;
         auto hint = q.indexHint();
         FieldIndex* idx = nullptr;
@@ -466,6 +493,17 @@ struct CollectionState {
         if (overflowEnabled) // ausgelagerte Dokumente beim Scan mitnehmen
             for (const auto& [id, off] : spillIndex)
                 ids.push_back(id);
+        if (metered) {
+            double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+            ++metrics.queries;
+            metrics.scannedDocs += ids.size();
+            if (idx)
+                ++metrics.indexQueries;
+            metrics.lastUsedIndex = idx != nullptr;
+            metrics.lastQueryMs = ms;
+            metrics.totalQueryMs += ms;
+            lastCandidateCount = ids.size();
+        }
         return ids;
     }
 
@@ -478,6 +516,7 @@ struct CollectionState {
         auto [it, ok] = docs.emplace(id, doc);
         indexAdd(id, it->second);
         emit(ChangeType::Insert, id, it->second);
+        ++metrics.inserts;
         maybeEvict();
         return id;
     }
@@ -573,7 +612,7 @@ struct CollectionState {
     }
 
     std::size_t doUpdate(const Expression& q, const std::function<void(Document&)>& mutator) {
-        auto ids = candidates(q);
+        auto ids = candidates(q, false);
         std::vector<std::pair<DocumentId, Document>> changes;
         for (auto id : ids) {
             if (!hasDoc(id))
@@ -600,6 +639,7 @@ struct CollectionState {
                 emit(ChangeType::Update, id, updated);
             }
         }
+        metrics.updates += changes.size();
         return changes.size();
     }
 
@@ -615,6 +655,7 @@ struct CollectionState {
             validateDoc(updated);
             spillAppend(id, updated); // neue Version ans Spill
             emit(ChangeType::Update, id, updated);
+            ++metrics.updates;
             return true;
         }
         Document updated = it->second;
@@ -626,6 +667,7 @@ struct CollectionState {
         it->second = std::move(updated);
         indexAdd(id, it->second);
         emit(ChangeType::Update, id, it->second);
+        ++metrics.updates;
         return true;
     }
 
@@ -639,6 +681,7 @@ struct CollectionState {
             validateDoc(doc);
             spillAppend(id, doc);
             emit(ChangeType::Replace, id, doc);
+            ++metrics.updates;
             return true;
         }
         doc.setId(id);
@@ -648,6 +691,7 @@ struct CollectionState {
         it->second = std::move(doc);
         indexAdd(id, it->second);
         emit(ChangeType::Replace, id, it->second);
+        ++metrics.updates;
         return true;
     }
 
@@ -662,6 +706,7 @@ struct CollectionState {
             it->second = std::move(doc);
             indexAdd(id, it->second);
             emit(ChangeType::Update, id, it->second);
+            ++metrics.updates;
             return id;
         }
         if (spillIndex.count(id)) { // ausgelagert: im Spill aktualisieren
@@ -669,13 +714,14 @@ struct CollectionState {
             validateDoc(doc);
             spillAppend(id, doc);
             emit(ChangeType::Update, id, doc);
+            ++metrics.updates;
             return id;
         }
         return doInsert(std::move(doc));
     }
 
     DocumentId doUpsert(const Expression& q, Document doc) {
-        auto ids = candidates(q);
+        auto ids = candidates(q, false);
         for (auto id : ids) {
             auto it = docs.find(id);
             if (it != docs.end() && q.evaluate(it->second))
@@ -685,7 +731,7 @@ struct CollectionState {
     }
 
     std::size_t doRemove(const Expression& q) {
-        auto ids = candidates(q);
+        auto ids = candidates(q, false);
         std::vector<DocumentId> toRemove;
         for (auto id : ids) {
             if (!hasDoc(id))
@@ -707,6 +753,7 @@ struct CollectionState {
                 emit(ChangeType::Remove, id, d);
             }
         }
+        metrics.removes += toRemove.size();
         return toRemove.size();
     }
 
@@ -717,12 +764,14 @@ struct CollectionState {
             indexRemove(id, it->second);
             emit(ChangeType::Remove, id, it->second);
             docs.erase(it);
+            ++metrics.removes;
             return true;
         }
         if (spillIndex.count(id)) {
             Document d = *loadSpilled(id);
             spillIndex.erase(id);
             emit(ChangeType::Remove, id, d);
+            ++metrics.removes;
             return true;
         }
         return false;
