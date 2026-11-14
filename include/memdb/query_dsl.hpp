@@ -1,5 +1,6 @@
 #pragma once
 
+#include "document.hpp"
 #include "query.hpp"
 
 #include <functional>
@@ -40,6 +41,30 @@ Expression parseQuery(std::string_view dsl);
 /// @param db Database mit den Referenzen (FA-18); nullptr = keine `@`-Pfade erlaubt.
 /// @param collection Name der Collection, auf die sich `@` bezieht.
 Expression parseQuery(std::string_view dsl, Database* db, std::string_view collection);
+
+/// @brief Wertausdruck eines Bulk-Update-Set-Feldes, ausgewertet gegen das jeweilige Dokument
+/// (v0.21): Literal, Feld-Referenz (`age`), oder Arithmetik (`age + 1`, `price * 2`, `a + ' ' + b`).
+using SetExpression = std::function<Value(const Document&)>;
+
+/// @brief Parst die Set-DSL eines Bulk-Updates (`Collection::update(queryDsl, setDsl)`) in
+/// eine Liste von (Pfad, Wertausdruck)-Zuweisungen. Alle Ausdruecke werden vor dem Schreiben
+/// gegen das alte Dokument ausgewertet (Snapshot-Semantik innerhalb eines Dokuments).
+///
+/// Grammar:
+/// ```
+/// setDsl  := assign (',' assign)*
+/// assign  := path '=' vexpr
+/// vexpr   := mul (('+'|'-') mul)*
+/// mul     := unary (('*'|'/'|'%') unary)*
+/// unary   := '-' unary | primary
+/// primary := '(' vexpr ')' | number | string | true | false | null | path
+/// path    := ident ('.' ident)*        // Feld-Referenz im Dokument (findPath)
+/// ```
+/// - `+` bei zwei Strings = Konkatenation; `+`/`-`/`*` bei Zahlen = Arithmetik
+///   (int bleibt int, sonst double); `/` = double; `%` nur int.
+/// - Zuweisungs-Pfad darf gepunktet sein (`adresse.plz = '10115'`) -> `Document::setPath`.
+/// @throws QueryError bei Syntaxfehler; Typfehler werfen `Error` bei der Auswertung.
+std::vector<std::pair<std::string, SetExpression>> parseUpdateSet(std::string_view setDsl);
 
 /// @brief Factory für eigene DSL-Function-Operatoren (NFA-03): bekommt den
 /// Feldausdruck (Field oder @ref) und die Argumente, liefert die Expression.

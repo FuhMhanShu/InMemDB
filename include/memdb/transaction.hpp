@@ -74,6 +74,9 @@ public:
     ///        Query als String (ohne `@relation`-Kontext; dafür `Collection::find(dsl, db)`).
     /// @{
     std::size_t update(std::string_view dsl, const std::function<void(Document&)>& mutator);
+    /// @brief Bulk-Update per DSL mit Projektion (v0.21), innerhalb der Transaktion:
+    /// `tx.update("age >= 18", "adult = true, age = age + 1")`. Siehe `parseUpdateSet`.
+    std::size_t update(std::string_view dsl, std::string_view setDsl);
     std::size_t remove(std::string_view dsl);
     Cursor find(std::string_view dsl) const;
     std::vector<DocumentId> findIds(std::string_view dsl) const;

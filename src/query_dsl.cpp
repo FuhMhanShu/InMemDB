@@ -5,6 +5,8 @@
 
 #include <cctype>
 #include <charconv>
+#include <cstdint>
+#include <limits>
 
 namespace memdb {
 
@@ -64,6 +66,7 @@ std::vector<Tok> tokenize(std::string_view dsl) {
                 else fail(dsl, i, "'|' erwartet ('||')");
                 continue;
             case '(': case ')': case ',': case '.': case '@':
+            case '+': case '-': case '*': case '/': case '%':
                 out.push_back(Tok{Tok::K::Sym, std::string(1, c), start});
                 ++i;
                 continue;
@@ -95,11 +98,8 @@ std::vector<Tok> tokenize(std::string_view dsl) {
             default:
                 break;
         }
-        if (std::isdigit(static_cast<unsigned char>(c)) ||
-            (c == '-' && i + 1 < n && (std::isdigit(static_cast<unsigned char>(dsl[i + 1])) || dsl[i + 1] == '.'))) {
+        if (std::isdigit(static_cast<unsigned char>(c)) || (c == '.' && i + 1 < n && std::isdigit(static_cast<unsigned char>(dsl[i + 1])))) {
             std::size_t s0 = i;
-            if (c == '-')
-                ++i;
             if (i + 1 < n && dsl[i] == '0' && (dsl[i + 1] == 'x' || dsl[i + 1] == 'X')) {
                 i += 2;
                 while (i < n && std::isxdigit(static_cast<unsigned char>(dsl[i])))
@@ -129,6 +129,24 @@ std::vector<Tok> tokenize(std::string_view dsl) {
     }
     out.push_back(Tok{Tok::K::End, "", n});
     return out;
+}
+
+Value numTokenToValue(const std::string& s) {
+    bool isDouble = s.find('.') != std::string::npos || s.find('e') != std::string::npos ||
+                    s.find('E') != std::string::npos;
+    if (s.size() > 1 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        std::int64_t v = 0;
+        std::from_chars(s.data() + 2, s.data() + s.size(), v, 16);
+        return Value(v);
+    }
+    if (isDouble) {
+        double d = 0.0;
+        std::from_chars(s.data(), s.data() + s.size(), d);
+        return Value(d);
+    }
+    std::int64_t v = 0;
+    std::from_chars(s.data(), s.data() + s.size(), v);
+    return Value(v);
 }
 
 struct Parser {
@@ -165,32 +183,29 @@ struct Parser {
     }
 
     Value parseValue() {
+        bool neg = false;
+        if (peekSym("-")) {
+            neg = true;
+            next();
+        }
         const Tok& t = peek();
         if (t.k == Tok::K::Str) {
+            if (neg)
+                fail(dsl, t.pos, "unariaeres '-' vor String nicht erlaubt");
             next();
             return Value(t.s);
         }
         if (t.k == Tok::K::Num) {
             next();
-            const std::string& s = t.s;
-            bool isDouble = s.find('.') != std::string::npos || s.find('e') != std::string::npos ||
-                            s.find('E') != std::string::npos;
-            if (s.size() > 1 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
-                std::int64_t v = 0;
-                std::from_chars(s.data() + 2, s.data() + s.size(), v, 16);
-                return Value(v);
-            }
-            if (isDouble) {
-                double d = 0.0;
-                std::from_chars(s.data(), s.data() + s.size(), d);
-                return Value(d);
-            }
-            std::int64_t v = 0;
-            std::from_chars(s.data(), s.data() + s.size(), v);
-            return Value(v);
+            Value v = numTokenToValue(t.s);
+            if (neg)
+                v = v.isInt() ? Value(-v.asInt()) : Value(-v.asDouble());
+            return v;
         }
         if (t.k == Tok::K::Ident) {
             std::string w = toLower(t.s);
+            if (neg)
+                fail(dsl, t.pos, "unariaeres '-' vor diesem Wert nicht erlaubt");
             if (w == "true") { next(); return Value(true); }
             if (w == "false") { next(); return Value(false); }
             if (w == "null") { next(); return Value(nullptr); }
@@ -316,6 +331,176 @@ struct Parser {
     }
 };
 
+// --- Set-DSL fuer Bulk-Update (v0.21) ---
+
+Value applySetOp(const std::string& op, const Value& a, const Value& b) {
+    if (op == "+" && a.isString() && b.isString())
+        return Value(a.asString() + b.asString());
+    if (a.isNumber() && b.isNumber()) {
+        bool ai = a.isInt(), bi = b.isInt();
+        if (op == "%") {
+            if (!ai || !bi)
+                throw Error("update-set: '%' nur fuer int-Werte");
+            std::int64_t y = b.asInt();
+            if (y == 0)
+                throw Error("update-set: Modulo durch 0");
+            return Value(a.asInt() % y);
+        }
+        if (op == "/") {
+            double y = b.asDouble();
+            if (y == 0.0)
+                throw Error("update-set: Division durch 0");
+            return Value(a.asDouble() / y);
+        }
+        if (ai && bi) {
+            std::int64_t x = a.asInt(), y = b.asInt();
+            constexpr std::int64_t kMax = std::numeric_limits<std::int64_t>::max();
+            constexpr std::int64_t kMin = std::numeric_limits<std::int64_t>::min();
+            if (op == "+") {
+                if ((y > 0 && x > kMax - y) || (y < 0 && x < kMin - y))
+                    return Value(static_cast<double>(x) + static_cast<double>(y));
+                return Value(x + y);
+            }
+            if (op == "-") {
+                if ((y < 0 && x > kMax + y) || (y > 0 && x < kMin + y))
+                    return Value(static_cast<double>(x) - static_cast<double>(y));
+                return Value(x - y);
+            }
+            // '*'
+            if (x != 0 && (y > kMax / x || y < kMin / x))
+                return Value(static_cast<double>(x) * static_cast<double>(y));
+            return Value(x * y);
+        }
+        double x = a.asDouble(), y = b.asDouble();
+        if (op == "+")
+            return Value(x + y);
+        if (op == "-")
+            return Value(x - y);
+        return Value(x * y); // '*'
+    }
+    throw Error("update-set: Operator '" + op + "' nicht auf diese Werttypen anwendbar");
+}
+
+struct SetParser {
+    std::string_view dsl;
+    std::vector<Tok> toks;
+    std::size_t i = 0;
+
+    explicit SetParser(std::string_view d) : dsl(d), toks(tokenize(d)) {}
+
+    const Tok& peek(std::size_t off = 0) const {
+        std::size_t k = i + off;
+        return toks[k < toks.size() ? k : toks.size() - 1];
+    }
+    const Tok& next() { return toks[i < toks.size() ? i++ : i]; }
+    bool peekSym(const char* s) const { return peek().k == Tok::K::Sym && peek().s == s; }
+    void expectSym(const char* s) {
+        if (!peekSym(s))
+            fail(dsl, peek().pos, std::string("'") + s + "' erwartet, gefunden '" +
+                                      (peek().k == Tok::K::End ? std::string("<ende>") : peek().s) + "'");
+        next();
+    }
+    std::string expectIdent() {
+        if (peek().k != Tok::K::Ident)
+            fail(dsl, peek().pos, "Bezeichner erwartet");
+        return next().s;
+    }
+    std::string parsePath() {
+        std::string path = expectIdent();
+        while (peekSym(".") && peek(1).k == Tok::K::Ident) {
+            next();
+            path += "." + expectIdent();
+        }
+        return path;
+    }
+
+    SetExpression parseVExpr() {
+        SetExpression left = parseMul();
+        while (peekSym("+") || peekSym("-")) {
+            std::string op = next().s;
+            SetExpression right = parseMul();
+            left = [left = std::move(left), right = std::move(right), op](const Document& d) {
+                return applySetOp(op, left(d), right(d));
+            };
+        }
+        return left;
+    }
+    SetExpression parseMul() {
+        SetExpression left = parseUnary();
+        while (peekSym("*") || peekSym("/") || peekSym("%")) {
+            std::string op = next().s;
+            SetExpression right = parseUnary();
+            left = [left = std::move(left), right = std::move(right), op](const Document& d) {
+                return applySetOp(op, left(d), right(d));
+            };
+        }
+        return left;
+    }
+    SetExpression parseUnary() {
+        if (peekSym("-")) {
+            next();
+            SetExpression e = parseUnary();
+            return [e = std::move(e)](const Document& d) {
+                Value v = e(d);
+                if (!v.isNumber())
+                    throw Error("update-set: unariaeres '-' nur auf Zahlen anwendbar");
+                return v.isInt() ? Value(-v.asInt()) : Value(-v.asDouble());
+            };
+        }
+        return parsePrimary();
+    }
+    SetExpression parsePrimary() {
+        if (peekSym("(")) {
+            next();
+            SetExpression e = parseVExpr();
+            expectSym(")");
+            return e;
+        }
+        const Tok& t = peek();
+        if (t.k == Tok::K::Str) {
+            next();
+            std::string s = t.s;
+            return [s = std::move(s)](const Document&) { return Value(s); };
+        }
+        if (t.k == Tok::K::Num) {
+            next();
+            Value v = numTokenToValue(t.s);
+            return [v = std::move(v)](const Document&) { return v; };
+        }
+        if (t.k == Tok::K::Ident) {
+            std::string w = toLower(t.s);
+            if (w == "true") { next(); return [](const Document&) { return Value(true); }; }
+            if (w == "false") { next(); return [](const Document&) { return Value(false); }; }
+            if (w == "null") { next(); return [](const Document&) { return Value(nullptr); }; }
+            std::string path = parsePath();
+            return [path = std::move(path)](const Document& d) {
+                const Value* v = d.findPath(path);
+                return v ? *v : Value(nullptr);
+            };
+        }
+        fail(dsl, t.pos, "Wertausdruck erwartet (Zahl, String, true/false/null, Feldpfad, '(...)')");
+    }
+
+    std::vector<std::pair<std::string, SetExpression>> parse() {
+        std::vector<std::pair<std::string, SetExpression>> out;
+        if (peek().k == Tok::K::End)
+            fail(dsl, 0, "mindestens eine Zuweisung 'pfad = ausdruck' erwartet");
+        while (true) {
+            std::string path = parsePath();
+            expectSym("=");
+            out.emplace_back(std::move(path), parseVExpr());
+            if (peekSym(",")) {
+                next();
+                continue;
+            }
+            break;
+        }
+        if (peek().k != Tok::K::End)
+            fail(dsl, peek().pos, "unerwartetes Token '" + peek().s + "'");
+        return out;
+    }
+};
+
 } // namespace
 
 Expression parseQuery(std::string_view dsl) {
@@ -325,6 +510,11 @@ Expression parseQuery(std::string_view dsl) {
 
 Expression parseQuery(std::string_view dsl, Database* db, std::string_view collection) {
     Parser p(dsl, db, collection);
+    return p.parse();
+}
+
+std::vector<std::pair<std::string, SetExpression>> parseUpdateSet(std::string_view setDsl) {
+    SetParser p(setDsl);
     return p.parse();
 }
 

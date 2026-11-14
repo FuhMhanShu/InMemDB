@@ -167,6 +167,18 @@ std::size_t Transaction::update(std::string_view dsl,
     return update(parseQuery(dsl), mutator);
 }
 
+std::size_t Transaction::update(std::string_view dsl, std::string_view setDsl) {
+    auto assigns = parseUpdateSet(setDsl);
+    return update(parseQuery(dsl), [assigns = std::move(assigns)](Document& d) {
+        std::vector<std::pair<std::string, Value>> vals;
+        vals.reserve(assigns.size());
+        for (const auto& [path, expr] : assigns)
+            vals.emplace_back(path, expr(d));
+        for (auto& [path, v] : vals)
+            d.setPath(path, std::move(v));
+    });
+}
+
 std::size_t Transaction::remove(std::string_view dsl) { return remove(parseQuery(dsl)); }
 
 Cursor Transaction::find(std::string_view dsl) const { return find(parseQuery(dsl)); }
