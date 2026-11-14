@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.7) |
-| Bezug | Lastenheft FA-15 (Kann) |
+| Bezug | Anforderungen FA-15 (Kann) |
 
 ## API
 

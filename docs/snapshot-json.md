@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.4) |
-| Bezug | Lastenheft FA-14 (Kann), NFA-06 (keine externen Pflichtabhängigkeiten) |
+| Bezug | Anforderungen FA-14 (Kann), NFA-06 (keine externen Pflichtabhängigkeiten) |
 
 ## API
 

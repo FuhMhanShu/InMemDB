@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.2) |
-| Bezug | Lastenheft FA-10, NFA-01 |
+| Bezug | Anforderungen FA-10, NFA-01 |
 
 ## API
 

@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.3) |
-| Bezug | Lastenheft FA-12 (Soll), FA-16 |
+| Bezug | Anforderungen FA-12 (Soll), FA-16 |
 
 ## API
 
@@ -44,7 +44,7 @@ Innerhalb der Transaktion sind alle Lese-/Schreiboperationen verfügbar
 ## Implementierungs-Hinweis (v1)
 Rollback per vollständiger Kopie – einfach und korrekt, aber O(Collection) pro
 `beginTransaction()`. Für große Collections ist als Ausblick ein Undo-Log /
-Copy-on-Write vorgesehen (siehe Ausblick im Lastenheft).
+Copy-on-Write vorgesehen (siehe Ausblick in den Anforderungen).
 
 Intern: `src/collection_state.hpp` kapselt den Collection-Zustand
 (`memdb::detail::CollectionState`) mit lock-freien `do*`-Operationen; sowohl
