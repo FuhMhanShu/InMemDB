@@ -6,6 +6,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 
 - [Lastenheft](lastenheft.md) (v0.1)
 - [Query-API](docs/query-api.md) (verbindliche Ausprägung)
+- [String-DSL für Queries](docs/query-dsl.md) (NFA-03, v0.14: `find("age >= 18 && ...")`, eigene Operatoren, `@relation`-Joins)
 - [Architektur-Entscheidungen](docs/architecture.md) (statische Lib mit Pimpl)
 - [Indizes](docs/indexes.md) (FA-10, v0.2)
 - [Transaktionen](docs/transactions.md) (FA-12, v0.3)
@@ -18,7 +19,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 
 ## Features (v0.8)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
-- Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")`
+- Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")` – oder als String-DSL: `find("age >= 18 && tags.contains('cpp')")` mit registrierbaren Operatoren (`matches`, `in`, eigene) und `@relation.path`-Joins (v0.14)
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
 - Atomare Transaktionen pro Collection (commit/rollback, RAII-Rollback)
 - JSON-Snapshot: `toJson`/`fromJson`/`saveToFile`/`loadFromFile` (ohne externe Abhängigkeiten)
@@ -87,6 +88,7 @@ Lauffähige Beispiele in `examples/` (werden mitgebaut und als CTest-Smoke-Tests
 | `11_references.cpp` | Referenzen: link/unlink, outgoing/incoming, relative Pfade, dangling/prune, traverse/hasCycle/search (Ringverweis), Snapshot-Roundtrip |
 | `12_encrypted_snapshot.cpp` | DB binär verschlüsselt speichern/laden (FA-19) |
 | `13_schema.cpp` | Striktes Schema: Feldtypen prüfen, undefinierte Felder ablehnen (FA-20) |
+| `14_query_dsl.cpp` | String-DSL: `find("age >= 18 && ...")`, `matches`/`in`, eigener Operator, `@kunde.*`-Join (v0.14) |
 
 ```sh
 cmake --build build -j

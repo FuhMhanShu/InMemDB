@@ -4,7 +4,7 @@
 |---|---|
 | Status | beschlossen (v0.1) |
 | Entscheidung | **Variante A: typsicher Ausdruckbaum mit Operator-Overloading** |
-| String-DSL | nur als Kann-Feature, in v1 **nicht** umgesetzt |
+| String-DSL | Kann-Feature, **umgesetzt in v0.14**: siehe [`query-dsl.md`](query-dsl.md) |
 | Bezieht sich auf | Lastenheft FA-05 (Abfragen), NFA-03 (Erweiterbarkeit) |
 
 ---
@@ -97,8 +97,9 @@ Expression Expression::matches(std::string regex) const;   // String matcht Rege
 Expression in(Expression, std::vector<Value>);             // Wert in Menge
 ```
 
-## 6. Ausblick (Kann, nicht in v1)
+## 6. String-DSL (Kann, umgesetzt in v0.14)
 
-String-DSL als Komfort-Feature: `users.find("age >= 18 && adresse.stadt == 'Berlin'")` –
-eigener Parser, der den String in denselben `Expression`-Baum übersetzt. Keine
-Pflichtabhängigkeit im Kern.
+`users.find("age >= 18 && adresse.stadt == 'Berlin'")` – eigener Parser, der den String
+in denselben `Expression`-Baum übersetzt (inkl. Index-Nutzung). Details, Grammatik,
+registrierbare Operatoren und `@relation`-Joins siehe [`query-dsl.md`](query-dsl.md).
+Keine Pflichtabhängigkeit im Kern.

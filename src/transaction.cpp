@@ -1,5 +1,6 @@
 #include "memdb/transaction.hpp"
 #include "memdb/exceptions.hpp"
+#include "memdb/query_dsl.hpp"
 
 #include "collection_state.hpp"
 
@@ -124,6 +125,33 @@ std::optional<Document> Transaction::findById(DocumentId id) const {
 std::size_t Transaction::count(const Expression& q) const {
     impl_->checkActive();
     return impl_->state->doCount(q);
+}
+
+std::size_t Transaction::update(std::string_view dsl,
+                                const std::function<void(Document&)>& mutator) {
+    return update(parseQuery(dsl), mutator);
+}
+
+std::size_t Transaction::remove(std::string_view dsl) { return remove(parseQuery(dsl)); }
+
+Cursor Transaction::find(std::string_view dsl) const { return find(parseQuery(dsl)); }
+
+std::vector<DocumentId> Transaction::findIds(std::string_view dsl) const {
+    return findIds(parseQuery(dsl));
+}
+
+std::size_t Transaction::forEach(std::string_view dsl,
+                                 const std::function<void(const Document&)>& cb) const {
+    return forEach(parseQuery(dsl), cb);
+}
+
+std::size_t Transaction::count(std::string_view dsl) const { return count(parseQuery(dsl)); }
+
+std::optional<Document> Transaction::findOne(std::string_view dsl) const {
+    auto cur = find(parseQuery(dsl));
+    if (cur.empty())
+        return std::nullopt;
+    return cur.front();
 }
 
 std::size_t Transaction::size() const {

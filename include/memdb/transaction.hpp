@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -68,6 +69,19 @@ public:
     std::size_t count(const Expression& q = Expression{}) const;
     /// @brief Wie `Collection::size`.
     std::size_t size() const;
+
+    /// @name String-DSL (NFA-03, `docs/query-dsl.md`) – wie die Expression-Varianten,
+    ///        Query als String (ohne `@relation`-Kontext; dafür `Collection::find(dsl, db)`).
+    /// @{
+    std::size_t update(std::string_view dsl, const std::function<void(Document&)>& mutator);
+    std::size_t remove(std::string_view dsl);
+    Cursor find(std::string_view dsl) const;
+    std::vector<DocumentId> findIds(std::string_view dsl) const;
+    std::size_t forEach(std::string_view dsl, const std::function<void(const Document&)>& cb) const;
+    std::size_t count(std::string_view dsl) const;
+    /// @brief Wie `Collection::findOne` mit DSL-String.
+    std::optional<Document> findOne(std::string_view dsl) const;
+    /// @}
 
     /// @brief Wie `Collection::aggregate`.
     std::optional<Value> aggregate(AggOp op, const std::string& fieldPath,

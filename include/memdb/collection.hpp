@@ -73,6 +73,33 @@ public:
     /// @brief Anzahl der Dokumente, die `q` matchen.
     std::size_t count(const Expression& q = Expression{}) const;
 
+    /// @name String-DSL (NFA-03, siehe `docs/query-dsl.md`)
+    /// Gleiche Operationen mit Query als String, z. B.
+    /// `find("age >= 18 && name.contains('a')")`; Parsing via `parseQuery`.
+    /// @throws QueryError bei DSL-Syntaxfehler.
+    /// @{
+    Cursor find(std::string_view dsl) const;
+    std::vector<DocumentId> findIds(std::string_view dsl) const;
+    std::size_t forEach(std::string_view dsl, const std::function<void(const Document&)>& cb) const;
+    std::optional<Document> findOne(std::string_view dsl) const;
+    std::size_t count(std::string_view dsl) const;
+    std::size_t update(std::string_view dsl, const std::function<void(Document&)>& mutator);
+    std::size_t remove(std::string_view dsl);
+
+    /// @brief DSL-Varianten mit Referenz-Kontext: `@relation.path` (FA-18) wird über `db`
+    ///        in dieser Collection aufgelöst (z. B. `orders.count("@kunde.total > 100", db)`).
+    /// @{
+    Cursor find(std::string_view dsl, Database& db) const;
+    std::vector<DocumentId> findIds(std::string_view dsl, Database& db) const;
+    std::size_t forEach(std::string_view dsl, Database& db,
+                        const std::function<void(const Document&)>& cb) const;
+    std::optional<Document> findOne(std::string_view dsl, Database& db) const;
+    std::size_t count(std::string_view dsl, Database& db) const;
+    std::size_t update(std::string_view dsl, Database& db,
+                       const std::function<void(Document&)>& mutator);
+    std::size_t remove(std::string_view dsl, Database& db);
+    /// @}
+
     /// @brief Alle Treffer von `q` feldweise ändern.
     /// @return Anzahl der geänderten Dokumente.
     /// @throws UniqueConstraintError (Änderungen werden dann gar nicht angewendet).

@@ -2,12 +2,15 @@
 
 #include "value.hpp"
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace memdb {
 
+class Database;
 class Document;
 struct ExprNode;
 
@@ -40,6 +43,18 @@ public:
     /// @brief Feld ist vorhanden.
     /// @throws QueryError wenn die Expression kein Feldausdruck ist.
     Expression exists() const;
+    /// @brief String-Feld matcht das Regex-Pattern (Full-Match; Mini-RegEx siehe
+    /// `docs/query-dsl.md`: `.` `*` `+` `?` `[...]` `^` `$` `|` `(...)` `\x`).
+    /// @throws QueryError wenn die Expression kein Feldausdruck ist oder das Pattern
+    ///         nicht String ist / ungueltig ist.
+    Expression matches(Value pattern) const;
+    /// @brief Feldwert ist in `values` enthalten (Eq-Semantik).
+    /// @throws QueryError wenn die Expression kein Feldausdruck ist.
+    Expression in(std::vector<Value> values) const;
+    /// @brief Eigenes Prädikat auf dem Feldwert (NFA-03 Open/Closed); fehlendes
+    /// Feld -> false. Basis für registrierbare DSL-Operatoren.
+    /// @throws QueryError wenn die Expression kein Feldausdruck ist.
+    Expression predicate(std::function<bool(const Value&)> fn) const;
 
     /// @brief Wertet die Expression für ein Dokument aus.
     bool evaluate(const Document& doc) const;
@@ -53,6 +68,8 @@ private:
     std::shared_ptr<ExprNode> root_;
 
     friend Expression Field(std::string path);
+    friend Expression refField(Database& db, std::string fromCollection, std::string relation,
+                               std::string path, std::string storage);
     friend Expression operator==(Expression, Value);
     friend Expression operator!=(Expression, Value);
     friend Expression operator< (Expression, Value);
@@ -66,6 +83,15 @@ private:
 
 /// @brief Feldausdruck per Punktnotation, z. B. `Field("adresse.stadt")`.
 Expression Field(std::string path);
+
+/// @brief Feldausdruck über eine Referenz (FA-18, z. B. DSL `@kunde.name`):
+/// wertet `path` auf dem ersten über `relation` verknüpften Zieldokument der
+/// Quell-Collection aus. Ohne Referenz/ohne Feld verhält sich ein Vergleich wie
+/// ein fehlendes Feld (false außer `!=`). Kein Index-Hinweis (Traversierung pro
+/// Dokument). `storage` = Speicher-Collection des ReferenceIndex.
+/// @note `db` muss die Expression überdauern (wird per Zeiger gehalten).
+Expression refField(Database& db, std::string fromCollection, std::string relation,
+                    std::string path, std::string storage = "__references");
 
 /// @name Vergleichsoperatoren (erzeugen einen Ausdruck auf dem Feld)
 /// @throws QueryError wenn die linke Seite kein Feldausdruck ist.

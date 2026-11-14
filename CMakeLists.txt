@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.13 LANGUAGES CXX)
+project(InMemDB VERSION 0.14 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -15,6 +15,8 @@ add_library(memdb STATIC
     src/import_json.cpp
     src/import_snapshot.cpp
     src/import_sqldump.cpp
+    src/query_dsl.cpp
+    src/regex.cpp
     src/collection.cpp
     src/transaction.cpp
     src/database.cpp
@@ -73,6 +75,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_tests_import_formats tests/test_import_formats.cpp)
     target_link_libraries(memdb_tests_import_formats PRIVATE memdb)
     add_test(NAME memdb_tests_import_formats COMMAND memdb_tests_import_formats)
+
+    add_executable(memdb_tests_query_dsl tests/test_query_dsl.cpp)
+    target_link_libraries(memdb_tests_query_dsl PRIVATE memdb)
+    add_test(NAME memdb_tests_query_dsl COMMAND memdb_tests_query_dsl)
 
     if(INMEMDB_WITH_SQLITE)
         add_executable(memdb_tests_import tests/test_import.cpp)
