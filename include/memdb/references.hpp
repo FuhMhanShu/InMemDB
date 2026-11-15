@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <limits>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -110,6 +111,13 @@ public:
     /// @brief Löst einen relativen Pfad gegen eine Quell-Collection auf
     /// (`./users`, `../orders`, `/abs`; nackter Name bleibt unverändert).
     std::string resolve(const std::string& fromCollection, const std::string& relPath) const;
+
+    /// @brief Low-Level: `from_key`/`to_key` aller Referenzen gemäß `keyMap`
+    /// umschreiben (alt → neu, exaktes String-Matching). Wird von
+    /// `Database::mergeCollections` (FA-24) genutzt, um beim Löschen von
+    /// Quell-Collections keine Dangling-Refs zu erzeugen.
+    /// @return Anzahl umgeschriebener Referenz-Dokumente.
+    std::size_t rewriteKeys(const std::map<std::string, std::string>& keyMap);
 
 private:
     Database* db_;

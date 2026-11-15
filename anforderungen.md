@@ -6,7 +6,7 @@
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
 | Version | 0.15 |
-| Status | fortgeschrieben; FA-01…FA-22 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
+| Status | fortgeschrieben; FA-01…FA-24 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
 | Bereitstellungsform | Eingebettete Bibliothek als **kompilierte statische Library mit Pimpl-Idiom** (öffentliche Header unter `include/memdb/`, Implementierung gekapselt in `src/`); kein Server, kein Netzwerk. Header-only wurde verworfen – siehe `docs/architecture.md`. |
@@ -84,6 +84,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | FA-23 | **Qt/qmake-Einbindung**: `InMemDB.pro` (statische Library per qmake, ohne Qt-Abhängigkeit) und `InMemDB.pri` (Einbindung in fremde qmake-Projekte: Variante A vorgebaute Lib linken, Variante B Quellen direkt mitkompilieren); optionales SQLite-Modul; Beispiel `examples/qt_hello/`, CI-Job. Siehe `docs/qt-qmake.md`. | K |
 | FA-22 | **Visualisierung des Datenbank-Graphs** (abhängigkeitsfrei, LLM-freundlich): Collections als Knoten (inkl. optionalem FA-20-Schema, FA-10-Indizes, Dokumentanzahl), FA-18-Referenzen als Kanten (inkl. Dangling-Markierung); Ausgabe als JSON, Mermaid und Markdown – aus laufender Database (`DbGraph::fromDatabase`) oder aus FA-14-Snapshot-Datei (`DbGraph::fromSnapshotFile`); CLI-Tool `inmemdb_graph`. Siehe `docs/db-graph.md`. | K |
 | FA-21 | **Import aus externen Datenquellen**: abstrakte Quell-Schnittstelle (`ImportSource`: Tabellen-Metadaten + zeilenweises Lesen), zentrale Factory/Registry (`ImportRegistry`: Ableitungen per Name + Dateiendung anmelden/verwalten, Auto-Erkennung per Endung) und generischer `Importer`, der Tabellen auf Collections, Spalten auf Felder, Primärschlüssel auf ein optionales `pk`-Feld und (unique) Indizes abbildet; optionales Schema wird aus den Spaltentypen generiert. Eingebaute Quellen ohne externe Abhängigkeiten: `CsvImportSource`, `JsonImportSource` (JSON/JSONL), `InmemdbSnapshotSource` (Reimport eigener Snapshots inkl. Schema/Indizes), `SqlDumpImportSource`, `BsonImportSource`; optional `SqliteImportSource` (Build-Option `INMEMDB_WITH_SQLITE=ON`); CLI-Tool `inmemdb_import`. Siehe `docs/import.md`. | K |
+| FA-24 | **Collections zusammenführen (Merge)**: `Database::mergeCollections(target, sources, opts, refs*)` – jedes Quell-Dokument mit neuer ID ins Ziel (IDs sind pro Collection vergeben), optional Herkunftsfeld `_source`, Index-Übernahme (Union), optional Quell-Collections löschen (`dropSources`) inkl. Umschreiben der FA-18-Referenzen (`ReferenceIndex::rewriteKeys`, sonst dangling). Atomar: Schema-/Unique-Verstoß → kompletter Rollback. Inkl. Spill-Dokumenten (v0.18) und Observer-Events. Siehe `docs/merge-collections.md`. | K |
 
 > **Verbindliche Ausprägung von FA-05 (Query-API):** typsicher Ausdruckbaum mit
 > Operator-Overloading, z. B. `(Field("age") >= 18) && Field("tags").contains("cpp")`.

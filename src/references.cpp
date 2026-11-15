@@ -127,6 +127,53 @@ std::vector<Document> ReferenceIndex::join(const std::string& fromCollection,
     return out;
 }
 
+std::size_t ReferenceIndex::rewriteKeys(const std::map<std::string, std::string>& keyMap) {
+    if (keyMap.empty())
+        return 0;
+    // key = "<collection>#<id?>" -> Collection/ID extrahieren
+    auto splitKey = [](const std::string& key) -> std::pair<std::string, std::optional<DocumentId>> {
+        const auto pos = key.find('#');
+        if (pos == std::string::npos)
+            return {key, std::nullopt};
+        const std::string coll = key.substr(0, pos);
+        const std::string idStr = key.substr(pos + 1);
+        if (idStr.empty())
+            return {coll, std::nullopt};
+        return {coll, DocumentId(static_cast<std::uint64_t>(std::stoull(idStr)))};
+    };
+    std::vector<std::pair<DocumentId, Document>> updates;
+    coll_.forEach(Expression{}, [&](const Document& d) {
+        const Value* fk = d.find("from_key");
+        const Value* tk = d.find("to_key");
+        if (!fk || !fk->isString() || !tk || !tk->isString())
+            return;
+        auto fi = keyMap.find(fk->asString());
+        auto ti = keyMap.find(tk->asString());
+        if (fi == keyMap.end() && ti == keyMap.end())
+            return;
+        Document nd = d;
+        if (fi != keyMap.end()) {
+            auto [nc, ni] = splitKey(fi->second);
+            nd.set("from_key", Value(fi->second));
+            nd.set("from_coll", Value(nc));
+            nd.set("from_id", idToValue(ni));
+        }
+        if (ti != keyMap.end()) {
+            auto [nc, ni] = splitKey(ti->second);
+            nd.set("to_key", Value(ti->second));
+            nd.set("to_coll", Value(nc));
+            nd.set("to_id", idToValue(ni));
+        }
+        updates.emplace_back(d.id(), std::move(nd));
+    });
+    std::size_t changed = 0;
+    for (auto& [id, nd] : updates) {
+        coll_.replace(id, std::move(nd)); // aktualisiert auch from_key/to_key-Indizes
+        ++changed;
+    }
+    return changed;
+}
+
 std::string ReferenceIndex::resolve(const std::string& fromCollection, const std::string& relPath) const {
     if (relPath.empty())
         throw ReferenceError("Relativer Pfad darf nicht leer sein");
