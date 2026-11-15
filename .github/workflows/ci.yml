@@ -2,8 +2,20 @@ name: CI
 
 on:
   push:
-    branches: [main, "vibe/**"]
+    branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      full-matrix:
+        description: 'Zusaetzlich Windows + macOS testen (erhoehter Minutenverbrauch: Windows 2x, macOS 10x)'
+        type: boolean
+        default: false
+
+# Minuten sparen: veraltete Laeufe desselben Branches abbrechen (aktuellster gewinnt)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -11,8 +23,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      # Default nur Ubuntu (Faktor 1); Windows/macOS nur bei manuellem Lauf mit full-matrix
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ (github.event_name == 'workflow_dispatch' && inputs.full-matrix) && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ubuntu-latest"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,6 +80,7 @@ jobs:
         run: |
           mkdir -p build-qt-b && cd build-qt-b
           qmake ../examples/qt_hello/hello.pro && make -j && ./qt_hello
+
       - name: Build & Smoke-Run Qt-Modell-Adapter (qt_table, headless offscreen)
         run: |
           mkdir -p build-qt-table && cd build-qt-table
