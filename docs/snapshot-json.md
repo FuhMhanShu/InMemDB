@@ -44,6 +44,13 @@ coll.clear();                           // Inhalt leeren, Index-Definitionen ble
 - Datei-IO über `saveToFile`/`loadFromFile` (wirft `Error` bei IO-Fehlern).
 - Serialisierung/Parser sind **selbst implementiert** (`src/json.cpp`), keine
   externe JSON-Bibliothek nötig.
+- **Locale-unabhängig (v0.23.1):** Zahlen werden immer mit Dezimal**punkt**
+  geschrieben und geparst (`std::to_chars`/`std::from_chars`, nie
+  `snprintf`/`strtod`/Stream-Operatoren) – auch bei aktiver `de_DE`-Locale
+  bleibt `1.5` `1.5` und wird nicht zu `1,5`. Gleiches gilt für
+  `toString(Value)` und DSL-Zahlliterale. Regressionstest:
+  `tests/test_locale.cpp` (setzt, falls vorhanden, die echte C-Locale
+  `de_DE.UTF-8` und zusätzlich ein Komma-`numpunct`-Facet).
 
 ## Tests
 Round-Trip aller Werttypen (inkl. Unicode, Escapes, Binary, Double-Typ-Erhalt),
