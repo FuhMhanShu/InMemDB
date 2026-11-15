@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       full-matrix:
-        description: 'Zusaetzlich Windows + macOS testen (erhoehter Minutenverbrauch: Windows 2x, macOS 10x)'
+        description: 'Zusaetzlich Windows + macOS testen (nur bei Bedarf, laengere Laufzeit)'
         type: boolean
         default: false
 
-# Minuten sparen: veraltete Laeufe desselben Branches abbrechen (aktuellster gewinnt)
+# Ressourcen sparen: veraltete Laeufe desselben Branches abbrechen (aktuellster gewinnt)
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      # Default nur Ubuntu (Faktor 1); Windows/macOS nur bei manuellem Lauf mit full-matrix
+      # Default nur Ubuntu; Windows/macOS nur bei manuellem Lauf mit full-matrix
       matrix:
         os: ${{ (github.event_name == 'workflow_dispatch' && inputs.full-matrix) && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ubuntu-latest"]') }}
     steps:
