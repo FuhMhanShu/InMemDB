@@ -539,6 +539,19 @@ struct CollectionState {
         return loadSpilled(id);
     }
 
+    /// Snapshot aller Dokumente inkl. gespillter (Out-of-Core, v0.18) – fuer
+    /// Database::mergeCollections (FA-24). Aufrufer haelt das Lock.
+    std::vector<std::pair<DocumentId, Document>> doSnapshotAll() const {
+        std::vector<std::pair<DocumentId, Document>> out;
+        out.reserve(docs.size() + spillIndex.size());
+        for (const auto& [id, d] : docs)
+            out.emplace_back(id, d);
+        for (const auto& [id, off] : spillIndex)
+            if (auto d = loadSpilled(id))
+                out.emplace_back(id, *d);
+        return out;
+    }
+
     Cursor doFind(const Expression& q) const {
         auto ids = candidates(q);
         lastCandidateCount = ids.size();

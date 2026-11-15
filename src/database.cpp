@@ -1,10 +1,12 @@
 #include "memdb/database.hpp"
 #include "memdb/exceptions.hpp"
+#include "memdb/references.hpp"
 
 #include "collection_state.hpp"
 #include "crypto.hpp"
 #include "json.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <fstream>
@@ -93,6 +95,148 @@ bool Database::dropCollection(const std::string& name) {
 void Database::clear() {
     std::unique_lock lock(impl_->mtx);
     impl_->collections.clear();
+}
+
+MergeStats Database::mergeCollections(const std::string& target, std::vector<std::string> sources,
+                                      MergeOptions opts, ReferenceIndex* refs) {
+    if (sources.empty())
+        throw Error("mergeCollections: keine Quell-Collections angegeben");
+    for (const auto& s : sources)
+        if (s == target)
+            throw Error("mergeCollections: Ziel-Collection darf nicht gleichzeitig Quelle sein: " + target);
+    std::sort(sources.begin(), sources.end());
+    sources.erase(std::unique(sources.begin(), sources.end()), sources.end());
+    {
+        std::shared_lock lock(impl_->mtx);
+        for (const auto& s : sources)
+            if (impl_->collections.find(s) == impl_->collections.end())
+                throw CollectionNotFoundError("mergeCollections: Quell-Collection nicht gefunden: " + s);
+        if (refs && opts.dropSources)
+            for (const auto& s : sources)
+                if (s == refs->storageCollection())
+                    throw Error("mergeCollections: Referenz-Speicher '" + s +
+                                "' darf nicht als Quelle geloescht werden");
+    }
+    if (!hasCollection(target))
+        createCollection(target);
+
+    // States sammeln und in sortierter Namensreihenfolge exklusiv locken (deadlock-frei;
+    // Transaktionen locken nur eine Collection und koennen daher nicht zirkulaer warten).
+    std::vector<std::pair<std::string, std::shared_ptr<detail::CollectionState>>> states;
+    {
+        std::shared_lock lock(impl_->mtx);
+        states.emplace_back(target, impl_->collections.at(target));
+        for (const auto& s : sources)
+            states.emplace_back(s, impl_->collections.at(s));
+    }
+    std::sort(states.begin(), states.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::vector<std::unique_lock<std::shared_mutex>> locks;
+    locks.reserve(states.size());
+    for (auto& [n, st] : states)
+        locks.emplace_back(st->mtx);
+    for (auto& [n, st] : states)
+        ++st->txLocks; // Eviction waehrend Merge unterdruecken (Rollback bleibt in RAM)
+
+    detail::CollectionState* tgt = nullptr;
+    for (auto& [n, st] : states)
+        if (n == target)
+            tgt = st.get();
+    auto stateOf = [&](const std::string& n) -> detail::CollectionState* {
+        for (auto& [sn, st] : states)
+            if (sn == n)
+                return st.get();
+        return nullptr;
+    };
+
+    MergeStats stats;
+    std::vector<ChangeEvent> events;
+    std::vector<DocumentId> inserted;
+    std::map<std::string, std::map<std::string, std::string>> keyMap; // quelle -> (altKey -> neuKey)
+    const std::uint64_t savedNextId = tgt->nextId;
+    try {
+        detail::EventSinkGuard guard(tgt, &events);
+        for (const auto& src : sources) {
+            detail::CollectionState* s = stateOf(src);
+            for (auto& [oldId, doc] : s->doSnapshotAll()) { // inkl. Spill (v0.18)
+                if (!opts.sourceField.empty())
+                    doc.set(opts.sourceField, Value(src));
+                // doInsert: neue ID, Schema-/Unique-Validierung, Index, Event, Metrik
+                DocumentId nid = tgt->doInsert(std::move(doc));
+                inserted.push_back(nid);
+                ++stats.merged;
+                ++stats.perSource[src];
+                keyMap[src][src + "#" + toString(oldId)] = target + "#" + toString(nid);
+            }
+            keyMap[src][src + "#"] = target + "#"; // Referenz auf ganze Collection
+        }
+        if (opts.mergeIndexes) {
+            for (const auto& src : sources) {
+                detail::CollectionState* s = stateOf(src);
+                for (const auto& [path, idx] : s->indexes) {
+                    if (tgt->indexes.count(path))
+                        continue;
+                    auto ni = std::make_unique<detail::FieldIndex>();
+                    ni->path = path;
+                    ni->unique = idx->unique;
+                    for (const auto& [id, doc] : tgt->docs) {
+                        if (const Value* v = doc.findPath(path)) {
+                            if (ni->unique && ni->entries.count(*v))
+                                throw UniqueConstraintError("mergeCollections: Unique-Index '" + path +
+                                                             "' durch Index-Uebernahme verletzt");
+                            ni->entries[*v].insert(id);
+                        }
+                    }
+                    tgt->indexes.emplace(path, std::move(ni));
+                    stats.adoptedIndexes.push_back(path);
+                }
+            }
+        }
+    } catch (...) {
+        // Atomarer Rollback: alles bisher Eingefuegte entfernen, nextId zuruecksetzen
+        for (auto it = inserted.rbegin(); it != inserted.rend(); ++it) {
+            auto dit = tgt->docs.find(*it);
+            if (dit != tgt->docs.end()) {
+                tgt->indexRemove(*it, dit->second);
+                tgt->docs.erase(dit);
+            }
+        }
+        tgt->nextId = savedNextId;
+        for (const auto& p : stats.adoptedIndexes)
+            tgt->indexes.erase(p);
+        for (auto& [n, st] : states)
+            --st->txLocks;
+        throw;
+    }
+    for (auto& [n, st] : states)
+        --st->txLocks;
+    locks.clear(); // Locks freigeben, bevor Observer-Callbacks feuern
+
+    if (!events.empty()) {
+        std::vector<ChangeCallback> cbs;
+        {
+            std::shared_lock lock(tgt->mtx);
+            for (const auto& [id, cb] : tgt->observers)
+                cbs.push_back(cb);
+        }
+        for (const auto& e : events)
+            for (const auto& cb : cbs)
+                cb(e);
+    }
+
+    if (opts.dropSources)
+        for (const auto& s : sources)
+            if (dropCollection(s))
+                stats.droppedSources.push_back(s);
+
+    if (refs && opts.dropSources) {
+        std::map<std::string, std::string> all;
+        for (const auto& [src, m] : keyMap)
+            all.insert(m.begin(), m.end());
+        stats.rewrittenReferences = refs->rewriteKeys(all);
+    }
+
+    tgt->maybeEvict();
+    return stats;
 }
 
 std::string Database::toJson() const {

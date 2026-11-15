@@ -3,12 +3,39 @@
 #include "collection.hpp"
 #include "metrics.hpp"
 
+#include <cstddef>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace memdb {
+
+class ReferenceIndex; // FA-18, siehe references.hpp
+
+/// @brief Optionen für `Database::mergeCollections` (FA-24, v0.24).
+struct MergeOptions {
+    /// Quell-Collections nach erfolgreichem Merge löschen (Default: behalten).
+    /// Achtung: Referenzen auf gelöschte Quellen werden nur umgeschrieben, wenn
+    /// `mergeCollections` ein `ReferenceIndex*` übergeben bekommt, sonst dangling.
+    bool dropSources = false;
+    /// Herkunftsfeld: wird pro gemergtem Dokument auf den Quell-Collection-Namen
+    /// gesetzt (überschreibt ein gleichnamiges Feld). Leer = kein Feld.
+    std::string sourceField = "_source";
+    /// Index-Definitionen der Quellen übernehmen, soweit im Ziel nicht vorhanden
+    /// (Union; bestehende Ziel-Indizes bleiben). Default: true.
+    bool mergeIndexes = true;
+};
+
+/// @brief Ergebnis von `Database::mergeCollections` (FA-24, v0.24).
+struct MergeStats {
+    std::size_t merged = 0;                       ///< Anzahl eingefügter Dokumente (gesamt)
+    std::map<std::string, std::size_t> perSource; ///< eingefügte Dokumente pro Quell-Collection
+    std::vector<std::string> adoptedIndexes;      ///< übernommene Index-Felder
+    std::vector<std::string> droppedSources;      ///< gelöschte Quell-Collections
+    std::size_t rewrittenReferences = 0;          ///< umgeschriebene from_key/to_key (nur mit ReferenceIndex*)
+};
 
 /// @brief Oberste Einheit: verwaltet benannte Collections (FA-01/FA-02).
 ///
@@ -45,6 +72,29 @@ public:
     bool dropCollection(const std::string& name);
     /// @brief Alle Collections löschen.
     void clear();
+
+    /// @brief Mehrere Collections in eine Ziel-Collection zusammenführen (FA-24, v0.24).
+    ///
+    /// Jedes Quell-Dokument wird mit **neuer ID** in `target` eingefügt (IDs sind
+    /// pro Collection vergeben, Kollisionen sind daher garantiert); sofern
+    /// `MergeOptions::sourceField` nicht leer ist, wird das Feld auf den Namen
+    /// der Quell-Collection gesetzt. Existiert `target` nicht, wird sie angelegt.
+    /// Der Merge läuft unter exklusiven Locks aller beteiligten Collections und
+    /// ist **atomar**: wirft ein Dokument `SchemaError` (FA-20) oder
+    /// `UniqueConstraintError` (FA-10), werden alle bereits eingefügten Dokumente
+    /// zurückgerollt und die Exception durchgereicht.
+    ///
+    /// @param target Ziel-Collection (wird angelegt, falls nicht vorhanden).
+    /// @param sources Quell-Collections (müssen existieren; Duplikate werden ignoriert).
+    /// @param opts Optionen (Quellen löschen, Herkunftsfeld, Indizes übernehmen).
+    /// @param refs Optional: wenn gesetzt **und** `opts.dropSources`, werden die
+    ///        `from_key`/`to_key` der Referenzen (altes `quelle#id` → `ziel#neueId`,
+    ///        `quelle#` → `ziel#`) umgeschrieben, damit keine Dangling-Refs entstehen.
+    /// @throws Error wenn `target` in `sources` vorkommt oder `sources` leer ist;
+    ///         CollectionNotFoundError bei unbekannter Quelle;
+    ///         SchemaError/UniqueConstraintError bei Verstoß (mit Rollback).
+    MergeStats mergeCollections(const std::string& target, std::vector<std::string> sources,
+                                MergeOptions opts = {}, ReferenceIndex* refs = nullptr);
 
     /// @brief Gesamte Database als JSON-String (FA-14), inkl. Index-Definitionen
     /// pro Collection. Format siehe `docs/snapshot-json.md`.

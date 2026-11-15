@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.23.1 LANGUAGES CXX)
+project(InMemDB VERSION 0.24 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -116,6 +116,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_tests_locale tests/test_locale.cpp)
     target_link_libraries(memdb_tests_locale PRIVATE memdb)
     add_test(NAME memdb_tests_locale COMMAND memdb_tests_locale)
+
+    add_executable(memdb_tests_merge tests/test_merge.cpp)
+    target_link_libraries(memdb_tests_merge PRIVATE memdb)
+    add_test(NAME memdb_tests_merge COMMAND memdb_tests_merge)
 
     if(INMEMDB_WITH_SQLITE)
         add_executable(memdb_tests_import tests/test_import.cpp)
