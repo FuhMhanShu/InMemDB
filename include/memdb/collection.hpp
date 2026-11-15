@@ -207,6 +207,32 @@ public:
     std::vector<GroupAggregate> groupBy(const std::string& keyPath, const Expression& q = Expression{},
                                          AggOp op = AggOp::Count, const std::string& aggPath = "") const;
 
+    /// @brief TTL / Auto-Expiry (FA-25, v0.26), **opt-in – defaultmäßig AUS**:
+    /// Dokumente ohne `expiresAt`-Feld verfallen nie. Abgelaufene Dokumente
+    /// (`expiresAt <= now`, Unix-Sekunden) werden lazy bei Lesezugriffen
+    /// (findById/find/findIds/forEach/findOne/count/aggregate/groupBy/toJson/size)
+    /// und manuell per `expireNow()` entfernt (Remove-Event + Metrik `expiredDocs`).
+    /// Mitten in einer Transaktion wird nicht gesweept (Snapshot-Isolation).
+    /// @param seconds Verfallszeit ab jetzt in Sekunden; setzt `expiresAt = now + seconds`.
+    /// @return false, wenn das Dokument nicht existiert.
+    bool expiresIn(DocumentId id, std::int64_t seconds);
+    /// @brief Wie `expiresIn`, aber absolute Verfallszeit (Unix-Sekunden).
+    bool expiresAt(DocumentId id, std::int64_t unixSeconds);
+    /// @brief Aktuellen `expiresAt`-Wert eines Dokuments; nullopt = keins/nicht vorhanden.
+    std::optional<std::int64_t> expiresAtOf(DocumentId id) const;
+    /// @brief Collection-weites Default-TTL für neue Dokumente (insert/upsert):
+    /// wird nur gesetzt, wenn das Doc kein `expiresAt` hat und das Schema (FA-20)
+    /// das Feld erlaubt. `0` (Default) = aus.
+    void setDefaultExpiresIn(std::int64_t seconds);
+    /// @brief Aktuelles Default-TTL in Sekunden (0 = aus).
+    std::int64_t defaultExpiresIn() const;
+    /// @brief Manueller Sweep: alle abgelaufenen Dokumente jetzt entfernen.
+    /// @return Anzahl entfernter Dokumente.
+    std::size_t expireNow();
+    /// @brief Uhr für TTL-Tests injizieren (Default: `std::time(nullptr)`);
+    /// liefert Unix-Sekunden.
+    void setClockForTesting(std::function<std::int64_t()> fn);
+
     /// @brief Observer registrieren (FA-15); Events feuern nach Abschluss der
     /// Operation außerhalb des Locks, in Transaktionen erst bei commit().
     /// @return Handle für `offChange`.

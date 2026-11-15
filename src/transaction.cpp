@@ -74,6 +74,18 @@ struct Transaction::Impl {
         state->nextId = backupNextId;
         state->spillIndex = backupSpillIndex;
         state->truncateSpill(backupSpillBytes); // Spill-Datei auf Pre-Tx-Stand kuerzen (setzt spillBytes)
+        // FA-25: expiryCount nach Rollback neu aufbauen (nur wenn TTL ueberhaupt involviert)
+        if (state->expiryCount.load() > 0 || undo.touchedExpiry) {
+            std::size_t n = 0;
+            for (const auto& [id, doc] : state->docs)
+                if (detail::CollectionState::hasExpiryField(doc))
+                    ++n;
+            for (const auto& [id, off] : state->spillIndex)
+                if (auto d = state->loadSpilled(id))
+                    if (detail::CollectionState::hasExpiryField(*d))
+                        ++n;
+            state->expiryCount = n;
+        }
     }
 };
 

@@ -22,8 +22,9 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Qt/qmake-Einbindung](docs/qt-qmake.md) (`InMemDB.pro` + `InMemDB.pri`, FA-23, v0.16)
 - [Qt-Modell-Adapter](docs/qt-qmake.md) (`memdb::qt::MemDbTableModel` über `QAbstractTableModel`, nur QtCore, ohne harte Abhängigkeit via `INMEMDB_WITH_QT`, v0.23)
 - [Collections zusammenführen (Merge)](docs/merge-collections.md) (`Database::mergeCollections` + `mergeAllCollections`, FA-24, v0.24/v0.25)
+- [TTL / Auto-Expiry](docs/ttl-expiry.md) (`expiresIn`/`expiresAt`, `expireNow()`, opt-in, FA-25, v0.26)
 
-## Features (v0.25)
+## Features (v0.26)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")` – oder als String-DSL: `find("age >= 18 && tags.contains('cpp')")` mit registrierbaren Operatoren (`matches`, `in`, eigene) und `@relation.path`-Joins (v0.14)
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
@@ -46,6 +47,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Bessere `matches`-Regex (v0.20): `{n,m}`, `\d\w\s`-Klassen, `(?:...)`, Lazy-Quantoren; kein Hang mehr bei `(a*)*` (Visited-Set im Thompson-NFA)
 - Locale-unabhängige Zahlen (Bugfix v0.23.1): JSON-Snapshots, `toString(Value)` und DSL-Literale nutzen `std::to_chars`/`std::from_chars` – bei `de_DE`-Locale bleibt der Dezimalpunkt ein Punkt (nie Komma); Test `tests/test_locale.cpp`
 - Collections zusammenführen (v0.24/v0.25, FA-24): `Database::mergeCollections("ziel", {"a","b"}, opts, &refs)` und Komfort-Wrapper `mergeAllCollections("merged", opts, &refs)` für die ganze Database – neue IDs + `_source`-Herkunftsfeld, Index-Übernahme, atomarer Rollback bei Schema/Unique-Verstoß, optional Quellen löschen inkl. Referenz-Umschreiben (`ReferenceIndex::rewriteKeys`); Details in `docs/merge-collections.md`
+- TTL / Auto-Expiry (v0.26, FA-25, opt-in – default aus): `expiresIn(sek)`/`expiresAt(unixSek)` an Document & Collection, lazy Sweep bei Lesezugriffen + `expireNow()`, Metrik `expiredDocs`; Details in `docs/ttl-expiry.md`
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test

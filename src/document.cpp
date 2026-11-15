@@ -1,6 +1,7 @@
 #include "memdb/document.hpp"
 #include "memdb/exceptions.hpp"
 
+#include <ctime>
 #include <sstream>
 
 namespace memdb {
@@ -111,6 +112,15 @@ bool Document::rename(std::string_view from, std::string_view to) {
     node.key() = std::string(to);
     impl_->fields.insert(std::move(node));
     return true;
+}
+
+Document& Document::expiresIn(std::int64_t seconds) {
+    return expiresAt(static_cast<std::int64_t>(std::time(nullptr)) + seconds);
+}
+
+Document& Document::expiresAt(std::int64_t unixSeconds) {
+    set("expiresAt", Value(unixSeconds));
+    return *this;
 }
 
 void Document::setPath(std::string_view dotPath, Value value) {

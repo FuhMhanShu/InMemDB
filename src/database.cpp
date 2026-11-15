@@ -69,6 +69,7 @@ DatabaseMetrics Database::metrics() const {
         out.sum.spillWrites += m.spillWrites;
         out.sum.txCommits += m.txCommits;
         out.sum.txRollbacks += m.txRollbacks;
+        out.sum.expiredDocs += m.expiredDocs;
         out.sum.totalQueryMs += m.totalQueryMs;
     }
     return out;
