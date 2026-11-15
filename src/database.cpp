@@ -239,6 +239,21 @@ MergeStats Database::mergeCollections(const std::string& target, std::vector<std
     return stats;
 }
 
+MergeStats Database::mergeAllCollections(const std::string& target, MergeOptions opts,
+                                         ReferenceIndex* refs) {
+    std::vector<std::string> sources;
+    for (const auto& n : collectionNames()) {
+        if (n == target)
+            continue;
+        if (refs && n == refs->storageCollection())
+            continue; // Referenz-Speicher weder mergen noch loeschen
+        sources.push_back(n);
+    }
+    if (sources.empty())
+        throw Error("mergeAllCollections: keine Quell-Collections vorhanden (nur '" + target + "')");
+    return mergeCollections(target, std::move(sources), opts, refs);
+}
+
 std::string Database::toJson() const {
     std::shared_lock lock(impl_->mtx);
     std::string out = "{\"name\":" + detail::writeJsonString(impl_->name) + ",\"collections\":{";

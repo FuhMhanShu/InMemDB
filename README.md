@@ -21,9 +21,9 @@ jederzeit pro Dokument beliebig erweiterbar.
 - [Metriken & Diagnose](docs/metrics.md) (`Collection::metrics()`/`Database::metrics()`, v0.22)
 - [Qt/qmake-Einbindung](docs/qt-qmake.md) (`InMemDB.pro` + `InMemDB.pri`, FA-23, v0.16)
 - [Qt-Modell-Adapter](docs/qt-qmake.md) (`memdb::qt::MemDbTableModel` über `QAbstractTableModel`, nur QtCore, ohne harte Abhängigkeit via `INMEMDB_WITH_QT`, v0.23)
-- [Collections zusammenführen (Merge)](docs/merge-collections.md) (`Database::mergeCollections`, FA-24, v0.24)
+- [Collections zusammenführen (Merge)](docs/merge-collections.md) (`Database::mergeCollections` + `mergeAllCollections`, FA-24, v0.24/v0.25)
 
-## Features (v0.24)
+## Features (v0.25)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")` – oder als String-DSL: `find("age >= 18 && tags.contains('cpp')")` mit registrierbaren Operatoren (`matches`, `in`, eigene) und `@relation.path`-Joins (v0.14)
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
@@ -45,7 +45,7 @@ jederzeit pro Dokument beliebig erweiterbar.
 - Bulk-Update via DSL mit Projektion (v0.21): `update("age >= 18", "adult = true, age = age + 1")` – Set-DSL mit Literalen, Feld-Referenzen, Arithmetik (`+ - * / %`), String-Konkatenation und gepunkteten Pfaden (`Document::setPath`), auch in Transaktionen und mit `@relation`-Query
 - Bessere `matches`-Regex (v0.20): `{n,m}`, `\d\w\s`-Klassen, `(?:...)`, Lazy-Quantoren; kein Hang mehr bei `(a*)*` (Visited-Set im Thompson-NFA)
 - Locale-unabhängige Zahlen (Bugfix v0.23.1): JSON-Snapshots, `toString(Value)` und DSL-Literale nutzen `std::to_chars`/`std::from_chars` – bei `de_DE`-Locale bleibt der Dezimalpunkt ein Punkt (nie Komma); Test `tests/test_locale.cpp`
-- Collections zusammenführen (v0.24, FA-24): `Database::mergeCollections("ziel", {"a","b"}, opts, &refs)` – neue IDs + `_source`-Herkunftsfeld, Index-Übernahme, atomarer Rollback bei Schema/Unique-Verstoß, optional Quellen löschen inkl. Referenz-Umschreiben (`ReferenceIndex::rewriteKeys`); Details in `docs/merge-collections.md`
+- Collections zusammenführen (v0.24/v0.25, FA-24): `Database::mergeCollections("ziel", {"a","b"}, opts, &refs)` und Komfort-Wrapper `mergeAllCollections("merged", opts, &refs)` für die ganze Database – neue IDs + `_source`-Herkunftsfeld, Index-Übernahme, atomarer Rollback bei Schema/Unique-Verstoß, optional Quellen löschen inkl. Referenz-Umschreiben (`ReferenceIndex::rewriteKeys`); Details in `docs/merge-collections.md`
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test

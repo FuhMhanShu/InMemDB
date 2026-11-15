@@ -2,7 +2,7 @@
 
 | Feld | Wert |
 |---|---|
-| Status | umgesetzt (v0.24) |
+| Status | umgesetzt (v0.24; Komfort-Wrapper `mergeAllCollections` v0.25) |
 | Bezug | Anforderungen FA-24 (Kann) |
 
 `Database::mergeCollections` fügt die Dokumente mehrerer Quell-Collections in eine
@@ -58,11 +58,16 @@ memdb::MergeOptions opts;
 opts.dropSources = true;                 // Alt-Collections danach entfernen
 auto st = db.mergeCollections("kunden", {"kunden_alt", "kunden_neu"}, opts, &refs);
 // alle Dokumente in "kunden" mit _source="kunden_alt"/"kunden_neu", Referenzen umgeschrieben
+
+// Komfort: ALLE Collections der Database in eine Ziel-Collection mergen (v0.25)
+auto all = db.mergeAllCollections("merged", opts, &refs); // Default-Zielname: "merged"
+// "merged" existiert nicht? wird angelegt. Der Referenz-Speicher (__references)
+// wird bei refs != nullptr automatisch von den Quellen ausgenommen.
 ```
 
 ## Tests
 
-`tests/test_merge.cpp` (50 Checks): Basis-Merge mit neuen IDs + `_source`, Ziel wird
+`tests/test_merge.cpp` (68 Checks): Basis-Merge mit neuen IDs + `_source`, Ziel wird
 angelegt, Fehlerfälle (leer/Ziel=Quelle/unbekannt), SchemaError + Rollback,
 UniqueConstraintError + Rollback, Index-Uebernahme inkl. Index-Nutzung
 (`metrics().indexQueries`), dropSources, Referenz-Umschreiben (keine Dangling-Refs,

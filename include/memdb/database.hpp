@@ -96,6 +96,16 @@ public:
     MergeStats mergeCollections(const std::string& target, std::vector<std::string> sources,
                                 MergeOptions opts = {}, ReferenceIndex* refs = nullptr);
 
+    /// @brief Komfort-Wrapper über `mergeCollections` (FA-24, v0.25): **alle**
+    /// Collections der Database (außer `target` und ggf. den Referenz-Speicher)
+    /// in `target` zusammenführen. Existiert `target` nicht, wird sie angelegt.
+    /// Übergibt man `refs`, wird dessen Speicher-Collection von den Quellen
+    /// ausgenommen (sie wird weder gemergt noch bei `dropSources` gelöscht) und
+    /// die Referenzen auf `target` umgeschrieben.
+    /// @throws Error wenn keine Quell-Collections vorhanden sind.
+    MergeStats mergeAllCollections(const std::string& target = "merged", MergeOptions opts = {},
+                                   ReferenceIndex* refs = nullptr);
+
     /// @brief Gesamte Database als JSON-String (FA-14), inkl. Index-Definitionen
     /// pro Collection. Format siehe `docs/snapshot-json.md`.
     std::string toJson() const;

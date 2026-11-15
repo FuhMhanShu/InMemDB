@@ -244,6 +244,61 @@ int main() {
               nullptr);
     }
 
+    // 11) mergeAllCollections: alle Collections in eine Ziel-Collection, inkl.
+    //     Referenz-Speicher-Ausnahme und Ref-Rewrite bei dropSources
+    {
+        Database db("m");
+        ReferenceIndex refs(db); // legt __references an
+        auto a = db.createCollection("a");
+        auto b = db.createCollection("b");
+        auto c = db.createCollection("c");
+        DocumentId a1 = a.insert({{"v", 1}});
+        DocumentId b1 = b.insert({{"v", 2}});
+        c.insert({{"v", 3}});
+        refs.link("a", a1, "b", b1, "kennt");
+        CHECK(db.collectionNames().size() == 4); // a, b, c, __references
+
+        MergeOptions opts;
+        opts.dropSources = true;
+        MergeStats st = db.mergeAllCollections("merged", opts, &refs);
+        CHECK(st.merged == 3);
+        CHECK(st.perSource.size() == 3);
+        CHECK(st.droppedSources.size() == 3);
+        auto names = db.collectionNames();
+        CHECK(names.size() == 2); // merged + __references
+        CHECK(db.hasCollection("merged") && db.hasCollection("__references"));
+        CHECK(db.collection("merged").size() == 3);
+        CHECK(refs.dangling().empty());
+        CHECK(st.rewrittenReferences == 1);
+        auto merged = db.collection("merged");
+        DocumentId newA = merged.findIds(Field("_source") == "a").front();
+        auto out = refs.references("merged", RefDirection::Outgoing, newA);
+        CHECK(out.size() == 1);
+        if (!out.empty())
+            CHECK(out[0].relation == "kennt");
+        auto joined = refs.joinIds("merged", "kennt", "merged");
+        CHECK(joined.size() == 1);
+    }
+
+    // 12) mergeAllCollections: Default-Zielname "merged"; leere DB -> Error;
+    //     nur Ziel vorhanden -> Error
+    {
+        Database db("m");
+        CHECK_THROWS_AS(db.mergeAllCollections(), Error);
+        auto x = db.createCollection("x");
+        x.insert({{"v", 1}});
+        MergeStats st = db.mergeAllCollections(); // default target "merged"
+        CHECK(st.merged == 1);
+        CHECK(db.hasCollection("merged"));
+        CHECK(db.collection("merged").size() == 1);
+        CHECK(db.hasCollection("x")); // dropSources default = false -> Quelle bleibt
+    }
+    {
+        Database db("m");
+        db.createCollection("merged");
+        CHECK_THROWS_AS(db.mergeAllCollections(), Error); // keine Quellen
+    }
+
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     return g_failures == 0 ? 0 : 1;
 }
