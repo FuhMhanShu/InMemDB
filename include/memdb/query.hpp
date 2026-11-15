@@ -62,6 +62,9 @@ public:
     /// @brief Erster index-tauglicher Vergleich im Top-Level-`&&`-Baum (oder `nullopt`).
     std::optional<IndexHint> indexHint() const;
 
+    /// @brief true, wenn die Expression leer ist und jedes Dokument matcht (v0.27).
+    bool isMatchAll() const;
+
 private:
     explicit Expression(std::shared_ptr<ExprNode> root);
     Expression compareWith(int op, Value v) const;

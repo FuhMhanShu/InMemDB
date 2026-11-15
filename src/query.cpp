@@ -258,6 +258,8 @@ bool Expression::evaluate(const Document& doc) const {
     return root_ ? root_->eval(doc) : true;
 }
 
+bool Expression::isMatchAll() const { return !root_; }
+
 std::optional<IndexHint> Expression::indexHint() const {
     if (!root_)
         return std::nullopt;

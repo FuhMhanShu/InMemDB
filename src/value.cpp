@@ -142,6 +142,34 @@ bool equal(const Value& a, const Value& b) {
 bool operator==(const Value& a, const Value& b) { return equal(a, b); }
 bool operator!=(const Value& a, const Value& b) { return !equal(a, b); }
 
+bool ValueLess::operator()(const Value& a, const Value& b) const {
+    auto rank = [](const Value& v) {
+        switch (v.type()) {
+            case Value::Type::Null: return 0;
+            case Value::Type::Bool: return 1;
+            case Value::Type::Int:
+            case Value::Type::Double: return 2;
+            case Value::Type::String: return 3;
+            case Value::Type::Binary: return 4;
+            case Value::Type::Document: return 5;
+            case Value::Type::Array: return 6;
+        }
+        return 7;
+    };
+    int ra = rank(a), rb = rank(b);
+    if (ra != rb)
+        return ra < rb;
+    if (ra == 2 || ra == 3) {
+        auto c = compare(a, b);
+        return c && *c < 0;
+    }
+    if (ra == 1)
+        return a.asBool() < b.asBool();
+    if (ra == 0)
+        return false;
+    return toString(a) < toString(b);
+}
+
 std::optional<int> compare(const Value& a, const Value& b) {
     if (a.isNumber() && b.isNumber()) {
         if (a.isInt() && b.isInt()) {

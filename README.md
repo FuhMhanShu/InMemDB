@@ -48,7 +48,7 @@ db.saveToFileEncrypted("shop.enc", "geheim");
 - [Collections zusammenführen (Merge)](docs/merge-collections.md) (`Database::mergeCollections` + `mergeAllCollections`, FA-24, v0.24/v0.25)
 - [TTL / Auto-Expiry](docs/ttl-expiry.md) (`expiresIn`/`expiresAt`, `expireNow()`, opt-in, FA-25, v0.26)
 
-## Features (v0.26)
+## Features (v0.27)
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern
 - Query-Ausdruckbaum: `(Field("age") >= 18) && Field("tags").contains("cpp")` – oder als String-DSL: `find("age >= 18 && tags.contains('cpp')")` mit registrierbaren Operatoren (`matches`, `in`, eigene) und `@relation.path`-Joins (v0.14)
 - Sekundärindizes pro Feld inkl. Unique-Constraints und beschleunigter Abfragen
@@ -72,6 +72,7 @@ db.saveToFileEncrypted("shop.enc", "geheim");
 - Locale-unabhängige Zahlen (Bugfix v0.23.1): JSON-Snapshots, `toString(Value)` und DSL-Literale nutzen `std::to_chars`/`std::from_chars` – bei `de_DE`-Locale bleibt der Dezimalpunkt ein Punkt (nie Komma); Test `tests/test_locale.cpp`
 - Collections zusammenführen (v0.24/v0.25, FA-24): `Database::mergeCollections("ziel", {"a","b"}, opts, &refs)` und Komfort-Wrapper `mergeAllCollections("merged", opts, &refs)` für die ganze Database – neue IDs + `_source`-Herkunftsfeld, Index-Übernahme, atomarer Rollback bei Schema/Unique-Verstoß, optional Quellen löschen inkl. Referenz-Umschreiben (`ReferenceIndex::rewriteKeys`); Details in `docs/merge-collections.md`
 - TTL / Auto-Expiry (v0.26, FA-25, opt-in – default aus): `expiresIn(sek)`/`expiresAt(unixSek)` an Document & Collection, lazy Sweep bei Lesezugriffen + `expireNow()`, Metrik `expiredDocs`; Details in `docs/ttl-expiry.md`
+- Allgemeine Foundations (v0.27): `memdb::ValueLess` (Value als map/set-Schlüssel), `Collection::distinctValues(feld, q)` (index-aware), `Collection::sample(maxN, seed)` (reproduzierbares Reservoir-Sampling), `AggOp::Distinct`, `Expression::isMatchAll()` – Basis z. B. für Relationship-Discovery
 - Thread-Safety via `shared_mutex`
 
 ## Build & Test
