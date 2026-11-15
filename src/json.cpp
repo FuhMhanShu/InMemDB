@@ -3,11 +3,13 @@
 #include "memdb/exceptions.hpp"
 
 #include <cerrno>
+#include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <charconv>
 #include <cstring>
+#include <limits>
 #include <memory>
 
 namespace memdb::detail {
@@ -212,14 +214,30 @@ struct Parser {
             if (errno == 0 && end && *end == '\0')
                 return Value(static_cast<std::int64_t>(fb));
         } else {
+            // Locale-unabhaengig parsen (std::from_chars, nie strtod: bei de_DE
+            // waere sonst '.' kein Dezimaltrennzeichen mehr). Fallbacks:
+            // Hex-Float (0x1.8p1) sowie inf/nan (nicht JSON, aber tolerant).
             double d = 0.0;
             auto r = std::from_chars(buf, buf + n, d);
             if (r.ec == std::errc() && r.ptr == buf + n)
                 return Value(d);
-            char* end = nullptr;
-            double fb = std::strtod(buf, &end);
-            if (end && *end == '\0')
-                return Value(fb);
+            r = std::from_chars(buf, buf + n, d, std::chars_format::hex);
+            if (r.ec == std::errc() && r.ptr == buf + n)
+                return Value(d);
+            std::string lower(buf, n);
+            for (auto& c : lower)
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            bool neg = false;
+            std::size_t off = 0;
+            if (!lower.empty() && (lower[0] == '+' || lower[0] == '-')) {
+                neg = lower[0] == '-';
+                off = 1;
+            }
+            if (lower.compare(off, 3, "inf") == 0 || lower.compare(off, 8, "infinity") == 0)
+                return Value(neg ? -std::numeric_limits<double>::infinity()
+                                 : std::numeric_limits<double>::infinity());
+            if (lower.compare(off, 3, "nan") == 0)
+                return Value(std::numeric_limits<double>::quiet_NaN());
         }
         fail(std::string("ungueltige Zahl '") + buf + "'");
     }
@@ -332,9 +350,12 @@ std::string writeJson(const Value& v) {
             double d = v.asDouble();
             if (std::isnan(d) || std::isinf(d))
                 return "null";
-            char buf[40];
-            std::snprintf(buf, sizeof(buf), "%.17g", d);
-            std::string num(buf);
+            // std::to_chars: kuerzeste Round-Trip-Darstellung und
+            // locale-unabhaengig (snprintf "%.17g" wuerde bei de_DE ein
+            // Komma als Dezimaltrennzeichen liefern).
+            char buf[64];
+            auto r = std::to_chars(buf, buf + sizeof(buf), d);
+            std::string num(buf, r.ptr);
             if (num.find_first_of(".eE") == std::string::npos)
                 num += ".0";
             return num;

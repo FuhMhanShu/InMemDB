@@ -2,6 +2,7 @@
 #include "memdb/exceptions.hpp"
 #include "memdb/value.hpp"
 
+#include <charconv>
 #include <cmath>
 #include <sstream>
 
@@ -173,9 +174,19 @@ std::string toString(const Value& v) {
         case Value::Type::Int:
             os << v.asInt();
             break;
-        case Value::Type::Double:
-            os << v.asDouble();
+        case Value::Type::Double: {
+            // locale-unabhaengig (os << double wuerde bei de_DE ein Komma
+            // liefern); kuerzeste Round-Trip-Darstellung wie im JSON-Writer.
+            double d = v.asDouble();
+            if (std::isnan(d) || std::isinf(d)) {
+                os << (std::isnan(d) ? "nan" : (d < 0 ? "-inf" : "inf"));
+                break;
+            }
+            char buf[64];
+            auto r = std::to_chars(buf, buf + sizeof(buf), d);
+            os << std::string(buf, r.ptr);
             break;
+        }
         case Value::Type::String:
             os << '"' << v.asString() << '"';
             break;
