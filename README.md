@@ -1,8 +1,32 @@
 # InMemDB
 
-In-Memory, non-relationales (dokumentenorientiertes) Datenbanksystem als
-objektorientierte C++-Bibliothek. Dokumente sind schema-los: Felder sind
-jederzeit pro Dokument beliebig erweiterbar.
+**In-Memory Document Store als objektorientierte C++17-Bibliothek** – schema-los,
+plattformunabhängig, ohne externe Pflichtabhängigkeiten (statische Library mit Pimpl).
+
+Dokumente sind JSON-ähnliche Objekte mit jederzeit beliebig erweiterbaren Feldern.
+Abgefragt wird per typsicherem Ausdruckbaum (`Field("age") >= 18 && Field("tags").contains("cpp")`)
+oder als String-DSL (`find("age >= 18 && tags.contains('cpp')")`), sekundär indexbeschleunigt.
+
+Dazu: atomare Transaktionen (CoW-Rollback), Observer/Callbacks, Referenzen zwischen
+Collections inkl. index-beschleunigtem Join (`@relation.path`), verschlüsselte JSON-Snapshots
+(PBKDF2 + ChaCha20 + HMAC), optionales striktes Schema, Import aus CSV/JSON/JSONL/SQL-Dump/
+BSON/SQLite, Hybrid/Out-of-Core (Spill-to-Disk), TTL/Auto-Expiry, Metriken & Diagnose,
+Merge ganzer Collections, Qt/qmake-Einbindung inkl. `QAbstractTableModel`-Adapter –
+alles dokumentiert in [`docs/`](docs/).
+
+> **Reines In-Memory:** Daten gehen beim Prozessende verloren. Sichere sie per
+> `saveToFile(...)` bzw. verschlüsselt per `saveToFileEncrypted(path, passwort)`.
+
+```cpp
+#include <memdb/memdb.hpp>
+memdb::Database db("shop");
+auto products = db.createCollection("products");
+products.createIndex("name", true);
+products.insert({{"name", "Buch"}, {"preis", 10.5}, {"tags", {"neu"}}});
+for (const auto& p : products.find("preis < 20 && tags.contains('neu')"))
+    std::cout << p.at("name").asString() << '\n';
+db.saveToFileEncrypted("shop.enc", "geheim");
+```
 
 - [Anforderungen](anforderungen.md) (v0.15)
 - [Query-API](docs/query-api.md) (verbindliche Ausprägung)
