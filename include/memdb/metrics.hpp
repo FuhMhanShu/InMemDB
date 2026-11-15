@@ -22,6 +22,7 @@ struct CollectionMetrics {
     std::uint64_t spillWrites = 0;    ///< Hybrid-Modus: in Spill-Datei geschriebene Records
     std::uint64_t txCommits = 0;      ///< abgeschlossene Transaktionen (Commit)
     std::uint64_t txRollbacks = 0;    ///< zurückgerollte Transaktionen (explizit oder per Destruktor)
+    std::uint64_t expiredDocs = 0;    ///< TTL/Auto-Expiry (FA-25): abgelaufene und entfernte Dokumente
     std::size_t docs = 0;             ///< aktuelle Dokumentanzahl (RAM + Spill)
     std::size_t indexCount = 0;       ///< Anzahl aktiver Indizes
     std::size_t lastCandidateCount = 0; ///< Kandidaten der letzten Query

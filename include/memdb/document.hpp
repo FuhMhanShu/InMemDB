@@ -4,6 +4,7 @@
 #include "value.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <map>
@@ -60,6 +61,14 @@ public:
     bool remove(std::string_view key);
     /// @brief Feld umbenennen; false, wenn Quelle fehlt oder Ziel belegt ist.
     bool rename(std::string_view from, std::string_view to);
+
+    /// @brief Verfallszeit relativ setzen (FA-25, TTL): `expiresAt = now + seconds`
+    /// (Unix-Sekunden). Chainable: `coll.insert(Document{{"k","v"}}.expiresIn(3600))`.
+    /// @return *this
+    Document& expiresIn(std::int64_t seconds);
+    /// @brief Verfallszeit absolut setzen (FA-25): `expiresAt = unixSeconds`.
+    /// @return *this
+    Document& expiresAt(std::int64_t unixSeconds);
 
     /// @brief Zugriff auf verschachteltes Feld per Punktnotation (`"adresse.plz"`);
     /// `nullptr`, wenn der Pfad nicht existiert.

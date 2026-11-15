@@ -42,6 +42,21 @@ void fireEvents(const std::shared_ptr<detail::CollectionState>& state, const std
 
 } // namespace
 
+// FA-25: TTL-Sweep vor Lesezugriffen (lazy). Billig wenn kein expiresAt existiert.
+void sweepExpired(const std::shared_ptr<detail::CollectionState>& state) {
+    if (state->expiryCount.load(std::memory_order_relaxed) == 0)
+        return;
+    std::vector<ChangeEvent> events;
+    {
+        std::unique_lock lock(state->mtx);
+        if (state->txLocks.load() > 0)
+            return; // mitten in Tx/Merge nicht sweepen (Snapshot-Isolation)
+        detail::EventSinkGuard guard(state.get(), &events);
+        state->doExpireNow();
+    }
+    fireEvents(state, events);
+}
+
 Collection::Collection(std::shared_ptr<detail::CollectionState> impl) : impl_(std::move(impl)) {}
 
 Collection Collection::create(std::string name) {
@@ -81,31 +96,37 @@ std::vector<DocumentId> Collection::insertBulk(std::vector<Document> docs) {
 }
 
 std::optional<Document> Collection::findById(DocumentId id) const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doFindById(id);
 }
 
 Cursor Collection::find(const Expression& q) const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doFind(q);
 }
 
 std::vector<DocumentId> Collection::findIds(const Expression& q) const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doFindIds(q);
 }
 
 std::size_t Collection::forEach(const Expression& q, const std::function<void(const Document&)>& cb) const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doForEach(q, cb);
 }
 
 std::optional<Document> Collection::findOne(const Expression& q) const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doFindOne(q);
 }
 
 std::size_t Collection::count(const Expression& q) const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doCount(q);
 }
@@ -288,6 +309,7 @@ std::uint64_t Collection::compactSpill() {
 }
 
 std::size_t Collection::size() const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doSize();
 }
@@ -332,6 +354,7 @@ CollectionMetrics Collection::metrics() const {
     m.spillWrites = s.spillWrites.load();
     m.txCommits = s.txCommits.load();
     m.txRollbacks = s.txRollbacks.load();
+    m.expiredDocs = s.expiredDocs.load();
     m.docs = impl_->doSize();
     m.indexCount = impl_->indexes.size();
     m.lastCandidateCount = impl_->lastCandidateCount;
@@ -355,6 +378,7 @@ void Collection::resetMetrics() {
     s.spillWrites = 0;
     s.txCommits = 0;
     s.txRollbacks = 0;
+    s.expiredDocs = 0;
     s.lastQueryMs = 0.0;
     s.totalQueryMs = 0.0;
     s.lastUsedIndex = false;
@@ -364,6 +388,7 @@ void Collection::resetMetrics() {
 Transaction Collection::beginTransaction() { return Transaction(impl_); }
 
 std::string Collection::toJson() const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     std::string out = "[";
     bool first = true;
@@ -405,14 +430,77 @@ void Collection::clear() {
 }
 
 std::optional<Value> Collection::aggregate(AggOp op, const std::string& fieldPath, const Expression& q) const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doAggregate(op, fieldPath, q);
 }
 
 std::vector<GroupAggregate> Collection::groupBy(const std::string& keyPath, const Expression& q, AggOp op,
                                                  const std::string& aggPath) const {
+    sweepExpired(impl_);
     std::shared_lock lock(impl_->mtx);
     return impl_->doGroupBy(keyPath, q, op, aggPath);
+}
+
+bool Collection::expiresIn(DocumentId id, std::int64_t seconds) {
+    std::vector<ChangeEvent> events;
+    bool ok = false;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        const std::int64_t ts = impl_->clockFn() + seconds;
+        ok = impl_->doUpdateById(id, [&](Document& d) { d.set("expiresAt", Value(ts)); });
+    }
+    fireEvents(impl_, events);
+    return ok;
+}
+
+bool Collection::expiresAt(DocumentId id, std::int64_t unixSeconds) {
+    std::vector<ChangeEvent> events;
+    bool ok = false;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        ok = impl_->doUpdateById(id, [&](Document& d) { d.set("expiresAt", Value(unixSeconds)); });
+    }
+    fireEvents(impl_, events);
+    return ok;
+}
+
+std::optional<std::int64_t> Collection::expiresAtOf(DocumentId id) const {
+    sweepExpired(impl_);
+    std::shared_lock lock(impl_->mtx);
+    auto doc = impl_->doFindById(id);
+    if (!doc || !detail::CollectionState::hasExpiryField(*doc))
+        return std::nullopt;
+    return detail::CollectionState::expiryOf(*doc);
+}
+
+void Collection::setDefaultExpiresIn(std::int64_t seconds) {
+    std::unique_lock lock(impl_->mtx);
+    impl_->defaultExpiresIn = seconds;
+}
+
+std::int64_t Collection::defaultExpiresIn() const {
+    std::shared_lock lock(impl_->mtx);
+    return impl_->defaultExpiresIn;
+}
+
+std::size_t Collection::expireNow() {
+    std::vector<ChangeEvent> events;
+    std::size_t n = 0;
+    {
+        std::unique_lock lock(impl_->mtx);
+        detail::EventSinkGuard guard(impl_.get(), &events);
+        n = impl_->doExpireNow();
+    }
+    fireEvents(impl_, events);
+    return n;
+}
+
+void Collection::setClockForTesting(std::function<std::int64_t()> fn) {
+    std::unique_lock lock(impl_->mtx);
+    impl_->clockFn = std::move(fn);
 }
 
 std::uint64_t Collection::onChange(ChangeCallback cb) {

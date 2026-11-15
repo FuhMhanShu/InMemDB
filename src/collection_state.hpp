@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <fcntl.h>
 #include <fstream>
 #include <functional>
@@ -165,6 +166,7 @@ struct Metrics {
     std::atomic<std::uint64_t> spillWrites{0};
     std::atomic<std::uint64_t> txCommits{0};
     std::atomic<std::uint64_t> txRollbacks{0};
+    std::atomic<std::uint64_t> expiredDocs{0};
     double lastQueryMs = 0.0;
     double totalQueryMs = 0.0;
     bool lastUsedIndex = false;
@@ -182,6 +184,58 @@ struct CollectionState {
     std::vector<std::pair<std::uint64_t, ChangeCallback>> observers;
     std::uint64_t nextObserverId = 1;
     std::shared_ptr<const Schema> schema_;
+
+    // --- TTL / Auto-Expiry (FA-25, v0.26), opt-in: defaultmaessig AUS ---
+    std::atomic<std::size_t> expiryCount{0}; ///< Docs mit `expiresAt`-Feld (RAM + Spill)
+    std::int64_t defaultExpiresIn = 0;       ///< Collection-Default-TTL in s; 0 = aus (Default)
+    std::function<std::int64_t()> clockFn = []() { return static_cast<std::int64_t>(std::time(nullptr)); };
+
+    /// true, wenn das Dokument ein gueltiges `expiresAt`-Feld (Int, Unix-Sekunden) traegt.
+    static bool hasExpiryField(const Document& d) {
+        const Value* v = d.find("expiresAt");
+        return v && v->isInt();
+    }
+    /// Ablaufzeitpunkt (Unix-Sekunden); nur aufrufen, wenn hasExpiryField true.
+    static std::int64_t expiryOf(const Document& d) { return d.at("expiresAt").asInt(); }
+    /// expiryCount bei Ersetzen/Einfuegen anpassen.
+    void adjustExpiry(const Document* oldDoc, const Document* newDoc) {
+        const bool o = oldDoc && hasExpiryField(*oldDoc);
+        const bool n = newDoc && hasExpiryField(*newDoc);
+        if (o || n) {
+            if (undo)
+                undo->touchedExpiry = true;
+            if (n && !o)
+                ++expiryCount;
+            else if (o && !n)
+                --expiryCount;
+        }
+    }
+    /// Collection-Default-TTL auf neues Doc anwenden (nur wenn Feld im Schema erlaubt).
+    void applyDefaultExpiry(Document& d) {
+        if (defaultExpiresIn > 0 && !hasExpiryField(d) && (!schema_ || schema_->fields().count("expiresAt") > 0))
+            d.set("expiresAt", Value(clockFn() + defaultExpiresIn));
+    }
+    /// Alle abgelaufenen Dokumente entfernen (Sweep). Aufrufer haelt unique_lock;
+    /// mitten in Transaktion/Merge (txLocks > 0) wird nichts entfernt (Snapshot-Isolation).
+    std::size_t doExpireNow() {
+        if (txLocks.load() > 0)
+            return 0;
+        const std::int64_t now = clockFn();
+        std::vector<DocumentId> expired;
+        for (const auto& [id, d] : docs)
+            if (hasExpiryField(d) && expiryOf(d) <= now)
+                expired.push_back(id);
+        for (const auto& [id, off] : spillIndex)
+            if (auto d = loadSpilled(id))
+                if (hasExpiryField(*d) && expiryOf(*d) <= now)
+                    expired.push_back(id);
+        for (auto id : expired)
+            if (doRemoveById(id))
+                ++metrics.expiredDocs;
+        if (!expired.empty())
+            maybeEvict();
+        return expired.size();
+    }
 
     void validateDoc(const Document& doc) const {
         if (schema_)
@@ -228,6 +282,7 @@ struct CollectionState {
         std::map<DocumentId, std::optional<Document>> docs; // alter Zustand (nullopt = gab es nicht)
         bool cleared = false;
         std::map<DocumentId, Document> clearedDocs;         // nur bei Clear/Load waehrend Tx
+        bool touchedExpiry = false;                          // FA-25: Rollback muss expiryCount neu zaehlen
     };
     TxUndo* undo = nullptr;
 
@@ -241,9 +296,12 @@ struct CollectionState {
         if (undo && !undo->cleared) {
             undo->cleared = true;
             // Bereits per noteUndo erfasste IDs ueberlagern wir beim Restore separat
-            for (const auto& [id, doc] : docs)
+            for (const auto& [id, doc] : docs) {
+                if (hasExpiryField(doc))
+                    undo->touchedExpiry = true;
                 if (undo->docs.count(id) == 0)
                     undo->clearedDocs.emplace(id, doc);
+            }
         }
     }
     std::fstream spillFile;
@@ -510,11 +568,13 @@ struct CollectionState {
     DocumentId doInsert(Document doc) {
         DocumentId id(nextId++);
         doc.setId(id);
+        applyDefaultExpiry(doc); // FA-25: Collection-Default-TTL (opt-in)
         validateDoc(doc);
         validateUnique(id, doc);
         noteUndo(id);
         auto [it, ok] = docs.emplace(id, doc);
         indexAdd(id, it->second);
+        adjustExpiry(nullptr, &it->second);
         emit(ChangeType::Insert, id, it->second);
         ++metrics.inserts;
         maybeEvict();
@@ -643,11 +703,14 @@ struct CollectionState {
             auto it = docs.find(id);
             if (it != docs.end()) {
                 noteUndo(id);
+                adjustExpiry(&it->second, &updated);
                 indexRemove(id, it->second);
                 it->second = std::move(updated);
                 indexAdd(id, it->second);
                 emit(ChangeType::Update, id, it->second);
             } else { // ausgelagert: neue Version ans Spill anhaengen
+                Document old = loadDoc(id);
+                adjustExpiry(&old, &updated);
                 spillAppend(id, updated);
                 emit(ChangeType::Update, id, updated);
             }
@@ -662,10 +725,12 @@ struct CollectionState {
         if (it == docs.end()) {
             if (!spillIndex.count(id))
                 return false;
-            Document updated = *loadSpilled(id);
+            Document old = *loadSpilled(id);
+            Document updated = old;
             mutator(updated);
             updated.setId(id);
             validateDoc(updated);
+            adjustExpiry(&old, &updated);
             spillAppend(id, updated); // neue Version ans Spill
             emit(ChangeType::Update, id, updated);
             ++metrics.updates;
@@ -676,6 +741,7 @@ struct CollectionState {
         updated.setId(id);
         validateDoc(updated);
         validateUnique(id, updated);
+        adjustExpiry(&it->second, &updated);
         indexRemove(id, it->second);
         it->second = std::move(updated);
         indexAdd(id, it->second);
@@ -690,8 +756,10 @@ struct CollectionState {
         if (it == docs.end()) {
             if (!spillIndex.count(id))
                 return false;
+            Document old = *loadSpilled(id);
             doc.setId(id);
             validateDoc(doc);
+            adjustExpiry(&old, &doc);
             spillAppend(id, doc);
             emit(ChangeType::Replace, id, doc);
             ++metrics.updates;
@@ -700,6 +768,7 @@ struct CollectionState {
         doc.setId(id);
         validateDoc(doc);
         validateUnique(id, doc);
+        adjustExpiry(&it->second, &doc);
         indexRemove(id, it->second);
         it->second = std::move(doc);
         indexAdd(id, it->second);
@@ -715,6 +784,7 @@ struct CollectionState {
             doc.setId(id);
             validateDoc(doc);
             validateUnique(id, doc);
+            adjustExpiry(&it->second, &doc);
             indexRemove(id, it->second);
             it->second = std::move(doc);
             indexAdd(id, it->second);
@@ -723,8 +793,10 @@ struct CollectionState {
             return id;
         }
         if (spillIndex.count(id)) { // ausgelagert: im Spill aktualisieren
+            Document old = *loadSpilled(id);
             doc.setId(id);
             validateDoc(doc);
+            adjustExpiry(&old, &doc);
             spillAppend(id, doc);
             emit(ChangeType::Update, id, doc);
             ++metrics.updates;
@@ -757,11 +829,13 @@ struct CollectionState {
             auto it = docs.find(id);
             if (it != docs.end()) {
                 noteUndo(id);
+                adjustExpiry(&it->second, nullptr);
                 indexRemove(id, it->second);
                 emit(ChangeType::Remove, id, it->second);
                 docs.erase(it);
             } else if (spillIndex.count(id)) {
                 Document d = *loadSpilled(id);
+                adjustExpiry(&d, nullptr);
                 spillIndex.erase(id); // Datei behaelt den Record bis compactSpill()
                 emit(ChangeType::Remove, id, d);
             }
@@ -774,6 +848,7 @@ struct CollectionState {
         auto it = docs.find(id);
         noteUndo(id);
         if (it != docs.end()) {
+            adjustExpiry(&it->second, nullptr);
             indexRemove(id, it->second);
             emit(ChangeType::Remove, id, it->second);
             docs.erase(it);
@@ -782,6 +857,7 @@ struct CollectionState {
         }
         if (spillIndex.count(id)) {
             Document d = *loadSpilled(id);
+            adjustExpiry(&d, nullptr);
             spillIndex.erase(id);
             emit(ChangeType::Remove, id, d);
             ++metrics.removes;
@@ -832,6 +908,7 @@ struct CollectionState {
         noteUndoClear();
         docs.clear();
         nextId = 1;
+        expiryCount = 0;
         for (auto& [path, idx] : indexes)
             idx->entries.clear();
         if (overflowEnabled) {
@@ -858,6 +935,7 @@ struct CollectionState {
         noteUndoClear();
         docs.clear();
         nextId = 1;
+        expiryCount = 0;
         for (auto& [path, idx] : indexes)
             idx->entries.clear();
         if (overflowEnabled) {
@@ -885,6 +963,7 @@ struct CollectionState {
                     if (const Value* v = doc.findPath(path))
                         idx->entries[*v].insert(id);
             docs.emplace(id, std::move(doc));
+            adjustExpiry(nullptr, &docs.at(id));
         }
         for (auto& [path, idx] : indexes) {
             if (idx->unique)
