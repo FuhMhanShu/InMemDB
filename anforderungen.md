@@ -6,7 +6,7 @@
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
 | Version | 0.28 |
-| Status | fortgeschrieben; FA-01…FA-26 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
+| Status | fortgeschrieben; FA-01…FA-27 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
 | Bereitstellungsform | Eingebettete Bibliothek als **kompilierte statische Library mit Pimpl-Idiom** (öffentliche Header unter `include/memdb/`, Implementierung gekapselt in `src/`); kein Server, kein Netzwerk. Header-only wurde verworfen – siehe `docs/architecture.md`. |
@@ -87,6 +87,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | FA-24 | **Collections zusammenführen (Merge)**: `Database::mergeCollections(target, sources, opts, refs*)` – jedes Quell-Dokument mit neuer ID ins Ziel (IDs sind pro Collection vergeben), optional Herkunftsfeld `_source`, Index-Übernahme (Union), optional Quell-Collections löschen (`dropSources`) inkl. Umschreiben der FA-18-Referenzen (`ReferenceIndex::rewriteKeys`, sonst dangling). Atomar: Schema-/Unique-Verstoß → kompletter Rollback. Inkl. Spill-Dokumenten (v0.18) und Observer-Events. Siehe `docs/merge-collections.md`. | K |
 | FA-25 | **TTL / Auto-Expiry** (opt-in, default aus): Verfallszeit pro Dokument (`expiresAt`, Unix-Sekunden) via `Document::expiresIn(sek)`/`expiresAt(unix)` und `Collection::expiresIn/expiresAt(id, …)`; lazy Sweep bei Lesezugriffen + manueller Sweep `expireNow()`; Collection-Default via `setDefaultExpiresIn(sek)`; inkl. Spill (v0.18), Tx-Guard (kein Sweep mitten in Tx), Snapshot, Metrik `expiredDocs`. Siehe `docs/ttl-expiry.md`. | K |
 | FA-26 | **Fremdschlüssel beim Import als Referenzen übernehmen**: Quellen liefern FK-Metadaten (`TableInfo::foreignKeys`; SQLite via `PRAGMA foreign_key_list`, SQL-Dump via `REFERENCES`/`FOREIGN KEY`/`CONSTRAINT … FOREIGN KEY`); `Importer` legt bei `ImportOptions::importForeignKeys` (Default an) FA-18-Referenzen an (Match über `refColumn`/`pk`/PK-Spalte, Relation = Constraint-Name bzw. `fk_<spalte>`); Stats `importedReferences`/`skippedForeignKeys`; CLI `--no-foreign-keys`. Siehe `docs/import.md`. | K |
+| FA-27 | **Relationship-Discovery** (ohne externe Abhängigkeiten): `discoverForeignKeys` (Werte-Überlappung, collection- und database-übergreifend via `std::vector<Collection>`), `discoverFunctionalDependencies` (X→Y via groupBy+Distinct), `discoverCorrelations` (Pearson + kategorial), `discoverNearDuplicates` (normalisierte Edit-Distanz), `discoverRelations` (kombiniert), `applyDiscovered` (FK-Befunde als FA-18-Referenzen), Reports `toJson`/`toMermaid`, CLI `inmemdb_discover`; Sampling via `Collection::sample`. Siehe `docs/discovery.md`. | K |
 
 > **Verbindliche Ausprägung von FA-05 (Query-API):** typsicher Ausdruckbaum mit
 > Operator-Overloading, z. B. `(Field("age") >= 18) && Field("tags").contains("cpp")`.
@@ -178,7 +179,7 @@ Namespace `memdb`. Wesentliche Klassen:
 - Metriken/Diagnose. **Umgesetzt (v0.22):** `Collection::metrics()`/`resetMetrics()` und `Database::metrics()` (Aggregat) mit Zählern für Schreib-/Lesezugriffe, Index-Nutzung (`indexQueries`, `scannedDocs`), Query-Dauer, Spill-IO, Tx-Commits/Rollbacks und Change-Events; siehe `docs/metrics.md`.
 - Bulk-Update via DSL mit Projektion. **Umgesetzt (v0.21):** `Collection::update(queryDsl, setDsl)` und `Transaction::update(dsl, setDsl)`; Set-DSL (`parseUpdateSet`) mit Literalen, Feld-Referenzen, Arithmetik (`+ - * / %`, int bleibt int), String-Konkatenation, gepunkteten Zielpfaden via `Document::setPath`; Snapshot-Semantik pro Dokument; `@relation`-Query mit `Database&`-Variante. Siehe `docs/query-dsl.md`.
 - Bessere `matches`-Regex. **Umgesetzt (v0.20):** Thompson-NFA um `{n}` `{n,}` `{n,m}`, Kurzschriften `\d \D \s \S \w \W` (auch in Klassen), `(?:...)`-Gruppen und Lazy-Quantoren erweitert; Visited-Set im NFA beseitigt Hang bei verschachtelten Schleifen (`(a*)*`); Fehlermeldungen mit Position; 116 Checks in `tests/test_regex.cpp`. Siehe `docs/query-dsl.md`.
-- Relationship-Discovery: implizite Beziehungen automatisch erkennen (Fremdschlüssel per Werte-Überlappung via `distinctValues`, funktionale Abhängigkeiten via `groupBy`+`AggOp::Distinct`, optional als FA-18-Referenzen anwenden). **Geplant** – Foundations vorhanden (v0.27); FK-Metadaten importiert ab v0.28 (FA-26).
+- Relationship-Discovery. **Umgesetzt (v0.29, FA-27):** `discoverForeignKeys`/`discoverFunctionalDependencies`/`discoverCorrelations`/`discoverNearDuplicates`/`discoverRelations` + `applyDiscovered`, CLI `inmemdb_discover`; siehe `docs/discovery.md`.
 - Netzwerk-Schnittstelle / Server-Modus.
 
 ---
@@ -203,6 +204,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | v0.26 | TTL / Auto-Expiry (FA-25, opt-in: `expiresIn`/`expiresAt`, `expireNow()`) |
 | v0.27 | Foundations: `ValueLess`, `distinctValues` (index-aware), `sample`, `AggOp::Distinct`, `Expression::isMatchAll` |
 | v0.28 | Fremdschlüssel beim Import als FA-18-Referenzen (FA-26; SQLite `PRAGMA foreign_key_list`, SQL-Dump `REFERENCES`/`FOREIGN KEY`, CLI `--no-foreign-keys`) |
+| v0.29 | Relationship-Discovery (FA-27): FK/FD/Korrelation/Near-Duplicates, cross-database, JSON/Mermaid-Report, CLI `inmemdb_discover` |
 
 ---
 
