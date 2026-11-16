@@ -1,5 +1,5 @@
 // Tests: Framework-Härtung v0.38 – DSL-Parser (Tiefenlimit bei '(' / '!', strikte Zahlen),
-// BSON-Parser (Tiefenlimit), Fuzz-lite DSL. Siehe docs/hardening.md für die Übersicht aller Limits.
+// BSON-Parser (Tiefenlimit), Fuzz-lite DSL. Siehe docs/internals/hardening.md für die Übersicht aller Limits.
 #include <memdb/memdb.hpp>
 #include <memdb/query_dsl.hpp>
 #include <memdb/import_bson.hpp>

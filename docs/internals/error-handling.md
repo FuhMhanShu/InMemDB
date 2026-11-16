@@ -75,7 +75,7 @@ inkl. Options-Parsing: Auch Nicht-`memdb::Error`-Exceptions (z. B. `std::stod`/`
 
 ## Metriken
 Die beiden neuen Zähler sind in `CollectionMetrics` / `DatabaseMetrics` sichtbar
-(`docs/metrics.md`): `evalErrors`, `eventErrors` (per `resetMetrics()` zurücksetzbar).
+(`docs/guides/metrics.md`): `evalErrors`, `eventErrors` (per `resetMetrics()` zurücksetzbar).
 
 ## Tests
 `tests/test_error_handling.cpp` (32 Checks): throwender Observer (OP gelingt, `eventErrors`,

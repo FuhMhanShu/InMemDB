@@ -8,7 +8,7 @@ namespace memdb {
 /// @brief Handle/Beschreibung eines Sekundärindex einer Collection (FA-10).
 ///
 /// Anlage/Löschung über `Collection::createIndex` / `Collection::dropIndex`;
-/// Details siehe `docs/indexes.md`.
+/// Details siehe `docs/guides/indexes.md`.
 class Index {
 public:
     Index() = default;

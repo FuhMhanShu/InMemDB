@@ -41,8 +41,8 @@ CollectionMetrics one = db.metrics("users");
 | `spillReads` / `spillWrites` | Hybrid-Modus (v0.18): aus der Spill-Datei gelesene / geschriebene Records |
 | `txCommits` / `txRollbacks` | abgeschlossene / zurückgerollte Transaktionen (expliziter Rollback und RAII-Destruktor) |
 | `expiredDocs` | TTL/Auto-Expiry (FA-25, v0.26): abgelaufene und entfernte Dokumente |
-| `evalErrors` | v0.35: im Query-Scan abgefangene Eval-Fehler pro Dokument (Dokument zaehlte als Nicht-Treffer, siehe [error-handling.md](error-handling.md)) |
-| `eventErrors` | v0.35: abgefangene Observer-Exceptions (Schreib-OP lief weiter, siehe [error-handling.md](error-handling.md)) |
+| `evalErrors` | v0.35: im Query-Scan abgefangene Eval-Fehler pro Dokument (Dokument zaehlte als Nicht-Treffer, siehe [error-handling.md](../internals/error-handling.md)) |
+| `eventErrors` | v0.35: abgefangene Observer-Exceptions (Schreib-OP lief weiter, siehe [error-handling.md](../internals/error-handling.md)) |
 | `docs` / `indexCount` | Ist-Werte: aktuelle Dokumentanzahl (RAM + Spill), Anzahl Indizes |
 
 ## Typische Diagnose
