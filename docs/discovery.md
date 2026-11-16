@@ -2,7 +2,7 @@
 
 | Feld | Wert |
 |---|---|
-| Status | umgesetzt (v0.29; Erweiterungen v0.30/v0.31/v0.32) – **ohne externe Abhängigkeiten** (nur InMemDB + C++17) |
+| Status | umgesetzt (v0.29; Erweiterungen v0.30/v0.31/v0.32/v0.33) – **ohne externe Abhängigkeiten** (nur InMemDB + C++17) |
 | Bezug | Anforderungen FA-27 (Kann); baut auf Foundations v0.27 (`ValueLess`, `distinctValues`, `sample`, `AggOp::Distinct`) und FA-18/FA-26 auf |
 
 Modul `include/memdb/discovery.hpp` + `src/discovery.cpp`: untersucht Daten auf
@@ -99,3 +99,39 @@ trivial-Vermerk), Pearson + kategorial, Near-Duplicates cross-collection, applyD
   `minSchemaSimilarity` (id-artige Felder boosten die Werte-Überlappung) – direkter
   Kandidat für FA-24 `Database::mergeCollections`; auch cross-database
 - CLI: `inmemdb_discover a.json b.json --diff` und `--suggest-merges`
+
+## Erweiterung v0.33: automatische Gesamtanalyse + Report (analyze)
+
+`analyze(...)` fasst alle Discovery-Bausteine zu einem `AnalysisReport` zusammen –
+auch database-übergreifend (`analyze(std::vector<Collection>, opts)` oder `analyze(Database&, opts)`):
+
+- `profiles` (pro Collection, v0.31), `relations` (v0.29/30), `orphans` (v0.30),
+  `mergeSuggestions` (v0.32), wichtigste Multi-Hop-`paths` (v0.30, max. 20)
+- **Health-Score 0–100** mit Ampel 🟢(≥80)/🟡(≥50)/🔴(<50): gewichtete Mischung aus
+  Integrität (1 − Orphan-Rate), Redundanz (1 − Near-Duplicate-Rate), Struktur
+  (Anteil der Collections in mind. einer FK-Beziehung; ohne FKs neutral 1.0 –
+  fehlende Beziehungen sind kein Mangel) und Typ-Konsistenz (mittlerer Anteil des
+  dominanten Typs pro Feld). Gewichte: 0.35 / 0.20 / 0.25 / 0.20.
+
+Präsentation des Reports in vier Formen:
+
+| Funktion | Ausgabe |
+|---|---|
+| `toMarkdown(report)` | Markdown-Report: Übersicht (Profile), entdeckte Beziehungen, Integrität/Orphans, Merge-Vorschläge, Empfehlungen |
+| `toJson(report)` | komplettes JSON (healthScore, totals, profiles, relations, orphans, mergeSuggestions, paths) |
+| `toMermaid(report)` | Mermaid-Graph: FK-Beziehungen als solide Kanten (mit Konfidenz), Korrelationen als gestrichelte Self-Loops |
+| `printSummary(report, ostream)` | kompakte Konsolen-Ausgabe mit Health-Score + Ampel |
+
+```cpp
+memdb::AnalysisReport rep = memdb::analyze(db, opts);          // oder analyze({collA, collB}, opts)
+memdb::printSummary(rep, std::cout);
+std::ofstream("analyse.md")   << memdb::toMarkdown(rep);
+std::ofstream("analyse.json") << memdb::toJson(rep);
+std::ofstream("graph.mmd")    << memdb::toMermaid(rep);
+```
+
+CLI: `inmemdb_discover a.json b.json --report analyse` schreibt `analyse.report.md`,
+`analyse.relations.json` und `analyse.graph.mmd` und druckt die Summary auf die Konsole.
+
+Tests: `tests/test_discovery5.cpp` (23 Checks): Report-Struktur, alle vier Präsentationen,
+cross-database-`analyze`, Health-Score (saubere DB ohne Orphans scored höher als DB mit Orphan).
