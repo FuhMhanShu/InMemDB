@@ -2,7 +2,7 @@
 
 | Feld | Wert |
 |---|---|
-| Status | umgesetzt (v0.29) – **ohne externe Abhängigkeiten** (nur InMemDB + C++17) |
+| Status | umgesetzt (v0.29; Erweiterungen v0.30) – **ohne externe Abhängigkeiten** (nur InMemDB + C++17) |
 | Bezug | Anforderungen FA-27 (Kann); baut auf Foundations v0.27 (`ValueLess`, `distinctValues`, `sample`, `AggOp::Distinct`) und FA-18/FA-26 auf |
 
 Modul `include/memdb/discovery.hpp` + `src/discovery.cpp`: untersucht Daten auf
@@ -70,3 +70,14 @@ inmemdb_discover a.json --apply --out report.json
 `tests/test_discovery.cpp` (21 Checks): FK in einer DB + **zwei Databases**, FD (inkl.
 trivial-Vermerk), Pearson + kategorial, Near-Duplicates cross-collection, applyDiscovered
 + `joinIds`, toJson/toMermaid, Sampling-Reproduzierbarkeit.
+
+## Erweiterungen v0.30
+
+- **Kardinalität**: `DiscoveredRelation::cardinality` („1:1“ / „n:1“ / „1:n“ / „n:m“, aus
+  Sicht der Quell-Collection, über distinct-vs.-docCount auf beiden Seiten) – auch im JSON-Report.
+- **Orphan-Report** (Integritätsprüfung): `findOrphans(source, field, target, targetField)`
+  liefert `OrphanReport{scanned, orphans, orphanValues}` – Quell-Werte ohne Gegenstück;
+  `findOrphansForRelations(colls, rels)` wendet das auf alle FK-Befunde an.
+- **Pfad-Suche**: `findPaths(rels, from, to, maxDepth)` – alle FK-Pfade zwischen zwei
+  Collections (DFS, Zyklus-sicher) als Multi-Hop-Join-Vorschläge.
+- CLI: `inmemdb_discover … --orphans` und `--path <from> <to>`.

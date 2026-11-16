@@ -25,7 +25,8 @@ int main(int argc, char** argv) {
     std::vector<std::string> files;
     std::string password, out;
     memdb::DiscoveryOptions opts;
-    bool mermaid = false, apply = false;
+    bool mermaid = false, apply = false, orphans = false;
+    std::string pathFrom, pathTo;
     double applyMinConf = 0.9;
 
     for (int i = 1; i < argc; ++i) {
@@ -46,6 +47,8 @@ int main(int argc, char** argv) {
         else if (a == "--sample") opts.sampleSize = static_cast<std::size_t>(std::stoull(next()));
         else if (a == "--seed") opts.seed = std::stoull(next());
         else if (a == "--mermaid") mermaid = true;
+        else if (a == "--orphans") orphans = true;
+        else if (a == "--path") { pathFrom = next(); pathTo = next(); }
         else if (a == "--apply") apply = true;
         else if (!a.empty() && a[0] == '-') { std::cerr << "unbekannte Option: " << a << "\n"; return 2; }
         else files.push_back(a);
@@ -78,6 +81,30 @@ int main(int argc, char** argv) {
         o << memdb::toJson(rels);
     }
     std::cerr << rels.size() << " Relationen gefunden\n";
+
+    if (orphans) {
+        auto reps = memdb::findOrphansForRelations(allColls, rels, opts);
+        std::string oj = "{\"orphans\":[";
+        bool f2 = true;
+        for (const auto& r : reps) {
+            if (!f2) oj += ',';
+            f2 = false;
+            oj += "{\"from\":\"" + r.fromCollection + "." + r.field + "\",\"to\":\"" + r.toCollection + "." + r.toField +
+                  "\",\"scanned\":" + std::to_string(r.scanned) + ",\"orphans\":" + std::to_string(r.orphans) + "}";
+        }
+        oj += "]}";
+        std::cout << oj << "\n";
+    }
+    if (!pathFrom.empty() && !pathTo.empty()) {
+        auto paths = memdb::findPaths(rels, pathFrom, pathTo, 4);
+        std::cout << "{\"paths\":[" << paths.size() << "]}" << "\n";
+        for (const auto& p : paths) {
+            std::cout << "  ";
+            for (const auto& r : p)
+                std::cout << r.fromCollection << "." << r.field << " -> " << r.toCollection << "." << r.toField << "  ";
+            std::cout << "\n";
+        }
+    }
 
     if (apply) {
         std::size_t total = 0;

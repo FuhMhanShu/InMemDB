@@ -33,6 +33,7 @@ struct DiscoveredRelation {
                                 ///< Korrelation: |r| bzw. Assoziation | Fuzzy: Ähnlichkeit
     std::size_t sampleSize = 0; ///< Anzahl untersuchter Dokumente/Werte
     std::string note;           ///< Zusatzinfo (z. B. "name-heuristik:_id", Wertepaar bei Fuzzy)
+    std::string cardinality;    ///< v0.30, nur FK: "1:1" / "n:1" / "1:n" / "n:m" (aus A-Sicht)
 };
 
 /// @brief Optionen für die Discovery (v0.29) – alles ohne externe Abhängigkeiten.
@@ -85,7 +86,32 @@ std::vector<DiscoveredRelation> discoverRelations(const std::vector<Collection>&
 std::size_t applyDiscovered(Database& db, const std::vector<DiscoveredRelation>& rels,
                             ReferenceIndex& refs, double minConfidence = 0.9);
 
-/// @brief Report als JSON (v0.29).
+/// @brief Orphan-Report (v0.30): Quell-Werte eines Feldes, die kein Gegenstück im
+/// Zielfeld haben (Integritätsprüfung – Gegenstück zu `skippedForeignKeys` beim Import).
+struct OrphanReport {
+    std::string fromCollection, field, toCollection, toField;
+    std::size_t scanned = 0;        ///< Quell-Dokumente mit Feldwert
+    std::size_t orphans = 0;        ///< distinct Werte ohne Gegenstück
+    std::vector<Value> orphanValues; ///< die Orphan-Werte ( gedeckelt auf 100)
+};
+
+/// @brief Orphan-Werte eines einzelnen Feldes gegen ein Zielfeld.
+OrphanReport findOrphans(const Collection& source, const std::string& field,
+                         const Collection& target, const std::string& targetField,
+                         const DiscoveryOptions& opts = {});
+/// @brief Orphan-Report für alle FK-Befunde in `rels` (die auf die gegebenen Collections passen).
+std::vector<OrphanReport> findOrphansForRelations(const std::vector<Collection>& colls,
+                                                  const std::vector<DiscoveredRelation>& rels,
+                                                  const DiscoveryOptions& opts = {});
+
+/// @brief Pfad-Suche im Beziehungsgraph (v0.30): alle FK-Pfade von Collection `from`
+/// nach Collection `to` (DFS, maxDepth begrenzt). Jeder Pfad ist eine Kette von
+/// FK-Relationen – direkt als Multi-Hop-Joins nutzbar.
+std::vector<std::vector<DiscoveredRelation>> findPaths(const std::vector<DiscoveredRelation>& rels,
+                                                       const std::string& from, const std::string& to,
+                                                       std::size_t maxDepth = 4);
+
+/// @brief Report als JSON (v0.29; inkl. Kardinalität ab v0.30).
 std::string toJson(const std::vector<DiscoveredRelation>& rels);
 /// @brief Report als Mermaid-Graph (v0.29): Collections als Knoten, Relationen als Kanten.
 std::string toMermaid(const std::vector<DiscoveredRelation>& rels);

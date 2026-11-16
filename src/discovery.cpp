@@ -186,6 +186,12 @@ std::vector<DiscoveredRelation> discoverForeignKeys(const std::vector<Collection
                     r.support = support;
                     r.confidence = confidence;
                     r.sampleSize = A.docCount;
+                    // v0.30: Kardinalität aus A-Sicht (unique = distinct == docsWithField)
+                    {
+                        const bool uniqA = fa.values.size() == fa.docsWithField && fa.docsWithField > 0;
+                        const bool uniqB = fb.values.size() == fb.docsWithField && fb.docsWithField > 0;
+                        r.cardinality = (uniqA && uniqB) ? "1:1" : (uniqB ? "n:1" : (uniqA ? "1:n" : "n:m"));
+                    }
                     if (nameHeuristic(f) || targetHeuristic(g))
                         r.note = "name-heuristik";
                     out.push_back(std::move(r));
@@ -498,6 +504,87 @@ std::size_t applyDiscovered(Database& db, const std::vector<DiscoveredRelation>&
     return applied;
 }
 
+OrphanReport findOrphans(const Collection& source, const std::string& field,
+                         const Collection& target, const std::string& targetField,
+                         const DiscoveryOptions& opts) {
+    OrphanReport rep;
+    rep.fromCollection = source.name();
+    rep.field = field;
+    rep.toCollection = target.name();
+    rep.toField = targetField;
+    CollectionScan tscan = scanCollection(target, opts);
+    std::set<Value, ValueLess> targetValues;
+    auto it = tscan.byField.find(targetField);
+    if (it != tscan.byField.end())
+        targetValues = it->second.values;
+    CollectionScan sscan = scanCollection(source, opts);
+    auto sit = sscan.byField.find(field);
+    if (sit == sscan.byField.end())
+        return rep; // Feld existiert nicht in der Quelle
+    rep.scanned = sit->second.docsWithField;
+    for (const auto& v : sit->second.values) {
+        if (!targetValues.count(v)) {
+            ++rep.orphans;
+            if (rep.orphanValues.size() < 100)
+                rep.orphanValues.push_back(v);
+        }
+    }
+    return rep;
+}
+
+std::vector<OrphanReport> findOrphansForRelations(const std::vector<Collection>& colls,
+                                                  const std::vector<DiscoveredRelation>& rels,
+                                                  const DiscoveryOptions& opts) {
+    std::vector<OrphanReport> out;
+    for (const auto& r : rels) {
+        if (r.kind != RelationKind::ForeignKey)
+            continue;
+        const Collection* src = nullptr;
+        const Collection* tgt = nullptr;
+        for (const auto& c : colls) {
+            if (c.name() == r.fromCollection)
+                src = &c;
+            if (c.name() == r.toCollection)
+                tgt = &c;
+        }
+        if (src && tgt)
+            out.push_back(findOrphans(*src, r.field, *tgt, r.toField, opts));
+    }
+    return out;
+}
+
+std::vector<std::vector<DiscoveredRelation>> findPaths(const std::vector<DiscoveredRelation>& rels,
+                                                       const std::string& from, const std::string& to,
+                                                       std::size_t maxDepth) {
+    std::map<std::string, std::vector<const DiscoveredRelation*>> adj;
+    for (const auto& r : rels)
+        if (r.kind == RelationKind::ForeignKey)
+            adj[r.fromCollection].push_back(&r);
+
+    std::vector<std::vector<DiscoveredRelation>> out;
+    std::vector<DiscoveredRelation> path;
+    std::set<std::string> visited;
+    std::function<void(const std::string&, std::size_t)> dfs = [&](const std::string& node, std::size_t depth) {
+        if (node == to && !path.empty()) {
+            out.push_back(path);
+            return;
+        }
+        if (depth >= maxDepth)
+            return;
+        visited.insert(node);
+        for (const auto* r : adj[node]) {
+            if (visited.count(r->toCollection))
+                continue;
+            path.push_back(*r);
+            dfs(r->toCollection, depth + 1);
+            path.pop_back();
+        }
+        visited.erase(node);
+    };
+    dfs(from, 0);
+    return out;
+}
+
 std::string toJson(const std::vector<DiscoveredRelation>& rels) {
     std::string out = "{\"relations\":[";
     bool first = true;
@@ -509,6 +596,8 @@ std::string toJson(const std::vector<DiscoveredRelation>& rels) {
                detail::writeJsonString(r.fromCollection + "." + r.field) + ",\"to\":" +
                detail::writeJsonString(r.toCollection + "." + r.toField) + ",\"support\":" + num(r.support) +
                ",\"confidence\":" + num(r.confidence) + ",\"sampleSize\":" + std::to_string(r.sampleSize);
+        if (!r.cardinality.empty())
+            out += ",\"cardinality\":" + detail::writeJsonString(r.cardinality);
         if (!r.note.empty())
             out += ",\"note\":" + detail::writeJsonString(r.note);
         out += '}';
