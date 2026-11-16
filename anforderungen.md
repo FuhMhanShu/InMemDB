@@ -5,7 +5,7 @@
 | Feld | Wert |
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
-| Version | 0.28 |
+| Version | 0.33 |
 | Status | fortgeschrieben; FA-01…FA-27 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
@@ -106,7 +106,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | NFA-03 | **Erweiterbarkeit**: neue Werttypen durch Ableitung von einer `Value`-Basisklasse registrierbar; neue Query-Operatoren erweiterbar (v0.14: String-DSL `find("age >= 18 && ...")` via `parseQuery`, `QueryFunctionRegistry` für eigene Function-Operatoren wie `matches`/`in`, `Expression::predicate`, `@relation.path`-Joins über FA-18); keine Änderung am Kern für Erweiterungen nötig (Open/Closed). Siehe `docs/query-dsl.md`. Foundations v0.27 (allgemein nützlich, z. B. für Relationship-Discovery): `memdb::ValueLess`, `Collection::distinctValues` (index-aware), `Collection::sample` (reproduzierbares Sampling), `AggOp::Distinct`, `Expression::isMatchAll`. | M |
 | NFA-04 | **API-Ergonomie**: intuitive, moderne C++-Syntax (z. B. Initializer-Listen für Dokumente, `std::string_view`, `std::optional`); sprechende Methodennamen. | M |
 | NFA-05 | **Zuverlässigkeit/Speicher**: keine Lecks (RAII, Smart Pointer), starke Exception-Garantie bei fehlgeschlagenen Updates; ungültige Zugriffe werfen typisierte Exceptions. | M |
-| NFA-06 | **Portabilität & Build**: plattformunabhängiger Code, Build über CMake; Kern ohne externe Pflichtabhängigkeiten. Auslieferung als **statische Library mit Pimpl** (ABI-stabile öffentliche Header, geringe Compile-Zeiten der Konsumenten) – Details siehe `docs/architecture.md`. | M |
+| NFA-06 | **Portabilität & Build**: plattformunabhängiger Code, Build über CMake; Kern ohne externe Pflichtabhängigkeiten. Auslieferung als **statische Library mit Pimpl** (ABI-stabile öffentliche Header, geringe Compile-Zeiten der Konsumenten) – Details siehe `docs/architecture.md`. **Interne Eigenimplementierungen** (JSON-Parser `src/json.*`, Krypto PBKDF2/ChaCha20/HMAC-SHA256 `src/crypto.*`, Mini-RegEx `src/regex.*`) bleiben Default – externe Pendants (z. B. OpenSSL, PCRE2, nlohmann/json) sind höchstens als **Opt-in** hinter eigener CMake-Option + Präprozessor-Macro erlaubt (Vorbild: `INMEMDB_WITH_SQLITE`, ADR-02), niemals als Pflichtabhängigkeit; Shared-Lib-Deployment (DLL/SO neben der App) betrifft nur den Opt-in-Fall und liegt beim Anwender. | M |
 | NFA-07 | **Testbarkeit**: Unit-Tests für alle Kernpfade (Empfehlung: Catch2 oder GoogleTest als Dev-Dependency); Abdeckung der CRUD-, Query- und Nebenläufigkeitsfälle. | S |
 | NFA-08 | **Dokumentation**: Doxygen-kommentierte öffentliche API, README mit Quickstart, mindestens ein lauffähiges Beispiel. | S |
 | NFA-09 | **Lizenz**: projektverträgliche Open-Source-Lizenz (z. B. MIT). | K |
@@ -130,12 +130,28 @@ Namespace `memdb`. Wesentliche Klassen:
 | `memdb::Transaction` | Atomare Ausführung mehrerer Änderungen. |
 | `memdb::DocumentId` | Typsicherer Dokument-Identifikator. |
 
-### 6.2 Serialisierung (Kann)
-- Export/Import als JSON (über optionale Abhängigkeit, z. B. nlohmann/json) oder kompaktes binäres Format.
-- Optionaler Validierungs-Hook pro Collection (Schema-Check bei insert/update).
+### 6.1b Erweiterungsmodule (alle ohne Kernänderung, NFA-03)
 
-### 6.3 Explizit keine Schnittstellen
-- Kein SQL-Parser, kein Netzwerkprotokoll, keine CLI (Out of Scope).
+| Modul | Header | Inhalt |
+|---|---|---|
+| Referenzen & Joins (FA-18) | `references.hpp` | `ReferenceIndex`: bidirektional, index-beschleunigter Join (`joinIds`/`join`, v0.17), Dangling-Bereinigung, snapshot-fähig |
+| Import (FA-21/FA-26) | `import*.hpp` | `ImportSource` + `ImportRegistry` + `Importer`; Quellen: CSV, JSON/JSONL, Snapshot, SQL-Dump, BSON (alle ohne Deps), optional SQLite (`INMEMDB_WITH_SQLITE=ON`); FK-Import als Referenzen (v0.28) |
+| Datenbank-Graph (FA-22) | `db_graph.hpp` | `DbGraph`: JSON/Mermaid/Markdown aus laufender DB oder Snapshot-Datei |
+| Discovery (FA-27) | `discovery.hpp` | `discoverForeignKeys`/`discoverRelations`/`applyDiscovered`, Orphans, Pfade, Profil, Candidate Keys, Diff, Merge-Vorschläge, `analyze()` + Health-Score + Reports (v0.29–v0.33); Guide: `docs/discovery-guide.md` |
+| Metriken (v0.22) | `metrics.hpp` | `Collection::metrics()` / `Database::metrics()` |
+| Qt-Adapter (FA-23) | `qt/memdb_qt_model.hpp` | `memdb::qt::MemDbTableModel` (nur QtCore, nur bei `INMEMDB_WITH_QT`) |
+| String-DSL (NFA-03) | `query_dsl.hpp` | `parseQuery`, `QueryFunctionRegistry`, `matches`/`in`, `@relation.path` |
+
+### 6.2 Serialisierung & Persistenz (umgesetzt, ohne externe Abhängigkeit)
+- **JSON-Snapshot** mit **eigenem Parser** (`src/json.*`, locale-unabhängig via `std::to_chars`/`from_chars` seit v0.23.1): `toJson`/`fromJson`/`saveToFile`/`loadFromFile` (FA-14), inkl. Schema (FA-20) und Indizes; Reimport als Import-Quelle.
+- **Verschlüsselte Snapshots** (FA-19): `saveToFileEncrypted`/`loadFromFileEncrypted` mit PBKDF2-HMAC-SHA256 + ChaCha20 + HMAC-SHA256 (encrypt-then-MAC), eigene Implementierung in `src/crypto.*` – siehe `docs/encrypted-snapshot.md`.
+- **Import-Formate** (FA-21): CSV, JSON/JSONL, SQL-Dump, BSON, eigener Snapshot; optional SQLite. Siehe `docs/import.md`.
+- **Reports** (FA-22/FA-27): JSON, Mermaid, Markdown – z. B. `inmemdb_discover --report`.
+- Optionaler Validierungs-Hook pro Collection: striktes Schema (FA-20, `SchemaError` bei insert/update/replace/upsert/loadJson).
+
+### 6.3 CLI-Tools (separate Binärdateien, nicht Teil der Library) + explizit keine Schnittstellen
+- Tools (gebaut aus `tools/`, null Abhängigkeiten außer optional SQLite): `inmemdb_import` (FA-21), `inmemdb_graph` (FA-22), `inmemdb_discover` (FA-27, inkl. `--report` v0.33).
+- **Out of Scope bleibt:** kein SQL-Parser, kein Netzwerkprotokoll/Server-Modus, keine Multi-User-Verteilung.
 
 ---
 
@@ -152,7 +168,7 @@ Namespace `memdb`. Wesentliche Klassen:
 
 - Sprache: C++17 minimum, C++20-Features wo sinnvoll.
 - Build-System: CMake ≥ 3.20.
-- Keine Pflichtabhängigkeiten im Kern; Dev-Dependencen (Test-Framework, JSON) nur für Tests/optionale Features.
+- Keine Pflichtabhängigkeiten im Kern; die Tests sind standalone (eigenes CHECK-Makro, kein Test-Framework). Optionale Deps nur hinter eigener CMake-Option (Default OFF): `libsqlite3` für `-DINMEMDB_WITH_SQLITE=ON`, Doxygen für `-DINMEMDB_BUILD_DOCS=ON`, Qt nur für den optionalen Modell-Adapter. Siehe ADR-02 (`docs/architecture.md`) zu Krypto/RegEx/JSON.
 - Entwicklung auf Linux; Portierung auf Windows/macOS vorgesehen.
 
 ---
@@ -162,7 +178,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | Risiko | Auswirkung | Gegenmaßnahme |
 |---|---|---|
 | Datenverlust bei Prozessende (In-Memory) | Hoch für produktive Daten | Snapshot/Export (FA-14) dokumentieren und früh umsetzen |
-| Unbegrenzter RAM-Verbrauch bei großen Datenmengen | Absturz bei Erschöpfung | Speicherüberwachung, dokumentierte Kapazitätsgrenzen; später Out-of-Core als Ausblick |
+| Unbegrenzter RAM-Verbrauch bei großen Datenmengen | Absturz bei Erschöpfung | Hybrid/Out-of-Core umgesetzt (v0.18, opt-in `setOverflow`): Spill-to-Disk + Metriken (`docs/hybrid-outofcore.md`, `docs/metrics.md`) |
 | Typsicherheit bei dynamischen Feldern | Laufzeitfehler in der Anwendung | Strikte Laufzeit-Typprüfung in `Value`, typisierte Exceptions, optional Validierungsschema |
 | Komplexität der Nebenläufigkeit | Dateninkonsistenz, Deadlocks | Klare RW-Locking-Strategie, kurze kritische Abschnitte, Tests unter `TSan` |
 | API-Drift bei Erweiterbarkeit | Breaking Changes | Stabile Basisklassen, Erweiterungen über Ableitung/Registrierung |
@@ -179,7 +195,11 @@ Namespace `memdb`. Wesentliche Klassen:
 - Metriken/Diagnose. **Umgesetzt (v0.22):** `Collection::metrics()`/`resetMetrics()` und `Database::metrics()` (Aggregat) mit Zählern für Schreib-/Lesezugriffe, Index-Nutzung (`indexQueries`, `scannedDocs`), Query-Dauer, Spill-IO, Tx-Commits/Rollbacks und Change-Events; siehe `docs/metrics.md`.
 - Bulk-Update via DSL mit Projektion. **Umgesetzt (v0.21):** `Collection::update(queryDsl, setDsl)` und `Transaction::update(dsl, setDsl)`; Set-DSL (`parseUpdateSet`) mit Literalen, Feld-Referenzen, Arithmetik (`+ - * / %`, int bleibt int), String-Konkatenation, gepunkteten Zielpfaden via `Document::setPath`; Snapshot-Semantik pro Dokument; `@relation`-Query mit `Database&`-Variante. Siehe `docs/query-dsl.md`.
 - Bessere `matches`-Regex. **Umgesetzt (v0.20):** Thompson-NFA um `{n}` `{n,}` `{n,m}`, Kurzschriften `\d \D \s \S \w \W` (auch in Klassen), `(?:...)`-Gruppen und Lazy-Quantoren erweitert; Visited-Set im NFA beseitigt Hang bei verschachtelten Schleifen (`(a*)*`); Fehlermeldungen mit Position; 116 Checks in `tests/test_regex.cpp`. Siehe `docs/query-dsl.md`.
-- Relationship-Discovery. **Umgesetzt (v0.29, FA-27):** `discoverForeignKeys`/`discoverFunctionalDependencies`/`discoverCorrelations`/`discoverNearDuplicates`/`discoverRelations` + `applyDiscovered`, CLI `inmemdb_discover`; Erweiterungen v0.30 (Kardinalität/Orphans/Pfade), v0.31 (Profil/Candidate Keys), v0.32 (Diff/Merge-Vorschläge), **v0.33: automatische Gesamtanalyse `analyze()` → `AnalysisReport` mit Health-Score (Ampel) + Präsentation `toMarkdown`/`toJson`/`toMermaid`/`printSummary`, CLI `--report <prefix>`**; siehe `docs/discovery.md`.
+- Relationship-Discovery. **Umgesetzt (v0.29, FA-27):** `discoverForeignKeys`/`discoverFunctionalDependencies`/`discoverCorrelations`/`discoverNearDuplicates`/`discoverRelations` + `applyDiscovered`, CLI `inmemdb_discover`; Erweiterungen v0.30 (Kardinalität/Orphans/Pfade), v0.31 (Profil/Candidate Keys), v0.32 (Diff/Merge-Vorschläge), **v0.33: automatische Gesamtanalyse `analyze()` → `AnalysisReport` mit Health-Score (Ampel) + Präsentation `toMarkdown`/`toJson`/`toMermaid`/`printSummary`, CLI `--report <prefix>`**; siehe `docs/discovery.md` (API) und `docs/discovery-guide.md` (Guide mit Beispielen).
+- Optionale externe Backends für Krypto/RegEx/JSON (OpenSSL, PCRE2, nlohmann/json). **Beschlossen (ADR-02, `docs/architecture.md`):** Default bleiben die eigenen Implementierungen; externe Libs nur als Opt-in hinter CMake-Option + Macro (nie Pflicht, NFA-06); Shared-Lib-Deployment nur im Opt-in-Fall durch den Anwender.
+- Sortierung + Limit/Offset in Queries (`orderBy`, `limit`, `offset`).
+- SQL-Dump-**Export** + CLI `inmemdb_export` (Gegenstück zu `SqlDumpImportSource`).
+- Ausreißer-Erkennung im Discovery (z-Score/IQR pro numerischem Feld, als Health-Score-Faktor).
 - Netzwerk-Schnittstelle / Server-Modus.
 
 ---
