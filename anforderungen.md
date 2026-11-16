@@ -206,6 +206,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | v0.28 | Fremdschlüssel beim Import als FA-18-Referenzen (FA-26; SQLite `PRAGMA foreign_key_list`, SQL-Dump `REFERENCES`/`FOREIGN KEY`, CLI `--no-foreign-keys`) |
 | v0.29 | Relationship-Discovery (FA-27): FK/FD/Korrelation/Near-Duplicates, cross-database, JSON/Mermaid-Report, CLI `inmemdb_discover` |
 | v0.30 | Discovery-Erweiterungen: Kardinalität (1:1/n:1/1:n/n:m) im FK-Report, Orphan-Report (`findOrphans`/`findOrphansForRelations`), Pfad-Suche (`findPaths`), CLI `--orphans`/`--path` |
+| v0.31 | Discovery: Datenprofil (`profileCollection`/`toJson`) + Candidate-Key-Discovery (`discoverCandidateKeys`) |
 
 ---
 

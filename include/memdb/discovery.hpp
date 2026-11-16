@@ -5,6 +5,8 @@
 #include "value.hpp"
 
 #include <cstddef>
+#include <map>
+#include <optional>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -110,6 +112,37 @@ std::vector<OrphanReport> findOrphansForRelations(const std::vector<Collection>&
 std::vector<std::vector<DiscoveredRelation>> findPaths(const std::vector<DiscoveredRelation>& rels,
                                                        const std::string& from, const std::string& to,
                                                        std::size_t maxDepth = 4);
+
+/// @brief Datenprofil eines Feldes (v0.31).
+struct FieldProfile {
+    std::string name;
+    std::map<Value::Type, std::size_t> typeCounts; ///< Typ-Verteilung (Enum als int-Schlüssel)
+    std::size_t present = 0;      ///< Dokumente mit Feld
+    std::size_t nulls = 0;        ///< davon Null-Werte
+    std::size_t distinct = 0;     ///< distinct Werte
+    std::optional<Value> min, max; ///< geordnetes Min/Max (Zahlen/Strings), sonst nullopt
+    std::vector<Value> examples;   ///< bis zu 3 Beispielwerte
+};
+
+/// @brief Datenprofil einer Collection (v0.31): docCount + pro Feld Typ-Verteilung,
+/// Null-Rate, distinct, Min/Max, Beispiele. Read-only; mit `sampleSize` gesamplelt.
+struct CollectionProfile {
+    std::string collection;
+    std::size_t docCount = 0;
+    std::size_t sampleSize = 0;
+    std::vector<FieldProfile> fields;
+};
+
+/// @brief Profil einer Collection (v0.31).
+CollectionProfile profileCollection(const Collection& c, const DiscoveryOptions& opts = {});
+/// @brief Profil als JSON (v0.31).
+std::string toJson(const CollectionProfile& p);
+
+/// @brief Candidate-Key-Discovery (v0.31): minimale Feldmengen, die Dokumente eindeutig
+/// identifizieren (X → alle Felder; einzelne Felder zuerst, dann Paare – ein Paar nur,
+/// wenn keiner der beiden Einzelfelder schon Key ist). Ergebnis aufsteigend nach Größe.
+std::vector<std::vector<std::string>> discoverCandidateKeys(const Collection& c,
+                                                            const DiscoveryOptions& opts = {});
 
 /// @brief Report als JSON (v0.29; inkl. Kardinalität ab v0.30).
 std::string toJson(const std::vector<DiscoveredRelation>& rels);

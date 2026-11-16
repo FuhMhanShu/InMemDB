@@ -2,7 +2,7 @@
 
 | Feld | Wert |
 |---|---|
-| Status | umgesetzt (v0.29; Erweiterungen v0.30) – **ohne externe Abhängigkeiten** (nur InMemDB + C++17) |
+| Status | umgesetzt (v0.29; Erweiterungen v0.30/v0.31) – **ohne externe Abhängigkeiten** (nur InMemDB + C++17) |
 | Bezug | Anforderungen FA-27 (Kann); baut auf Foundations v0.27 (`ValueLess`, `distinctValues`, `sample`, `AggOp::Distinct`) und FA-18/FA-26 auf |
 
 Modul `include/memdb/discovery.hpp` + `src/discovery.cpp`: untersucht Daten auf
@@ -81,3 +81,10 @@ trivial-Vermerk), Pearson + kategorial, Near-Duplicates cross-collection, applyD
 - **Pfad-Suche**: `findPaths(rels, from, to, maxDepth)` – alle FK-Pfade zwischen zwei
   Collections (DFS, Zyklus-sicher) als Multi-Hop-Join-Vorschläge.
 - CLI: `inmemdb_discover … --orphans` und `--path <from> <to>`.
+
+## Erweiterungen v0.31: Datenprofil & Candidate Keys
+
+- `profileCollection(coll, opts)` → `CollectionProfile`: pro Feld Typ-Verteilung, present/nulls,
+  distinct, Min/Max (Zahlen/Strings), bis zu 3 Beispiele; `toJson(profile)` als Report.
+- `discoverCandidateKeys(coll, opts)`: minimale Feldmengen, die Dokumente eindeutig
+  identifizieren (Einzelfelder zuerst; Paare nur, wenn keiner der beiden allein Key ist).

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.30 LANGUAGES CXX)
+project(InMemDB VERSION 0.31 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -144,6 +144,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_tests_discovery2 tests/test_discovery2.cpp)
     target_link_libraries(memdb_tests_discovery2 PRIVATE memdb)
     add_test(NAME memdb_tests_discovery2 COMMAND memdb_tests_discovery2)
+
+    add_executable(memdb_tests_discovery3 tests/test_discovery3.cpp)
+    target_link_libraries(memdb_tests_discovery3 PRIVATE memdb)
+    add_test(NAME memdb_tests_discovery3 COMMAND memdb_tests_discovery3)
 
     if(INMEMDB_WITH_SQLITE)
         add_executable(memdb_tests_import tests/test_import.cpp)
