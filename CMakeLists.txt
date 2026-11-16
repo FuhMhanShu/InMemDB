@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.35 LANGUAGES CXX)
+project(InMemDB VERSION 0.36 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -26,6 +26,7 @@ add_library(memdb STATIC
     src/transaction.cpp
     src/database.cpp
     src/references.cpp
+    src/message_handler.cpp
 )
 target_include_directories(memdb PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -136,6 +137,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_tests_error_handling tests/test_error_handling.cpp)
     target_link_libraries(memdb_tests_error_handling PRIVATE memdb)
     add_test(NAME memdb_tests_error_handling COMMAND memdb_tests_error_handling)
+    add_executable(memdb_tests_message_handler tests/test_message_handler.cpp)
+    target_link_libraries(memdb_tests_message_handler PRIVATE memdb)
+    add_test(NAME memdb_tests_message_handler COMMAND memdb_tests_message_handler)
 
     add_executable(memdb_tests_dsl_update tests/test_dsl_update.cpp)
     target_link_libraries(memdb_tests_dsl_update PRIVATE memdb)

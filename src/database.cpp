@@ -1,4 +1,5 @@
 #include "memdb/database.hpp"
+#include "memdb/message_handler.hpp"
 #include "memdb/exceptions.hpp"
 #include "memdb/references.hpp"
 
@@ -331,8 +332,11 @@ void Database::fromJson(std::string_view json) {
         // v0.35: Dokument-Elemente vorab validieren -> bei kaputtem Element bleibt die
         // Database unveraendert (keine halb angelegten Collections), Fehler ist behandelbar.
         for (const auto& el : item.documents.asArray())
-            if (!el.isDocument())
-                throw JsonError("Collection '" + name + "': 'documents'-Element ist kein Objekt");
+            if (!el.isDocument()) {
+                std::string msg = "Collection '" + name + "': 'documents'-Element ist kein Objekt";
+                MessageHandler::instance().error("load", msg); // v0.36: melden + weiterhin werfen
+                throw JsonError(std::move(msg));
+            }
         items.push_back(std::move(item));
     }
 

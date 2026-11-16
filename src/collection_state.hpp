@@ -5,6 +5,7 @@
 #include "memdb/cursor.hpp"
 #include "memdb/document.hpp"
 #include "memdb/exceptions.hpp"
+#include "memdb/message_handler.hpp"
 #include "memdb/index.hpp"
 #include "memdb/query.hpp"
 #include "memdb/schema.hpp"
@@ -628,8 +629,13 @@ struct CollectionState {
     bool safeEval(const Expression& q, const Document& d) const {
         try {
             return q.evaluate(d);
+        } catch (const std::exception& e) {
+            ++metrics.evalErrors;
+            MessageHandler::instance().error("query-eval", e.what()); // v0.36: melden an MessageHandler
+            return false;
         } catch (...) {
             ++metrics.evalErrors;
+            MessageHandler::instance().error("query-eval", "unbekannter Fehler (keine std::exception)");
             return false;
         }
     }
@@ -1021,8 +1027,11 @@ struct CollectionState {
         // die Collection unveraendert (kein geleerter/halbgeladener Zustand), der Aufrufer
         // kann den Fehler behandeln und den Flow fortsetzen.
         for (const auto& item : items)
-            if (!item.isDocument())
-                throw JsonError("Collection-JSON: Element ist kein Objekt");
+            if (!item.isDocument()) {
+                std::string msg = "Collection-JSON: Element ist kein Objekt";
+                MessageHandler::instance().error("load", msg); // v0.36: melden + weiterhin werfen
+                throw JsonError(std::move(msg));
+            }
         noteUndoClear();
         docs.clear();
         docs.reserve(items.size());

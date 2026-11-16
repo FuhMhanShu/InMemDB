@@ -1,4 +1,5 @@
 #include "memdb/import.hpp"
+#include "memdb/message_handler.hpp"
 
 #include "memdb/references.hpp"
 
@@ -261,7 +262,8 @@ ImportStats Importer::import(Database& db, const ImportSource& src, const Import
             if (ok) {
                 try {
                     c.setSchema(std::move(schema));
-                } catch (const SchemaError&) {
+                } catch (const SchemaError& e) {
+                    MessageHandler::instance().warning("import", std::string("Schema uebersprungen: ") + e.what()); // v0.36
                     stats.skippedSchemas.push_back(t.name);
                 }
             } else {
@@ -325,7 +327,8 @@ ImportStats Importer::import(Database& db, const ImportSource& src, const Import
                     try {
                         refs.link(t.name, d.id(), fk.refTable, it->second, relation);
                         ++stats.importedReferences;
-                    } catch (const ReferenceExistsError&) {
+                    } catch (const ReferenceExistsError& e) {
+                        MessageHandler::instance().warning("import", std::string("Referenz-Duplikat uebersprungen: ") + e.what()); // v0.36
                         // identisches Duplikat – kein Fehler
                     }
                 });

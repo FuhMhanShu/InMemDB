@@ -7,6 +7,7 @@
 // --apply: FK-Befunde (confidence >= --min-confidence) pro Database als FA-18-Referenzen
 //          anlegen und die jeweilige Datei zurückschreiben (verschlüsselt bei --password).
 #include <memdb/memdb.hpp>
+#include <memdb/message_handler.hpp>
 #include <memdb/references.hpp>
 
 #include <cstdlib>
@@ -16,6 +17,11 @@
 #include <vector>
 
 static int run(int argc, char** argv) {
+    // v0.36: CLI-Meldungen laufen ueber den MessageHandler (stderr ab Warning)
+    memdb::MessageHandler::instance().subscribe([](const memdb::Message& m) {
+        if (static_cast<int>(m.level) >= static_cast<int>(memdb::MessageLevel::Warning))
+            std::cerr << "Fehler: " << m.text << "\n";
+    });
     if (argc < 2) {
         std::cerr << "Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X] "
                      "[--min-confidence X] [--min-correlation X] [--min-similarity X] [--sample N] [--seed N] "
@@ -167,10 +173,10 @@ int main(int argc, char** argv) {
     try {
         return run(argc, argv);
     } catch (const memdb::Error& e) {
-        std::cerr << "Fehler: " << e.what() << "\n";
+        memdb::MessageHandler::instance().error("cli", e.what()); // v0.36: ueber MessageHandler (stderr-Handler)
         return 1;
     } catch (const std::exception& e) {
-        std::cerr << "Fehler: " << e.what() << "\n";
+        memdb::MessageHandler::instance().error("cli", e.what());
         return 1;
     }
 }
