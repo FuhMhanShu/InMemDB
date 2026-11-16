@@ -6,7 +6,7 @@
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
 | Version | 0.15 |
-| Status | fortgeschrieben; FA-01…FA-25 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
+| Status | fortgeschrieben; FA-01…FA-26 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
 | Bereitstellungsform | Eingebettete Bibliothek als **kompilierte statische Library mit Pimpl-Idiom** (öffentliche Header unter `include/memdb/`, Implementierung gekapselt in `src/`); kein Server, kein Netzwerk. Header-only wurde verworfen – siehe `docs/architecture.md`. |
@@ -86,6 +86,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | FA-21 | **Import aus externen Datenquellen**: abstrakte Quell-Schnittstelle (`ImportSource`: Tabellen-Metadaten + zeilenweises Lesen), zentrale Factory/Registry (`ImportRegistry`: Ableitungen per Name + Dateiendung anmelden/verwalten, Auto-Erkennung per Endung) und generischer `Importer`, der Tabellen auf Collections, Spalten auf Felder, Primärschlüssel auf ein optionales `pk`-Feld und (unique) Indizes abbildet; optionales Schema wird aus den Spaltentypen generiert. Eingebaute Quellen ohne externe Abhängigkeiten: `CsvImportSource`, `JsonImportSource` (JSON/JSONL), `InmemdbSnapshotSource` (Reimport eigener Snapshots inkl. Schema/Indizes), `SqlDumpImportSource`, `BsonImportSource`; optional `SqliteImportSource` (Build-Option `INMEMDB_WITH_SQLITE=ON`); CLI-Tool `inmemdb_import`. Siehe `docs/import.md`. | K |
 | FA-24 | **Collections zusammenführen (Merge)**: `Database::mergeCollections(target, sources, opts, refs*)` – jedes Quell-Dokument mit neuer ID ins Ziel (IDs sind pro Collection vergeben), optional Herkunftsfeld `_source`, Index-Übernahme (Union), optional Quell-Collections löschen (`dropSources`) inkl. Umschreiben der FA-18-Referenzen (`ReferenceIndex::rewriteKeys`, sonst dangling). Atomar: Schema-/Unique-Verstoß → kompletter Rollback. Inkl. Spill-Dokumenten (v0.18) und Observer-Events. Siehe `docs/merge-collections.md`. | K |
 | FA-25 | **TTL / Auto-Expiry** (opt-in, default aus): Verfallszeit pro Dokument (`expiresAt`, Unix-Sekunden) via `Document::expiresIn(sek)`/`expiresAt(unix)` und `Collection::expiresIn/expiresAt(id, …)`; lazy Sweep bei Lesezugriffen + manueller Sweep `expireNow()`; Collection-Default via `setDefaultExpiresIn(sek)`; inkl. Spill (v0.18), Tx-Guard (kein Sweep mitten in Tx), Snapshot, Metrik `expiredDocs`. Siehe `docs/ttl-expiry.md`. | K |
+| FA-26 | **Fremdschlüssel beim Import als Referenzen übernehmen**: Quellen liefern FK-Metadaten (`TableInfo::foreignKeys`; SQLite via `PRAGMA foreign_key_list`, SQL-Dump via `REFERENCES`/`FOREIGN KEY`/`CONSTRAINT … FOREIGN KEY`); `Importer` legt bei `ImportOptions::importForeignKeys` (Default an) FA-18-Referenzen an (Match über `refColumn`/`pk`/PK-Spalte, Relation = Constraint-Name bzw. `fk_<spalte>`); Stats `importedReferences`/`skippedForeignKeys`; CLI `--no-foreign-keys`. Siehe `docs/import.md`. | K |
 
 > **Verbindliche Ausprägung von FA-05 (Query-API):** typsicher Ausdruckbaum mit
 > Operator-Overloading, z. B. `(Field("age") >= 18) && Field("tags").contains("cpp")`.

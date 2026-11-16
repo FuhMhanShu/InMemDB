@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     }
     if (argc < 2) {
         std::cerr << "Aufruf: inmemdb_import <datei> [--source NAME] [--out <datei>] [--password <pw>] "
-                     "[--no-schema] [--no-indexes] [--no-pk-field] [--batch N] "
+                     "[--no-schema] [--no-indexes] [--no-pk-field] [--no-foreign-keys] [--batch N] "
                      "[--delimiter C] [--no-header] [--infer-types] [--list-sources]\n";
         return 2;
     }
@@ -47,6 +47,7 @@ int main(int argc, char** argv) {
         else if (a == "--no-schema") opts.generateSchema = false;
         else if (a == "--no-indexes") opts.createIndexes = false;
         else if (a == "--no-pk-field") opts.keepPrimaryKeyField = false;
+        else if (a == "--no-foreign-keys") opts.importForeignKeys = false;
         else if (a == "--batch") opts.batchSize = std::stoull(next());
         else if (a == "--list-sources") listSources = true;
         else if (a == "--delimiter") { std::string d = next(); if (!d.empty()) csvOpts.delimiter = d.front(); csvOptsTouched = true; }
@@ -82,6 +83,9 @@ int main(int argc, char** argv) {
                       << (db.collection(name).hasSchema() ? " (mit Schema)" : "") << "\n";
         for (const auto& s : stats.skippedTables)
             std::cout << "  uebersprungen (existiert): " << s << "\n";
+        if (stats.importedReferences > 0 || stats.skippedForeignKeys > 0)
+            std::cout << "  Fremdschluessel: " << stats.importedReferences << " Referenzen angelegt, "
+                      << stats.skippedForeignKeys << " nicht aufloesbar\n";
         for (const auto& s : stats.skippedSchemas)
             std::cout << "  ohne Schema (Typ-Mismatch): " << s << "\n";
         if (!out.empty()) {

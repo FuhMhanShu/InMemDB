@@ -1,5 +1,7 @@
 #include "memdb/import.hpp"
 
+#include "memdb/references.hpp"
+
 #include "memdb/exceptions.hpp"
 #include "memdb/import_bson.hpp"
 #include "memdb/import_csv.hpp"
@@ -11,6 +13,8 @@
 #endif
 
 #include <algorithm>
+#include <map>
+#include <set>
 #include <cctype>
 
 namespace memdb {
@@ -203,7 +207,8 @@ SourceType sourceTypeFromValueType(Value::Type t) {
 
 ImportStats Importer::import(Database& db, const ImportSource& src, const ImportOptions& opts) {
     ImportStats stats;
-    for (const TableInfo& t : src.tables()) {
+    const std::vector<TableInfo> infos = src.tables(); // Kopie fuer FK-Pass (v0.28)
+    for (const TableInfo& t : infos) {
         if (db.hasCollection(t.name)) {
             stats.skippedTables.push_back(t.name);
             continue;
@@ -266,6 +271,66 @@ ImportStats Importer::import(Database& db, const ImportSource& src, const Import
 
         stats.rowsPerTable[t.name] = rows;
         stats.totalRows += rows;
+    }
+
+    // v0.28: Fremdschlüssel als FA-18-Referenzen importieren (ueber pk-Feld bzw. refColumn matchen)
+    if (opts.importForeignKeys) {
+        ReferenceIndex refs(db); // legt __references an, falls nicht vorhanden
+        std::set<std::string> imported;
+        for (const auto& [n, r] : stats.rowsPerTable)
+            imported.insert(n);
+        auto pkColumnOf = [&](const std::string& table) -> std::string {
+            for (const auto& ti : infos)
+                if (ti.name == table)
+                    for (const auto& c : ti.columns)
+                        if (c.primaryKey)
+                            return c.name;
+            return "";
+        };
+        for (const TableInfo& t : infos) {
+            if (!imported.count(t.name) || t.foreignKeys.empty() || !db.hasCollection(t.name))
+                continue;
+            for (const ForeignKeyInfo& fk : t.foreignKeys) {
+                if (!db.hasCollection(fk.refTable)) {
+                    ++stats.skippedForeignKeys;
+                    continue;
+                }
+                const std::string refField =
+                    !fk.refColumn.empty()
+                        ? fk.refColumn
+                        : ((opts.keepPrimaryKeyField && !opts.pkFieldName.empty()) ? opts.pkFieldName
+                                                                                     : pkColumnOf(fk.refTable));
+                if (refField.empty()) {
+                    ++stats.skippedForeignKeys;
+                    continue;
+                }
+                // Ziel-Map: refField-Wert -> DocumentId
+                Collection target = db.collection(fk.refTable);
+                std::map<Value, DocumentId, ValueLess> targetByValue;
+                target.forEach(Expression{}, [&](const Document& d) {
+                    if (const Value* v = d.findPath(refField))
+                        targetByValue.emplace(*v, d.id());
+                });
+                Collection source = db.collection(t.name);
+                const std::string relation = fk.name.empty() ? ("fk_" + fk.column) : fk.name;
+                source.forEach(Expression{}, [&](const Document& d) {
+                    const Value* v = d.findPath(fk.column);
+                    if (!v || v->isNull())
+                        return;
+                    auto it = targetByValue.find(*v);
+                    if (it == targetByValue.end()) {
+                        ++stats.skippedForeignKeys;
+                        return;
+                    }
+                    try {
+                        refs.link(t.name, d.id(), fk.refTable, it->second, relation);
+                        ++stats.importedReferences;
+                    } catch (const ReferenceExistsError&) {
+                        // identisches Duplikat – kein Fehler
+                    }
+                });
+            }
+        }
     }
     return stats;
 }

@@ -4,6 +4,7 @@
 #include <memdb/import.hpp>
 #include <memdb/import_sqlite.hpp>
 #include <memdb/memdb.hpp>
+#include <memdb/references.hpp>
 
 #include <sqlite3.h>
 
@@ -57,7 +58,9 @@ int main() {
             "CREATE UNIQUE INDEX idx_users_name ON users(name);"
             "INSERT INTO users VALUES (1, 'Ada', 9.5, x'DEADBEEF', 1);"
             "INSERT INTO users VALUES (2, 'Bob', 7.25, NULL, 0);"
-            "INSERT INTO users VALUES (3, 'Cy', NULL, x'00FF', NULL);";
+            "INSERT INTO users VALUES (3, 'Cy', NULL, x'00FF', NULL);"
+            "CREATE TABLE orders(id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users(id), total REAL);"
+            "INSERT INTO orders VALUES (10, 1, 99.5), (11, 3, 10.0), (12, 999, 1.0);";
         char* err = nullptr;
         if (sqlite3_exec(s, ddl, nullptr, nullptr, &err) != SQLITE_OK) {
             std::cerr << "sqlite setup failed: " << (err ? err : "?") << "\n";
@@ -70,8 +73,9 @@ int main() {
     SqliteImportSource src(path);
     ImportStats stats = Importer::import(db, src);
 
-    CHECK(stats.totalRows == 3);
+    CHECK(stats.totalRows == 6);
     CHECK(stats.rowsPerTable["users"] == 3);
+    CHECK(stats.rowsPerTable["orders"] == 3);
     CHECK(db.hasCollection("users"));
     Collection users = db.collection("users");
     CHECK(users.size() == 3);
@@ -84,7 +88,7 @@ int main() {
     {
         Database db2("via-registry");
         auto stats2 = Importer::import(db2, "sqlite", path);
-        CHECK(stats2.totalRows == 3);
+        CHECK(stats2.totalRows == 6);
         CHECK(db2.hasCollection("users"));
     }
 
@@ -123,6 +127,27 @@ int main() {
 
     CHECK_THROWS_AS(users.insert({{"id", 10}, {"name", "New"}, {"score", 1.0}, {"data", nullptr}, {"active", 1}, {"pk", 10}, {"extra", 1}}),
                     SchemaError);
+
+    // v0.28: Fremdschlüssel via PRAGMA foreign_key_list als FA-18-Referenzen
+    CHECK(stats.importedReferences == 2);      // user_id 1 und 3 loesen auf; 999 nicht
+    CHECK(stats.skippedForeignKeys == 1);
+    CHECK(db.hasCollection("__references"));
+    {
+        ReferenceIndex refs(db);
+        CHECK(refs.dangling().empty());
+        Collection orders = db.collection("orders");
+        auto o10 = orders.findOne(Field("id") == 10);
+        CHECK(o10.has_value());
+        auto out = refs.references("orders", RefDirection::Outgoing, o10->id());
+        CHECK(out.size() == 1);
+        if (!out.empty()) {
+            CHECK(out[0].toCollection == "users" && out[0].relation == "fk_user_id");
+            auto u = users.findById(*out[0].toId);
+            CHECK(u.has_value() && u->at("name").asString() == "Ada");
+        }
+        auto j = refs.joinIds("orders", "fk_user_id", "users", Field("name") == "Cy");
+        CHECK(j.size() == 1);
+    }
 
     std::remove(path);
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
