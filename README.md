@@ -31,7 +31,7 @@ for (const auto& p : products.find("preis < 20 && tags.contains('neu')"))
 db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsselter Snapshot
 ```
 
-## Was kann InMemDB? (Features, v0.36)
+## Was kann InMemDB? (Features, v0.37)
 
 **Daten & Abfragen**
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern (auch verschachtelt, Punktnotation `"adresse.plz"`)
@@ -49,7 +49,7 @@ db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsse
 
 **Sicherheit, Persistenz & Betrieb**
 - Atomare **Transaktionen** pro Collection: alles oder nichts, commit/rollback, Rollback per Copy-on-Write (schnell auch bei Millionen Dokumenten, v0.19); RAII-Rollback (FA-12)
-- **JSON-Snapshot** der ganzen DB oder einzelner Collections: `toJson`/`fromJson`/`saveToFile`/`loadFromFile` (FA-14)
+- **JSON-Snapshot** der ganzen DB oder einzelner Collections: `toJson`/`fromJson`/`saveToFile`/`loadFromFile` (FA-14); eigener Parser gehärtet v0.37 (Verschachtelungs-Limit 1000 gegen Segfault, `$binary` nur bei gültigem Hex, Hex-Float-Fallback nur mit `0x`)
 - **Verschlüsselte Snapshots**: `saveToFileEncrypted`/`loadFromFileEncrypted` mit Passwort (PBKDF2 + ChaCha20 + HMAC-SHA256, ohne externe Krypto-Bibliothek, FA-19)
 - Optionales **striktes Schema** pro Collection: Feldtypen als Metadaten, undefinierte Felder werden abgelehnt (FA-20)
 - **Observer**: Callbacks bei jedem Einfügen/Ändern/Löschen (`onChange`), in Transaktionen erst beim Commit (FA-15)

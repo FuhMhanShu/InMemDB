@@ -16,6 +16,10 @@ namespace memdb::detail {
 
 namespace {
 
+// v0.37: harte Verschachtelungsgrenze (Parser rekursiv -> sonst Stack-Overflow/Segfault bei
+// "[[[[..." bzw. tiefen Schema-Baeumen; Writer ebenso gegen zyklische Value-Strukturen).
+constexpr int kMaxJsonDepth = 1000;
+
 std::string hexEncode(const std::vector<std::uint8_t>& data) {
     static const char* digits = "0123456789abcdef";
     std::string out;
@@ -55,8 +59,20 @@ std::vector<std::uint8_t> hexDecode(const std::string& s) {
 struct Parser {
     std::string_view s;
     std::size_t pos = 0;
+    int depth = 0; // aktuelle Verschachtelung (Array/Object/Schema)
 
     explicit Parser(std::string_view sv) : s(sv) {}
+
+    struct DepthGuard { // RAII: bei fail()-Throw wird depth beim Unwinding korrekt zurueckgesetzt
+        int& d;
+        explicit DepthGuard(int& dd) : d(dd) { ++d; }
+        ~DepthGuard() { --d; }
+    };
+    DepthGuard enter() {
+        if (depth + 1 > kMaxJsonDepth)
+            fail("Verschachtelung zu tief (max " + std::to_string(kMaxJsonDepth) + ")");
+        return DepthGuard(depth);
+    }
 
     [[noreturn]] void fail(const std::string& msg) const {
         throw JsonError("JSON-Parsefehler bei Offset " + std::to_string(pos) + ": " + msg);
@@ -221,9 +237,13 @@ struct Parser {
             auto r = std::from_chars(buf, buf + n, d);
             if (r.ec == std::errc() && r.ptr == buf + n)
                 return Value(d);
-            r = std::from_chars(buf, buf + n, d, std::chars_format::hex);
-            if (r.ec == std::errc() && r.ptr == buf + n)
-                return Value(d);
+            // v0.37: Hex-Float-Fallback nur bei echtem 0x-Präfix – sonst wuerde z. B. "1e"
+            // faelschlich als Hex-Zahl 0x1e = 30.0 akzeptiert.
+            if (std::strchr(buf, 'x') || std::strchr(buf, 'X')) {
+                r = std::from_chars(buf, buf + n, d, std::chars_format::hex);
+                if (r.ec == std::errc() && r.ptr == buf + n)
+                    return Value(d);
+            }
             std::string lower(buf, n);
             for (auto& c : lower)
                 c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -244,6 +264,7 @@ struct Parser {
 
     Value parseArray() {
         expect('[');
+        auto g = enter();
         std::vector<Value> items;
         if (consume(']'))
             return Value(std::move(items));
@@ -259,6 +280,7 @@ struct Parser {
 
     Value parseObject() {
         expect('{');
+        auto g = enter();
         Document doc;
         if (consume('}'))
             return Value(std::make_shared<Document>(std::move(doc)));
@@ -274,10 +296,20 @@ struct Parser {
             expect('}');
             break;
         }
+        // v0.37: {"$binary":"<hex>"} wird nur zu Binary, wenn der String gueltiges Hex ist;
+        // sonst bleibt es ein normales Dokument (frueher warf z. B. {"$binary":"hello"} einen
+        // JsonError und brach damit das gesamte Parsen ab).
         if (doc.fieldCount() == 1 && doc.contains("$binary")) {
             const Value* v = doc.find("$binary");
-            if (v->isString())
-                return Value(hexDecode(v->asString()));
+            if (v->isString()) {
+                const std::string& h = v->asString();
+                bool hexOk = h.size() % 2 == 0;
+                for (char c : h)
+                    if (hexVal(c) < 0)
+                        hexOk = false;
+                if (hexOk)
+                    return Value(hexDecode(h));
+            }
         }
         return Value(std::make_shared<Document>(std::move(doc)));
     }
@@ -312,7 +344,7 @@ std::string writeJsonString(const std::string& s) {
             default:
                 if (static_cast<unsigned char>(c) < 0x20) {
                     char buf[8];
-                    std::snprintf(buf, sizeof(buf), "\\u%04x", c);
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
                     out += buf;
                 } else {
                     out += c;
@@ -323,7 +355,10 @@ std::string writeJsonString(const std::string& s) {
     return out;
 }
 
-std::string writeJsonDocument(const Document& doc) {
+std::string writeJsonDocument(const Document& doc, int depth) {
+    if (depth > kMaxJsonDepth)
+        throw JsonError("JSON-Schreiben: Verschachtelung zu tief (max " + std::to_string(kMaxJsonDepth) +
+                        ") – moeglicherweise zyklische Value-Struktur");
     std::string out = "{";
     bool first = true;
     for (const auto& [key, value] : doc.fields()) {
@@ -332,13 +367,16 @@ std::string writeJsonDocument(const Document& doc) {
         first = false;
         out += writeJsonString(key);
         out += ":";
-        out += writeJson(value);
+        out += writeJson(value, depth + 1);
     }
     out += "}";
     return out;
 }
 
-std::string writeJson(const Value& v) {
+std::string writeJson(const Value& v, int depth) {
+    if (depth > kMaxJsonDepth)
+        throw JsonError("JSON-Schreiben: Verschachtelung zu tief (max " + std::to_string(kMaxJsonDepth) +
+                        ") – moeglicherweise zyklische Value-Struktur");
     switch (v.type()) {
         case Value::Type::Null:
             return "null";
@@ -366,7 +404,7 @@ std::string writeJson(const Value& v) {
             return "{\"$binary\":\"" + hexEncode(v.asBinary()) + "\"}";
         case Value::Type::Document: {
             auto d = v.asDocument();
-            return d ? writeJsonDocument(*d) : "null";
+            return d ? writeJsonDocument(*d, depth + 1) : "null";
         }
         case Value::Type::Array: {
             std::string out = "[";
@@ -375,7 +413,7 @@ std::string writeJson(const Value& v) {
                 if (!first)
                     out += ",";
                 first = false;
-                out += writeJson(item);
+                out += writeJson(item, depth + 1);
             }
             out += "]";
             return out;
@@ -395,7 +433,9 @@ Value parseJson(std::string_view s) {
 
 namespace {
 
-std::string writeJsonFields(const Schema& schema) {
+std::string writeJsonFields(const Schema& schema, int depth) {
+    if (depth > kMaxJsonDepth)
+        throw JsonError("JSON-Schema-Schreiben: Verschachtelung zu tief (max " + std::to_string(kMaxJsonDepth) + ")");
     std::string out = "{";
     bool first = true;
     for (const auto& [path, fs] : schema.fields()) {
@@ -407,7 +447,7 @@ std::string writeJsonFields(const Schema& schema) {
         if (fs.elementType())
             entry += ",\"element\":" + writeJsonString(typeName(*fs.elementType()));
         if (fs.sub())
-            entry += ",\"fields\":" + writeJsonFields(*fs.sub());
+            entry += ",\"fields\":" + writeJsonFields(*fs.sub(), depth + 1);
         entry += "}";
         out += writeJsonString(path) + ":" + entry;
     }
@@ -415,7 +455,9 @@ std::string writeJsonFields(const Schema& schema) {
     return out;
 }
 
-Schema parseJsonSchemaFields(const Value& fieldsValue) {
+Schema parseJsonSchemaFields(const Value& fieldsValue, int depth) {
+    if (depth > kMaxJsonDepth)
+        throw JsonError("JSON-Schema-Parse: Verschachtelung zu tief (max " + std::to_string(kMaxJsonDepth) + ")");
     if (!fieldsValue.isDocument())
         throw JsonError("Schema-'fields' muss ein Objekt sein");
     Schema schema;
@@ -435,14 +477,14 @@ Schema parseJsonSchemaFields(const Value& fieldsValue) {
             fs.elements(typeFromName(e->asString()));
         const Value* sub = fd.find("fields");
         if (sub)
-            fs.subSchema(parseJsonSchemaFields(*sub));
+            fs.subSchema(parseJsonSchemaFields(*sub, depth + 1));
     }
     return schema;
 }
 
 } // namespace
 
-std::string writeJsonSchema(const Schema& schema) { return "{\"fields\":" + writeJsonFields(schema) + "}"; }
+std::string writeJsonSchema(const Schema& schema) { return "{\"fields\":" + writeJsonFields(schema, 0) + "}"; }
 
 Schema parseJsonSchema(const Value& v) {
     if (!v.isDocument())
@@ -450,7 +492,7 @@ Schema parseJsonSchema(const Value& v) {
     const Value* fields = v.asDocument()->find("fields");
     if (!fields)
         throw JsonError("Schema-JSON: 'fields' fehlt");
-    return parseJsonSchemaFields(*fields);
+    return parseJsonSchemaFields(*fields, 0);
 }
 
 } // namespace memdb::detail
