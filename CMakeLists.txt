@@ -199,6 +199,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         target_link_libraries(memdb_tests_import PRIVATE memdb SQLite::SQLite3)
         target_include_directories(memdb_tests_import PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
         add_test(NAME memdb_tests_import COMMAND memdb_tests_import)
+
+        # Vergleichs-Benchmark InMemDB vs SQLite (:memory:), nur mit SQLite-Dev
+        add_executable(memdb_bench_sqlite bench/bench_sqlite.cpp)
+        target_link_libraries(memdb_bench_sqlite PRIVATE memdb SQLite::SQLite3)
     endif()
 
     file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp)
