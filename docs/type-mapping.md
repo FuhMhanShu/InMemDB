@@ -23,7 +23,7 @@ Bezug: Anforderungen Abschnitt 3 (Datenmodell), FA-14 (JSON-Snapshot), FA-19 (ve
   Achtung: MySQL `FLOAT` ist 32-Bit – Verlust möglich; `DOUBLE`/`FLOAT8` verwenden.
 - **Double akzeptiert Int** (numerische Promotion in Vergleichen und Schema-Deklaration `double`), nie umgekehrt.
 - **Strings sind UTF-8.** JSON-Escapes inkl. `\uXXXX` und Surrogat-Paaren werden korrekt dekodiert.
-- **Binary im JSON-Snapshot** als Marker-Objekt `{"$binary":"<hex>"}` (kollisionsarm; ein Dokument mit genau diesem einen Feld wäre mehrdeutig – in der Praxis unkritisch, bei Bedarf eigene Konvention wählen).
+- **Binary im JSON-Snapshot** als Marker-Objekt `{"$binary":"<hex>"}` (kollisionsarm; v0.37: beim Parsen wird `{"$binary":...}` nur zu `Binary`, wenn der Wert gueltiges Hex ist – ein normales Dokument mit diesem Feld bleibt sonst unverändert erhalten).
 - **Verschachtelte Dokumente** entsprechen JSON-Objekten / Mongo-Subdokumenten / JSONB-Pfaden (`adresse->>'stadt'`); Zugriff in InMemDB per Punktnotation (`adresse.stadt`).
 
 ## 3. Fehlende SQL-Typen (aktuell als Konvention abgebildet)

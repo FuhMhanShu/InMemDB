@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.36 LANGUAGES CXX)
+project(InMemDB VERSION 0.37 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -140,6 +140,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_tests_message_handler tests/test_message_handler.cpp)
     target_link_libraries(memdb_tests_message_handler PRIVATE memdb)
     add_test(NAME memdb_tests_message_handler COMMAND memdb_tests_message_handler)
+    add_executable(memdb_tests_json_hardening tests/test_json_hardening.cpp)
+    target_link_libraries(memdb_tests_json_hardening PRIVATE memdb)
+    target_include_directories(memdb_tests_json_hardening PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME memdb_tests_json_hardening COMMAND memdb_tests_json_hardening)
 
     add_executable(memdb_tests_dsl_update tests/test_dsl_update.cpp)
     target_link_libraries(memdb_tests_dsl_update PRIVATE memdb)

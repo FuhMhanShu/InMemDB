@@ -33,6 +33,12 @@ coll.clear();                           // Inhalt leeren, Index-Definitionen ble
   (immer mit Dezimalpunkt/Exponent, damit der Typ erhalten bleibt; NaN/Inf → `null`),
   String → JSON-String (UTF-8, Escapes inkl. `\uXXXX` + Surrogat-Paare),
   Array → `[...]`, Document → `{...}`, Binary → `{"$binary": "<hex>"}`
+  (v0.37: beim Parsen wird `{"$binary":...}` nur zu `Binary`, wenn der String gueltiges
+  Hex ist – sonst bleibt es ein normales Dokument; vorher warf z. B. `{"$binary":"hello"}`
+  einen `JsonError` und brach das gesamte Parsen ab)
+- **Verschachtelungs-Limit (v0.37):** Parser und Writer akzeptieren max. 1000 Ebenen –
+  tiefer verschachteltes JSON (oder zyklische Value-Strukturen beim Schreiben) wirft
+  `JsonError` statt Stack-Overflow/Segfault (vorher: Crash ab ~50000 `[[[...`).
 - **Dokument-IDs werden nicht serialisiert** – beim Import werden neue IDs vergeben.
 
 ## Verhalten
