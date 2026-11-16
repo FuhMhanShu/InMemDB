@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/inmemdb_discover.dir/link.d CMakeFiles/inmemdb_discover.dir/tools/discover_tool.cpp.o -o inmemdb_discover  libmemdb.a

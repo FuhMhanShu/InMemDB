@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/inmemdb_import.dir/link.d CMakeFiles/inmemdb_import.dir/tools/import_tool.cpp.o -o inmemdb_import  libmemdb.a

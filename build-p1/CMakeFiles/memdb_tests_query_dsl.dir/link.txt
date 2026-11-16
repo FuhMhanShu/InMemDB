@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/memdb_tests_query_dsl.dir/link.d CMakeFiles/memdb_tests_query_dsl.dir/tests/test_query_dsl.cpp.o -o memdb_tests_query_dsl  libmemdb.a

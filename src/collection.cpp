@@ -5,6 +5,7 @@
 #include "collection_state.hpp"
 #include "json.hpp"
 
+#include <algorithm>
 #include <mutex>
 #include <shared_mutex>
 
@@ -392,11 +393,17 @@ std::string Collection::toJson() const {
     std::shared_lock lock(impl_->mtx);
     std::string out = "[";
     bool first = true;
-    for (const auto& [id, doc] : impl_->docs) {
+    // deterministische Reihenfolge (ID aufsteigend), unabhaengig vom internen Hash-Map-Layout
+    std::vector<DocumentId> ids;
+    ids.reserve(impl_->docs.size());
+    for (const auto& [id, doc] : impl_->docs)
+        ids.push_back(id);
+    std::sort(ids.begin(), ids.end());
+    for (DocumentId id : ids) {
         if (!first)
             out += ",";
         first = false;
-        out += detail::writeJsonDocument(doc);
+        out += detail::writeJsonDocument(impl_->docs[id]);
     }
     out += "]";
     return out;

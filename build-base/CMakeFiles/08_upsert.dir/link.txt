@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/08_upsert.dir/link.d CMakeFiles/08_upsert.dir/examples/08_upsert.cpp.o -o 08_upsert  libmemdb.a

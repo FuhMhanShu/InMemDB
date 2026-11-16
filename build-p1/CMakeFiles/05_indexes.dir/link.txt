@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/05_indexes.dir/link.d CMakeFiles/05_indexes.dir/examples/05_indexes.cpp.o -o 05_indexes  libmemdb.a

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 namespace memdb {
@@ -26,3 +27,12 @@ private:
 std::string toString(DocumentId id);
 
 } // namespace memdb
+
+namespace std {
+template <>
+struct hash<memdb::DocumentId> {
+    std::size_t operator()(memdb::DocumentId id) const noexcept {
+        return std::hash<std::uint64_t>{}(id.value());
+    }
+};
+} // namespace std

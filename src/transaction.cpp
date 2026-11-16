@@ -20,7 +20,7 @@ struct Transaction::Impl {
     detail::CollectionState::TxUndo undo;
     std::uint64_t backupNextId = 0;
     std::map<std::string, bool> backupIndexPaths; // Index-Struktur (path -> unique), meist wenige Eintraege
-    std::map<DocumentId, std::uint64_t> backupSpillIndex; // Hybrid-Modus (v0.18)
+    std::unordered_map<DocumentId, std::uint64_t> backupSpillIndex; // Hybrid-Modus (v0.18)
     std::uint64_t backupSpillBytes = 0;
     std::vector<ChangeEvent> events;
     bool active = true;

@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/01_hello_database.dir/link.d CMakeFiles/01_hello_database.dir/examples/01_hello_database.cpp.o -o 01_hello_database  libmemdb.a

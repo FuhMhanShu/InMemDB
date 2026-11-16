@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/06_transactions.dir/link.d CMakeFiles/06_transactions.dir/examples/06_transactions.cpp.o -o 06_transactions  libmemdb.a

@@ -3,13 +3,14 @@
 
 #include <ctime>
 #include <sstream>
+#include <unordered_map>
 
 namespace memdb {
 
 struct Document::Impl {
     DocumentId id;
-    // transparenter Komparator: find(string_view) ohne std::string-Allokation (Hotpath)
-    std::map<std::string, Value, std::less<>> fields;
+    // Hash-Map statt Baum: Feld-Lookup im Query-Hotpath O(1); Schluessel kurz -> SSO, kein Heap-Alloc
+    std::unordered_map<std::string, Value> fields;
 };
 
 namespace {
@@ -70,23 +71,23 @@ void Document::forEachField(const std::function<void(const std::string&, const V
 }
 
 bool Document::contains(std::string_view key) const {
-    return impl_->fields.find(key) != impl_->fields.end();
+    return impl_->fields.find(std::string(key)) != impl_->fields.end();
 }
 
 const Value* Document::find(std::string_view key) const {
-    auto it = impl_->fields.find(key);
+    auto it = impl_->fields.find(std::string(key));
     return it == impl_->fields.end() ? nullptr : &it->second;
 }
 
 Value* Document::findMutable(std::string_view key) {
-    auto it = impl_->fields.find(key);
+    auto it = impl_->fields.find(std::string(key));
     return it == impl_->fields.end() ? nullptr : &it->second;
 }
 
 Value& Document::operator[](const std::string& key) { return impl_->fields[key]; }
 
 const Value& Document::at(std::string_view key) const {
-    auto it = impl_->fields.find(key);
+    auto it = impl_->fields.find(std::string(key));
     if (it == impl_->fields.end())
         throw Error("Feld nicht gefunden: " + std::string(key));
     return it->second;
@@ -95,7 +96,7 @@ const Value& Document::at(std::string_view key) const {
 void Document::set(std::string key, Value value) { impl_->fields[std::move(key)] = std::move(value); }
 
 bool Document::remove(std::string_view key) {
-    auto it = impl_->fields.find(key);
+    auto it = impl_->fields.find(std::string(key));
     if (it == impl_->fields.end())
         return false;
     impl_->fields.erase(it);
@@ -103,10 +104,10 @@ bool Document::remove(std::string_view key) {
 }
 
 bool Document::rename(std::string_view from, std::string_view to) {
-    auto it = impl_->fields.find(from);
+    auto it = impl_->fields.find(std::string(from));
     if (it == impl_->fields.end())
         return false;
-    if (impl_->fields.find(to) != impl_->fields.end())
+    if (impl_->fields.find(std::string(to)) != impl_->fields.end())
         return false;
     auto node = impl_->fields.extract(it);
     node.key() = std::string(to);

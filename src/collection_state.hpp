@@ -11,6 +11,7 @@
 
 #include "json.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -21,6 +22,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -155,7 +157,7 @@ struct Metrics {
 
 struct CollectionState {
     std::string name;
-    std::map<DocumentId, Document> docs;
+    std::unordered_map<DocumentId, Document> docs;
     std::uint64_t nextId = 1;
     std::map<std::string, std::unique_ptr<FieldIndex>> indexes;
     mutable std::shared_mutex mtx;
@@ -254,15 +256,15 @@ struct CollectionState {
     bool overflowEnabled = false;
     std::string spillPath;
     std::size_t maxInMemory = 0;
-    std::map<DocumentId, std::uint64_t> spillIndex;
+    std::unordered_map<DocumentId, std::uint64_t> spillIndex;
     std::uint64_t spillBytes = 0;
     std::atomic<std::size_t> txLocks{0}; // >0 waehrend Transaktion: kein Evict
 
     // Copy-on-Write-Undo fuer Transaktionen (v0.19): statt Voll-Backup nur angefasste Docs
     struct TxUndo {
-        std::map<DocumentId, std::optional<Document>> docs; // alter Zustand (nullopt = gab es nicht)
+        std::unordered_map<DocumentId, std::optional<Document>> docs; // alter Zustand (nullopt = gab es nicht)
         bool cleared = false;
-        std::map<DocumentId, Document> clearedDocs;         // nur bei Clear/Load waehrend Tx
+        std::unordered_map<DocumentId, Document> clearedDocs;         // nur bei Clear/Load waehrend Tx
         bool touchedExpiry = false;                          // FA-25: Rollback muss expiryCount neu zaehlen
     };
     TxUndo* undo = nullptr;
@@ -351,8 +353,17 @@ struct CollectionState {
     void maybeEvict() {
         if (!overflowEnabled || txLocks.load() > 0)
             return;
-        while (docs.size() > maxInMemory && !docs.empty()) {
-            auto it = docs.begin(); // niedrigste ID zuerst (FIFO)
+        const std::size_t excess = docs.size() > maxInMemory ? docs.size() - maxInMemory : 0;
+        if (excess == 0)
+            return;
+        // niedrigste IDs zuerst (FIFO) – docs ist eine Hash-Map, daher explizit sortieren
+        std::vector<DocumentId> ids;
+        ids.reserve(docs.size());
+        for (const auto& [id, d] : docs)
+            ids.push_back(id);
+        std::partial_sort(ids.begin(), ids.begin() + static_cast<std::ptrdiff_t>(excess), ids.end());
+        for (std::size_t i = 0; i < excess; ++i) {
+            auto it = docs.find(ids[i]);
             spillAppend(it->first, it->second);
             indexRemove(it->first, it->second);
             docs.erase(it);
@@ -426,7 +437,7 @@ struct CollectionState {
         std::uint64_t oldBytes = spillBytes;
         {
             std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-            std::map<DocumentId, std::uint64_t> newIndex;
+            std::unordered_map<DocumentId, std::uint64_t> newIndex;
             std::uint64_t off = 0;
             for (const auto& [id, oldoff] : spillIndex) {
                 if (auto d = loadSpilled(id)) {
@@ -565,6 +576,7 @@ struct CollectionState {
     std::vector<DocumentId> doInsertBulk(std::vector<Document> docs_) {
         std::vector<DocumentId> ids;
         ids.reserve(docs_.size());
+        docs.reserve(docs.size() + docs_.size());
         if (sink)
             sink->reserve(sink->size() + docs_.size()); // Observer-Events ohne Realloc
         for (auto& doc : docs_)
@@ -986,6 +998,7 @@ struct CollectionState {
         auto& items = arrayValue.asArray();
         noteUndoClear();
         docs.clear();
+        docs.reserve(items.size());
         nextId = 1;
         expiryCount = 0;
         for (auto& [path, idx] : indexes)
