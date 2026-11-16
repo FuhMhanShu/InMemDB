@@ -84,4 +84,10 @@ public:
     using Error::Error;
 };
 
+/// @brief Überschreitung eines optionalen Collection-Limits (v0.39, `Collection::setLimits`).
+class LimitError : public Error {
+public:
+    using Error::Error;
+};
+
 } // namespace memdb

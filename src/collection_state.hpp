@@ -5,6 +5,7 @@
 #include "memdb/cursor.hpp"
 #include "memdb/document.hpp"
 #include "memdb/exceptions.hpp"
+#include "memdb/limits.hpp"
 #include "memdb/message_handler.hpp"
 #include "memdb/index.hpp"
 #include "memdb/query.hpp"
@@ -154,6 +155,7 @@ struct Metrics {
     std::atomic<std::uint64_t> expiredDocs{0};
     std::atomic<std::uint64_t> evalErrors{0};   ///< v0.35: abgefangene Eval-Fehler im Query-Scan (Dokument = Nicht-Treffer)
     std::atomic<std::uint64_t> eventErrors{0};  ///< v0.35: abgefangene Observer-Exceptions (Schreib-OP lief weiter)
+    std::atomic<std::uint64_t> limitViolations{0}; ///< v0.39: wegen Collection-Limits abgelehnte Schreibzugriffe
     double lastQueryMs = 0.0;
     double totalQueryMs = 0.0;
     bool lastUsedIndex = false;
@@ -574,7 +576,37 @@ struct CollectionState {
         return ids;
     }
 
+    // v0.39: optionale Collection-Limits (FA-28), Default 0 = unbegrenzt
+    CollectionLimits limits;
+
+    void checkCountLimit(std::size_t adding) const {
+        if (limits.maxDocuments > 0 && doSize() + adding > limits.maxDocuments) {
+            ++metrics.limitViolations;
+            throw LimitError("Collection '" + name + "': Dokument-Limit erreicht (max " +
+                             std::to_string(limits.maxDocuments) + ", +" + std::to_string(adding) + " angefragt)");
+        }
+    }
+    void checkDocLimits(const Document& d) const {
+        if (limits.maxFieldsPerDocument > 0 && d.fieldCount() > limits.maxFieldsPerDocument) {
+            ++metrics.limitViolations;
+            throw LimitError("Collection '" + name + "': Feld-Limit pro Dokument ueberschritten (max " +
+                             std::to_string(limits.maxFieldsPerDocument) + ", Doc hat " +
+                             std::to_string(d.fieldCount()) + ")");
+        }
+        if (limits.maxDocumentBytes > 0) {
+            std::string js = detail::writeJsonDocument(d);
+            if (js.size() > limits.maxDocumentBytes) {
+                ++metrics.limitViolations;
+                throw LimitError("Collection '" + name + "': Dokument zu gross (max " +
+                                 std::to_string(limits.maxDocumentBytes) + " Bytes, Doc hat " +
+                                 std::to_string(js.size()) + ")");
+            }
+        }
+    }
+
     DocumentId doInsert(Document doc) {
+        checkCountLimit(1);
+        checkDocLimits(doc);
         DocumentId id(nextId++);
         doc.setId(id);
         applyDefaultExpiry(doc); // FA-25: Collection-Default-TTL (opt-in)
@@ -591,6 +623,9 @@ struct CollectionState {
     }
 
     std::vector<DocumentId> doInsertBulk(std::vector<Document> docs_) {
+        checkCountLimit(docs_.size());          // v0.39: vor jeder Mutation
+        for (const auto& d : docs_)
+            checkDocLimits(d);                   // v0.39: Bulk atomar gegen Limit-Verstoss
         std::vector<DocumentId> ids;
         ids.reserve(docs_.size());
         docs.reserve(docs.size() + docs_.size());
@@ -719,6 +754,7 @@ struct CollectionState {
                 continue;
             mutator(updated);
             updated.setId(id);
+            checkDocLimits(updated); // v0.39
             validateDoc(updated);
             validateUnique(id, updated);
             changes.emplace_back(id, std::move(updated));
@@ -753,6 +789,7 @@ struct CollectionState {
             Document updated = old;
             mutator(updated);
             updated.setId(id);
+            checkDocLimits(updated); // v0.39
             validateDoc(updated);
             adjustExpiry(&old, &updated);
             spillAppend(id, updated); // neue Version ans Spill
@@ -763,6 +800,7 @@ struct CollectionState {
         Document updated = it->second;
         mutator(updated);
         updated.setId(id);
+        checkDocLimits(updated); // v0.39
         validateDoc(updated);
         validateUnique(id, updated);
         adjustExpiry(&it->second, &updated);
@@ -782,6 +820,7 @@ struct CollectionState {
                 return false;
             Document old = *loadSpilled(id);
             doc.setId(id);
+            checkDocLimits(doc); // v0.39
             validateDoc(doc);
             adjustExpiry(&old, &doc);
             spillAppend(id, doc);
@@ -790,6 +829,7 @@ struct CollectionState {
             return true;
         }
         doc.setId(id);
+        checkDocLimits(doc); // v0.39
         validateDoc(doc);
         validateUnique(id, doc);
         adjustExpiry(&it->second, &doc);
@@ -806,6 +846,7 @@ struct CollectionState {
         noteUndo(id);
         if (it != docs.end()) {
             doc.setId(id);
+            checkDocLimits(doc); // v0.39
             validateDoc(doc);
             validateUnique(id, doc);
             adjustExpiry(&it->second, &doc);
@@ -819,6 +860,7 @@ struct CollectionState {
         if (spillIndex.count(id)) { // ausgelagert: im Spill aktualisieren
             Document old = *loadSpilled(id);
             doc.setId(id);
+            checkDocLimits(doc); // v0.39
             validateDoc(doc);
             adjustExpiry(&old, &doc);
             spillAppend(id, doc);
@@ -1032,6 +1074,14 @@ struct CollectionState {
                 MessageHandler::instance().error("load", msg); // v0.36: melden + weiterhin werfen
                 throw JsonError(std::move(msg));
             }
+        // v0.39: Limits vor dem Leeren prüfen (neuer Inhalt ersetzt den alten)
+        if (limits.maxDocuments > 0 && items.size() > limits.maxDocuments) {
+            ++metrics.limitViolations;
+            throw LimitError("Collection '" + name + "': loadJson wuerde Dokument-Limit ueberschreiten (max " +
+                             std::to_string(limits.maxDocuments) + ", " + std::to_string(items.size()) + " Elemente)");
+        }
+        for (const auto& item : items)
+            checkDocLimits(*item.asDocument());
         noteUndoClear();
         docs.clear();
         docs.reserve(items.size());
@@ -1096,6 +1146,11 @@ struct CollectionState {
     Index doCreateIndex(const std::string& fieldPath, bool unique) {
         if (indexes.find(fieldPath) != indexes.end())
             throw IndexExistsError("Index existiert bereits fuer Feld: " + fieldPath);
+        if (limits.maxIndexes > 0 && indexes.size() >= limits.maxIndexes) { // v0.39
+            ++metrics.limitViolations;
+            throw LimitError("Collection '" + name + "': Index-Limit erreicht (max " +
+                             std::to_string(limits.maxIndexes) + ")");
+        }
         auto idx = std::make_unique<FieldIndex>();
         idx->path = fieldPath;
         idx->unique = unique;

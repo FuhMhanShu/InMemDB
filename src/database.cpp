@@ -73,6 +73,7 @@ DatabaseMetrics Database::metrics() const {
         out.sum.expiredDocs += m.expiredDocs;
         out.sum.evalErrors += m.evalErrors;
         out.sum.eventErrors += m.eventErrors;
+        out.sum.limitViolations += m.limitViolations;
         out.sum.totalQueryMs += m.totalQueryMs;
     }
     return out;

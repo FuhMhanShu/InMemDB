@@ -5,6 +5,7 @@
 #include "cursor.hpp"
 #include "document.hpp"
 #include "index.hpp"
+#include "limits.hpp"
 #include "metrics.hpp"
 #include "query.hpp"
 #include "schema.hpp"
@@ -162,6 +163,12 @@ public:
     /// @brief Sekundärindex auf Feldpfad anlegen (FA-10).
     /// @throws IndexExistsError wenn bereits vorhanden; UniqueConstraintError bei Duplikaten (unique=true).
     Index createIndex(const std::string& fieldPath, bool unique = false);
+
+    /// @brief Optionale Limits setzen (v0.39, FA-28). Default 0 = unbegrenzt.
+    /// @throws LimitError bei Überschreitung durch spätere Schreibzugriffe.
+    void setLimits(const CollectionLimits& l);
+    /// @brief Aktuell gesetzte Limits (v0.39).
+    CollectionLimits limits() const;
     /// @brief Index löschen; false, wenn nicht vorhanden.
     bool dropIndex(const std::string& fieldPath);
     /// @brief true, wenn ein Index auf dem Feldpfad existiert.

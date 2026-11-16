@@ -23,6 +23,7 @@
 #include "import_snapshot.hpp"
 #include "import_sqldump.hpp"
 #include "index.hpp"
+#include "limits.hpp"
 #include "metrics.hpp"
 #include "message_handler.hpp"
 #include "query.hpp"

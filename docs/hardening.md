@@ -2,7 +2,7 @@
 
 | Feld | Wert |
 |---|---|
-| Status | aktiv gepflegt; letzte Ausbaustufen v0.34 (RegEx), v0.35 (Exception-Policy), v0.36 (MessageHandler), v0.37 (JSON), v0.38 (DSL/BSON/ Zahlen) |
+| Status | aktiv gepflegt; letzte Ausbaustufen v0.34 (RegEx), v0.35 (Exception-Policy), v0.36 (MessageHandler), v0.37 (JSON), v0.38 (DSL/BSON/Zahlen), v0.39 (Collection-Limits) |
 | Prinzip | **nie crashen/hängen** an externer oder pathologischer Eingabe – stattdessen typisierte Exceptions (`JsonError`, `QueryError`, `Error`, …) mit Position/Offset; wo der Flow weiterlaufen soll, wird abgefangen + gezählt/gemeldet |
 
 ## 1. Harte Limits gegen pathologische Eingaben (Crash-/Hang-Schutz)
@@ -36,3 +36,11 @@ Singleton, thread-safe; eigene Handler via `subscribe()`. Die Abfang-Stellen mel
 
 ## 5. Tests
 `tests/test_regex.cpp` (5921 Checks) · `test_json_hardening.cpp` (43) · `test_hardening.cpp` (13) · `test_error_handling.cpp` (32) · `test_message_handler.cpp` (30) – plus die Regressionssuiten (insg. 40 CTest-Einträge).
+
+## 1b. Ressourcen-Limits pro Collection (v0.39, FA-28, `docs/limits.md`)
+
+Opt-in via `Collection::setLimits(CollectionLimits)` – Default unbegrenzt (0):
+`maxDocuments`, `maxDocumentBytes` (JSON-Größe), `maxFieldsPerDocument`, `maxIndexes`.
+Verstoß → `LimitError` **vor der Mutation** (Bulk atomar), Zähler `metrics().limitViolations`.
+Faustregeln: `maxDocuments` ≈ RAM/ØDocgröße, `maxDocumentBytes` 1–16 MiB, Felder ~1000, Indizes ~32–64.
+RAM-Schutz für „größer als RAM“ bleibt der Spill-Modus (v0.18).

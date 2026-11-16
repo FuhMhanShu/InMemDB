@@ -5,8 +5,8 @@
 | Feld | Wert |
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
-| Version | 0.38 |
-| Status | fortgeschrieben; FA-01…FA-27 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
+| Version | 0.39 |
+| Status | fortgeschrieben; FA-01…FA-28 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
 | Bereitstellungsform | Eingebettete Bibliothek als **kompilierte statische Library mit Pimpl-Idiom** (öffentliche Header unter `include/memdb/`, Implementierung gekapselt in `src/`); kein Server, kein Netzwerk. Header-only wurde verworfen – siehe `docs/architecture.md`. |
@@ -88,6 +88,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | FA-25 | **TTL / Auto-Expiry** (opt-in, default aus): Verfallszeit pro Dokument (`expiresAt`, Unix-Sekunden) via `Document::expiresIn(sek)`/`expiresAt(unix)` und `Collection::expiresIn/expiresAt(id, …)`; lazy Sweep bei Lesezugriffen + manueller Sweep `expireNow()`; Collection-Default via `setDefaultExpiresIn(sek)`; inkl. Spill (v0.18), Tx-Guard (kein Sweep mitten in Tx), Snapshot, Metrik `expiredDocs`. Siehe `docs/ttl-expiry.md`. | K |
 | FA-26 | **Fremdschlüssel beim Import als Referenzen übernehmen**: Quellen liefern FK-Metadaten (`TableInfo::foreignKeys`; SQLite via `PRAGMA foreign_key_list`, SQL-Dump via `REFERENCES`/`FOREIGN KEY`/`CONSTRAINT … FOREIGN KEY`); `Importer` legt bei `ImportOptions::importForeignKeys` (Default an) FA-18-Referenzen an (Match über `refColumn`/`pk`/PK-Spalte, Relation = Constraint-Name bzw. `fk_<spalte>`); Stats `importedReferences`/`skippedForeignKeys`; CLI `--no-foreign-keys`. Siehe `docs/import.md`. | K |
 | FA-27 | **Relationship-Discovery** (ohne externe Abhängigkeiten): `discoverForeignKeys` (Werte-Überlappung, collection- und database-übergreifend via `std::vector<Collection>`), `discoverFunctionalDependencies` (X→Y via groupBy+Distinct), `discoverCorrelations` (Pearson + kategorial), `discoverNearDuplicates` (normalisierte Edit-Distanz), `discoverRelations` (kombiniert), `applyDiscovered` (FK-Befunde als FA-18-Referenzen), Reports `toJson`/`toMermaid`, CLI `inmemdb_discover`; Sampling via `Collection::sample`; v0.30: Kardinalität, Orphan-Report (`findOrphans`), Pfad-Suche (`findPaths`); v0.31: Datenprofil + Candidate Keys; v0.32: Cross-DB-Diff + Merge-Vorschläge; v0.33: Auto-Analyse `analyze()` + Health-Score + Report-Präsentation (Markdown/JSON/Mermaid/Konsole), CLI `--report`. Siehe `docs/discovery.md` (API) und `docs/discovery-guide.md` (erklärender Guide mit Beispiel-Graphen in `docs/images/`). | K |
+| FA-28 | **Optionale Collection-Limits** (opt-in, Default unbegrenzt): `Collection::setLimits(CollectionLimits{maxDocuments, maxDocumentBytes, maxFieldsPerDocument, maxIndexes})` – Verstoß wirft `LimitError` **vor der Mutation** (insert/insertBulk/loadJson/update/replace/upsert/createIndex, Bulk atomar); Zähler `CollectionMetrics::limitViolations`; wirkt in Tx und inkl. Spill; Faustregeln siehe `docs/limits.md`. | K |
 
 > **Verbindliche Ausprägung von FA-05 (Query-API):** typsicher Ausdruckbaum mit
 > Operator-Overloading, z. B. `(Field("age") >= 18) && Field("tags").contains("cpp")`.
@@ -236,6 +237,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | v0.36 | **MessageHandler-Singleton** (`include/memdb/message_handler.hpp` + `src/message_handler.cpp`): eigene Handler via `subscribe()`/`unsubscribe()`, Level-Filter (`setMinLevel`), thread-sicheres `publish()` (throwende Handler werden abgefangen, `handlerErrors()`), Zähler `count()/totalCount()`; die Abfang-Stellen der Exception-Policy v0.35 melden dorthin (`query-eval`, `observer`, `load`, `import`, `regex`, `cli`); CLI-Tools melden Fehler über den Handler (stderr-Abonnement); Tests `tests/test_message_handler.cpp` (30 Checks); Doku `docs/error-handling.md` |
 | v0.37 | JSON-Parser/Writer gehärtet: Verschachtelungs-Limit 1000 (Parser + Writer + Schema; vorher Segfault ab ~50000 `[[[...` bzw. bei zyklischen Value-Bäumen), `{"$binary":...}` wird nur bei gueltigem Hex zu `Binary` (sonst normales Dokument, kein Parse-Abbruch mehr), Hex-Float-Fallback nur mit `0x`-Präfix (sonst `"1e"` fälschlich 30.0); locale-unabhängige Zahlen bleiben; Tests `tests/test_json_hardening.cpp` (43 Checks inkl. Fuzz-lite); Doku `docs/snapshot-json.md`, `docs/type-mapping.md` |
 | v0.38 | Framework-Härtung Teil 2 (`docs/hardening.md`): DSL-Parser mit Verschachtelungs-Limit 256 (`(`/`!`, vorher Segfault ab ~50000 Klammern) + strikte Zahlen (int64-Überlauf → double, „1.2.3“/„1e“ → `QueryError` statt stillschweigend 0); BSON-Parser mit Tiefenlimit 1000 (vorher Segfault ab ~20000 Verschachtelung); zentrale Härtungs-Doku mit allen Limits (RegEx/JSON/DSL/BSON/Spill/Krypto) und Test-Strategie (Probes, Fuzz-lite, ASan, Fault-Injection); Tests `tests/test_hardening.cpp` (13 Checks); ctest 40/40 |
+| v0.39 | Optionale Collection-Limits (FA-28, `docs/limits.md`): `Collection::setLimits`/`limits()`, `LimitError`, Metrik `limitViolations`; Durchsetzung in allen do*-Pfaden (insert/bulk/load/update/replace/upsert/index, Tx + Spill); Tests `tests/test_limits.cpp` (34 Checks); ctest 41/41 |
 
 ---
 
