@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/11_references.dir/link.d CMakeFiles/11_references.dir/examples/11_references.cpp.o -o 11_references  libmemdb.a

@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/memdb_tests_import_csv.dir/link.d CMakeFiles/memdb_tests_import_csv.dir/tests/test_import_csv.cpp.o -o memdb_tests_import_csv  libmemdb.a

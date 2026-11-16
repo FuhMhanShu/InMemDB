@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/inmemdb_graph.dir/link.d CMakeFiles/inmemdb_graph.dir/tools/db_graph.cpp.o -o inmemdb_graph  libmemdb.a

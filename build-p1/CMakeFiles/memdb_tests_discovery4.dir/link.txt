@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/memdb_tests_discovery4.dir/link.d CMakeFiles/memdb_tests_discovery4.dir/tests/test_discovery4.cpp.o -o memdb_tests_discovery4  libmemdb.a

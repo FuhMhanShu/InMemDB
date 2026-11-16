@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/memdb_tests_tx_cow.dir/link.d CMakeFiles/memdb_tests_tx_cow.dir/tests/test_tx_cow.cpp.o -o memdb_tests_tx_cow  libmemdb.a

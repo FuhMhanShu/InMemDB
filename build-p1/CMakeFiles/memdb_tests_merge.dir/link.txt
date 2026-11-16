@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/memdb_tests_merge.dir/link.d CMakeFiles/memdb_tests_merge.dir/tests/test_merge.cpp.o -o memdb_tests_merge  libmemdb.a
