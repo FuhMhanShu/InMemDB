@@ -356,6 +356,16 @@ std::size_t Collection::lastQueryCandidateCount() const {
     return impl_->lastCandidateCount;
 }
 
+void Collection::setLimits(const CollectionLimits& l) {
+    std::unique_lock lock(impl_->mtx);
+    impl_->limits = l;
+}
+
+CollectionLimits Collection::limits() const {
+    std::shared_lock lock(impl_->mtx);
+    return impl_->limits;
+}
+
 CollectionMetrics Collection::metrics() const {
     std::shared_lock lock(impl_->mtx);
     CollectionMetrics m;
@@ -374,6 +384,7 @@ CollectionMetrics Collection::metrics() const {
     m.expiredDocs = s.expiredDocs.load();
     m.evalErrors = s.evalErrors.load();
     m.eventErrors = s.eventErrors.load();
+    m.limitViolations = s.limitViolations.load();
     m.docs = impl_->doSize();
     m.indexCount = impl_->indexes.size();
     m.lastCandidateCount = impl_->lastCandidateCount;
@@ -400,6 +411,7 @@ void Collection::resetMetrics() {
     s.expiredDocs = 0;
     s.evalErrors = 0;
     s.eventErrors = 0;
+    s.limitViolations = 0;
     s.lastQueryMs = 0.0;
     s.totalQueryMs = 0.0;
     s.lastUsedIndex = false;

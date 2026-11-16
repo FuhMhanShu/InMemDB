@@ -25,6 +25,7 @@ struct CollectionMetrics {
     std::uint64_t expiredDocs = 0;    ///< TTL/Auto-Expiry (FA-25): abgelaufene und entfernte Dokumente
     std::uint64_t evalErrors = 0;     ///< v0.35: abgefangene Query-Eval-Fehler im Scan (Dokument zaehlte als Nicht-Treffer)
     std::uint64_t eventErrors = 0;    ///< v0.35: abgefangene Observer-Exceptions (Schreib-OP lief weiter)
+    std::uint64_t limitViolations = 0; ///< v0.39: wegen Collection-Limits abgelehnte Schreibzugriffe (`LimitError`)
     std::size_t docs = 0;             ///< aktuelle Dokumentanzahl (RAM + Spill)
     std::size_t indexCount = 0;       ///< Anzahl aktiver Indizes
     std::size_t lastCandidateCount = 0; ///< Kandidaten der letzten Query
