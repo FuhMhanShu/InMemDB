@@ -8,6 +8,7 @@
 
 #include "aggregate.hpp"
 #include "change_event.hpp"
+#include "character.hpp"
 #include "collection.hpp"
 #include "cursor.hpp"
 #include "database.hpp"
@@ -26,6 +27,7 @@
 #include "limits.hpp"
 #include "metrics.hpp"
 #include "message_handler.hpp"
+#include "numeric_analysis.hpp"
 #include "query.hpp"
 #include "query_dsl.hpp"
 #include "references.hpp"

@@ -35,6 +35,8 @@ Anwendungsorientierte Anleitungen – eine pro Feature:
 | [hybrid-outofcore.md](guides/hybrid-outofcore.md) | Hybrid / Out-of-Core: Spill-to-Disk bei RAM-Mangel, opt-in (v0.18) |
 | [metrics.md](guides/metrics.md) | Metriken & Diagnose: `Collection::metrics()` / `Database::metrics()` (v0.22) |
 | [limits.md](guides/limits.md) | Optionale Collection-Limits: `setLimits`, `LimitError`, Faustregeln (FA-28, v0.39) |
+| [character.md](guides/character.md) | Datencharakter-Kategorisierung: grobe Unterscheidung numerisch / gemischt / komplex (FA-29) |
+| [numeric-analysis.md](guides/numeric-analysis.md) | Numerische Metadaten-Analyse: Kennzahlen, Raster, Sequenz, Benford, Korrelationen (FA-30) |
 | [qt-qmake.md](guides/qt-qmake.md) | Qt/qmake-Einbindung + `QAbstractTableModel`-Adapter, ohne harte Qt-Abhängigkeit (FA-23, v0.16/v0.23) |
 | [type-mapping.md](guides/type-mapping.md) | Typ-Mapping InMemDB ↔ SQL / MongoDB(BSON) / JSON |
 

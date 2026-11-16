@@ -35,6 +35,8 @@ Task-oriented guides – one per feature:
 | [hybrid-outofcore.md](guides/hybrid-outofcore.md) | Hybrid / out-of-core: spill-to-disk on RAM shortage, opt-in (v0.18) |
 | [metrics.md](guides/metrics.md) | Metrics & diagnostics: `Collection::metrics()` / `Database::metrics()` (v0.22) |
 | [limits.md](guides/limits.md) | Optional collection limits: `setLimits`, `LimitError`, rules of thumb (FA-28, v0.39) |
+| [character.md](guides/character.md) | Data character categorization: rough distinction numeric / mixed / complex (FA-29) |
+| [numeric-analysis.md](guides/numeric-analysis.md) | Numeric metadata analysis: statistics, grids, sequences, Benford, correlations (FA-30) |
 | [qt-qmake.md](guides/qt-qmake.md) | Qt/qmake integration + `QAbstractTableModel` adapter, no hard Qt dependency (FA-23, v0.16/v0.23) |
 | [type-mapping.md](guides/type-mapping.md) | Type mapping InMemDB ↔ SQL / MongoDB(BSON) / JSON |
 
