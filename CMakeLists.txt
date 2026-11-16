@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.28 LANGUAGES CXX)
+project(InMemDB VERSION 0.29 LANGUAGES CXX)
 
 add_library(memdb STATIC
     src/value.cpp
@@ -18,6 +18,7 @@ add_library(memdb STATIC
     src/query_dsl.cpp
     src/regex.cpp
     src/db_graph.cpp
+    src/discovery.cpp
     src/collection.cpp
     src/transaction.cpp
     src/database.cpp
@@ -71,6 +72,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
     add_executable(inmemdb_graph tools/db_graph.cpp)
     target_link_libraries(inmemdb_graph PRIVATE memdb)
+
+    add_executable(inmemdb_discover tools/discover_tool.cpp)
+    target_link_libraries(inmemdb_discover PRIVATE memdb)
 
     add_executable(memdb_tests_db_graph tests/test_db_graph.cpp)
     target_link_libraries(memdb_tests_db_graph PRIVATE memdb)
@@ -132,6 +136,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_tests_import_fk tests/test_import_fk.cpp)
     target_link_libraries(memdb_tests_import_fk PRIVATE memdb)
     add_test(NAME memdb_tests_import_fk COMMAND memdb_tests_import_fk)
+
+    add_executable(memdb_tests_discovery tests/test_discovery.cpp)
+    target_link_libraries(memdb_tests_discovery PRIVATE memdb)
+    add_test(NAME memdb_tests_discovery COMMAND memdb_tests_discovery)
 
     if(INMEMDB_WITH_SQLITE)
         add_executable(memdb_tests_import tests/test_import.cpp)
