@@ -124,6 +124,16 @@ CollectionScan scanCollection(const Collection& c, const DiscoveryOptions& opts)
     return scan;
 }
 
+struct PairValueLess {
+    bool operator()(const std::pair<Value, Value>& a, const std::pair<Value, Value>& b) const {
+        if (ValueLess{}(a.first, b.first))
+            return true;
+        if (ValueLess{}(b.first, a.first))
+            return false;
+        return ValueLess{}(a.second, b.second);
+    }
+};
+
 const char* kindName(RelationKind k) {
     switch (k) {
         case RelationKind::ForeignKey: return "foreign_key";
@@ -583,6 +593,143 @@ std::vector<std::vector<DiscoveredRelation>> findPaths(const std::vector<Discove
     };
     dfs(from, 0);
     return out;
+}
+
+CollectionProfile profileCollection(const Collection& c, const DiscoveryOptions& opts) {
+    CollectionProfile prof;
+    prof.collection = c.name();
+    prof.docCount = c.size();
+    const std::size_t n = prof.docCount;
+    prof.sampleSize = (opts.sampleSize > 0 && opts.sampleSize < n) ? opts.sampleSize : n;
+
+    struct Acc {
+        FieldProfile fp;
+        std::set<Value, ValueLess> distinctSet;
+    };
+    std::map<std::string, Acc> acc;
+    auto eachDoc = [&](const std::function<void(const Document&)>& cb) {
+        if (opts.sampleSize > 0 && opts.sampleSize < n) {
+            for (auto id : c.sample(opts.sampleSize, opts.seed))
+                if (auto d = c.findById(id))
+                    cb(*d);
+        } else {
+            c.forEach(Expression{}, cb);
+        }
+    };
+    eachDoc([&](const Document& d) {
+        d.forEachField([&](const std::string& k, const Value& v) {
+            Acc& a = acc[k];
+            a.fp.name = k;
+            ++a.fp.present;
+            if (v.isNull()) {
+                ++a.fp.nulls;
+                return;
+            }
+            a.fp.typeCounts[v.type()]++;
+            const bool isNew = a.distinctSet.insert(v).second;
+            a.fp.distinct = a.distinctSet.size();
+            if (v.isNumber() || v.isString()) {
+                if (!a.fp.min || (compare(v, *a.fp.min) && *compare(v, *a.fp.min) < 0))
+                    a.fp.min = v;
+                if (!a.fp.max || (compare(v, *a.fp.max) && *compare(v, *a.fp.max) > 0))
+                    a.fp.max = v;
+            }
+            if (a.fp.examples.size() < 3 && isNew)
+                a.fp.examples.push_back(v);
+        });
+    });
+    prof.fields.reserve(acc.size());
+    for (auto& [k, a] : acc)
+        prof.fields.push_back(std::move(a.fp));
+    return prof;
+}
+
+std::string toJson(const CollectionProfile& p) {
+    std::string out = "{\"collection\":" + detail::writeJsonString(p.collection) +
+                      ",\"docCount\":" + std::to_string(p.docCount) +
+                      ",\"sampleSize\":" + std::to_string(p.sampleSize) + ",\"fields\":[";
+    bool first = true;
+    for (const auto& f : p.fields) {
+        if (!first)
+            out += ',';
+        first = false;
+        out += "{\"name\":" + detail::writeJsonString(f.name) + ",\"present\":" + std::to_string(f.present) +
+               ",\"nulls\":" + std::to_string(f.nulls) + ",\"distinct\":" + std::to_string(f.distinct) +
+               ",\"types\":{";
+        bool ft = true;
+        for (const auto& [t, cnt] : f.typeCounts) {
+            if (!ft)
+                out += ',';
+            ft = false;
+            out += std::to_string(static_cast<int>(t)) + ":" + std::to_string(cnt);
+        }
+        out += "}";
+        if (f.min)
+            out += ",\"min\":" + detail::writeJson(*f.min);
+        if (f.max)
+            out += ",\"max\":" + detail::writeJson(*f.max);
+        out += "}";
+    }
+    out += "]}";
+    return out;
+}
+
+std::vector<std::vector<std::string>> discoverCandidateKeys(const Collection& c, const DiscoveryOptions& opts) {
+    std::vector<std::vector<std::string>> keys;
+    CollectionScan scan = scanCollection(c, opts);
+    const std::size_t n = scan.docCount;
+    if (n < 2)
+        return keys;
+    // 1) Einzelfelder: Key, wenn in jedem Doc vorhanden und alle Werte distinct (keine Nulls)
+    std::set<std::string> singleKeys;
+    for (const auto& f : scan.fields) {
+        const auto& st = scan.byField.at(f);
+        if (st.docsWithField == n && st.values.size() == n)
+            singleKeys.insert(f);
+    }
+    for (const auto& f : singleKeys)
+        keys.push_back({f});
+    if (!singleKeys.empty())
+        return keys; // kleinste Keys genuegen (minimal)
+    // 2) Paare: (f,g) Key, wenn jedes Doc beide Felder hat und jede Kombination eindeutig
+    auto eachDoc = [&](const std::function<void(const Document&)>& cb) {
+        if (opts.sampleSize > 0 && opts.sampleSize < n) {
+            for (auto id : c.sample(opts.sampleSize, opts.seed))
+                if (auto d = c.findById(id))
+                    cb(*d);
+        } else {
+            c.forEach(Expression{}, cb);
+        }
+    };
+    for (std::size_t i = 0; i < scan.fields.size(); ++i) {
+        for (std::size_t j = i + 1; j < scan.fields.size(); ++j) {
+            const std::string& X = scan.fields[i];
+            const std::string& Y = scan.fields[j];
+            std::map<std::pair<Value, Value>, std::size_t, PairValueLess> combo;
+            std::size_t both = 0;
+            bool nullSeen = false;
+            eachDoc([&](const Document& d) {
+                const Value* xv = d.findPath(X);
+                const Value* yv = d.findPath(Y);
+                if (!xv || !yv || xv->isNull() || yv->isNull())
+                    return;
+                ++both;
+                combo[{*xv, *yv}]++;
+                if (xv->isNull() || yv->isNull())
+                    nullSeen = true;
+            });
+            (void)nullSeen;
+            if (both != n || combo.size() != n)
+                continue;
+            bool allOne = true;
+            for (auto& [k, cnt] : combo)
+                if (cnt != 1)
+                    allOne = false;
+            if (allOne)
+                keys.push_back({X, Y});
+        }
+    }
+    return keys;
 }
 
 std::string toJson(const std::vector<DiscoveredRelation>& rels) {
