@@ -26,7 +26,7 @@ struct Message {
 
 /// @brief Zentraler Message-Handler (Singleton, thread-safe, v0.36).
 ///
-/// Idee: Die Exception-Policy (v0.35, `docs/error-handling.md`) fängt Exceptions dort ab, wo
+/// Idee: Die Exception-Policy (v0.35, `docs/internals/error-handling.md`) fängt Exceptions dort ab, wo
 /// sonst mitten in einer Operation abgebrochen würde – diese Stellen **melden** zusätzlich hier
 /// (z. B. `query-eval`, `observer`, `load`, `import`, `regex`, `cli`). Eigene Handler können
 /// via `subscribe()` angemeldet werden (Logging, UI, Monitoring, Test-Mitschnitt …).

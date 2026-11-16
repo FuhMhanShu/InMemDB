@@ -13,7 +13,7 @@ class ReferenceIndex;
 /// @brief Ein Feld einer Collection im Datenbank-Graph (FA-22).
 struct GraphField {
     std::string name;        ///< Feldpfad (Punktnotation)
-    std::string type;        ///< Typname wie in `docs/type-mapping.md` ("string","int","double","bool","binary","document","array","null"); "" = unbekannt (Index ohne Schema)
+    std::string type;        ///< Typname wie in `docs/guides/type-mapping.md` ("string","int","double","bool","binary","document","array","null"); "" = unbekannt (Index ohne Schema)
     bool nullable = true;
     std::string index;       ///< "" | "index" | "unique"
 };

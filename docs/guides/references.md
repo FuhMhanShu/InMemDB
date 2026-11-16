@@ -50,7 +50,7 @@ auto docs     = refs.join("orders", "kunde", "users", parseQuery("vip == true"))
 std::string t = refs.resolve("a/b", "../c");   // -> "c"
 ```
 
-**Join vs. `@relation.path` in der DSL** (`docs/query-dsl.md`): `@kunde.stadt == 'Berlin'`
+**Join vs. `@relation.path` in der DSL** (`docs/guides/query-dsl.md`): `@kunde.stadt == 'Berlin'`
 löst pro Quelldokument über die Referenzen auf (korrekt, aber O(n) mit je einer Index-Abfrage
 pro Dokument). `joinIds`/`join` drehen die Richtung um und sind O(#Zieltreffer) – für große
 Quell-Collections die deutlich schnellere Variante.
