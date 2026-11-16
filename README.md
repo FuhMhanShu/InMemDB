@@ -71,7 +71,7 @@ db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsse
 - [Aggregationen](docs/aggregations.md) (FA-13) · [Observer](docs/observer.md) (FA-15) · [Schema](docs/schema.md) (FA-20)
 - [Referenzen & Joins](docs/references.md) (FA-18) · [Merge von Collections](docs/merge-collections.md) (FA-24) · [TTL/Auto-Expiry](docs/ttl-expiry.md) (FA-25) · [Relationship-Discovery & Auto-Analyse/Report](docs/discovery.md) (FA-27, v0.29–v0.33) · [Discovery-Guide (erklärend, mit Beispielen & Graphen)](docs/discovery-guide.md)
 - [Import externer Daten](docs/import.md) (FA-21, z. B. SQLite/SQL-Dump/CSV) · [Datenbank-Graph](docs/db-graph.md) (FA-22) · [Typ-Mapping zu SQL/MongoDB/JSON](docs/type-mapping.md)
-- [Hybrid / Out-of-Core](docs/hybrid-outofcore.md) (v0.18) · [Metriken & Diagnose](docs/metrics.md) (v0.22) · [Qt/qmake & Modell-Adapter](docs/qt-qmake.md) (FA-23, v0.23)
+- [Hybrid / Out-of-Core](docs/hybrid-outofcore.md) (v0.18) · [Metriken & Diagnose](docs/metrics.md) (v0.22) · [Qt/qmake & Modell-Adapter](docs/qt-qmake.md) (FA-23, v0.23) · [Performance & Benchmark](docs/performance.md)
 
 ## Build & Test
 
@@ -82,6 +82,10 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
+
+Benchmark: `./build/memdb_bench` (InMemDB solo) bzw. mit `-DINMEMDB_WITH_SQLITE=ON` zusätzlich
+`./build/memdb_bench_sqlite` (Vergleich gegen SQLite `:memory:`) – gemessene Ergebnisse und
+Best Practices in [docs/performance.md](docs/performance.md).
 
 ## Einbindung in eigene Projekte
 
