@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(InMemDB VERSION 0.33 LANGUAGES CXX)
+project(InMemDB VERSION 0.34 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

@@ -35,7 +35,7 @@ db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsse
 
 **Daten & Abfragen**
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern (auch verschachtelt, Punktnotation `"adresse.plz"`)
-- Abfragen als C++-Ausdruckbaum oder String-DSL, inkl. eigener Operatoren (`matches` für Mini-RegEx, `in`, eigene via Registry) und `@relation`-Joins (v0.14)
+- Abfragen als C++-Ausdruckbaum oder String-DSL, inkl. eigener Operatoren (`matches` für Mini-RegEx – Thompson-NFA, gehärtet v0.34 mit harten Limits gegen Stack-Overflow/Hang, kompiliert einmalig pro Query; `in`, eigene via Registry) und `@relation`-Joins (v0.14)
 - Sekundärindizes pro Feld, inkl. Unique-Constraints (z. B. eindeutige E-Mail) – beschleunigte Gleichheits- und Bereichsabfragen (FA-10)
 - Aggregationen: `count`, `min`, `max`, `sum`, `avg`, `distinct` sowie `groupBy` (FA-13)
 - Foundations (v0.27): `memdb::ValueLess` (Value als map/set-Schlüssel), `distinctValues(feld, q)` (index-beschleunigt), `sample(maxN, seed)` (reproduzierbares Zufalls-Sample), `AggOp::Distinct`, `Expression::isMatchAll()`
