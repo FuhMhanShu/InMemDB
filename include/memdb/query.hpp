@@ -26,7 +26,7 @@ struct IndexHint {
 /// Aufbau per Operator-Overloading, z. B.
 /// `(Field("age") >= 18) && Field("tags").contains("cpp") && !Field("gesperrt")`.
 /// Die leere Expression (`Expression{}`) matcht alle Dokumente.
-/// Semantik (fehlende Felder, null, numerische Promotion) siehe `docs/guides/query-api.md`.
+/// Semantik (fehlende Felder, null, numerische Promotion) siehe `docs/de/guides/query-api.md`.
 class Expression {
 public:
     /// @brief Leere Expression (matcht alles).
@@ -44,7 +44,7 @@ public:
     /// @throws QueryError wenn die Expression kein Feldausdruck ist.
     Expression exists() const;
     /// @brief String-Feld matcht das Regex-Pattern (Full-Match; Mini-RegEx siehe
-    /// `docs/guides/query-dsl.md`: `.` `*` `+` `?` `[...]` `^` `$` `|` `(...)` `\x`).
+    /// `docs/de/guides/query-dsl.md`: `.` `*` `+` `?` `[...]` `^` `$` `|` `(...)` `\x`).
     /// @throws QueryError wenn die Expression kein Feldausdruck ist oder das Pattern
     ///         nicht String ist / ungueltig ist.
     Expression matches(Value pattern) const;

@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.14, Kann-Feature aus FA-05/NFA-03) |
-| Bezug | `docs/guides/query-api.md` (Ausdruckbaum, bleibt die Basis), FA-18 (Referenzen), Anforderungen NFA-03 |
+| Bezug | `docs/de/guides/query-api.md` (Ausdruckbaum, bleibt die Basis), FA-18 (Referenzen), Anforderungen NFA-03 |
 
 Die String-DSL wird per `parseQuery` in denselben `Expression`-Baum übersetzt, den die
 C++-API (`Field("age") >= 18`) erzeugt – inkl. Index-Nutzung (`indexHint`) bei Vergleichen.

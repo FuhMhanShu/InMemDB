@@ -18,7 +18,7 @@
 | JSON-Zahlen | > 63 Zeichen → Fehler; Hex-Float-Fallback nur mit `0x`; locale-unabhängig (`std::from_chars`) | `JsonError` |
 | DSL-Zahlen (v0.38) | strikte `from_chars`-Prüfung; int64-Überlauf → double | `QueryError` (vorher: „1.2.3“/„1e“ stillschweigend 0) |
 
-## 2. Exception-Policy (v0.35, `docs/internals/error-handling.md`)
+## 2. Exception-Policy (v0.35, `docs/de/internals/error-handling.md`)
 Exceptions bleiben für **echte Fehler** sichtbar (Unique/Schema, fehlende Collection/Doc, Query-Bau, Crypto/IO). Abgefangen wird nur dort, wo sonst mitten in einer Operation abgebrochen würde:
 - **Query-Scan pro Dokument** (`safeEval`): Eval-Fehler → Dokument = Nicht-Treffer, Zähler `metrics().evalErrors`
 - **Observer** (`fireEvents`): throwende Callback bricht Schreib-OP und restliche Observer nicht ab, Zähler `metrics().eventErrors`
@@ -37,7 +37,7 @@ Singleton, thread-safe; eigene Handler via `subscribe()`. Die Abfang-Stellen mel
 ## 5. Tests
 `tests/test_regex.cpp` (5921 Checks) · `test_json_hardening.cpp` (43) · `test_hardening.cpp` (13) · `test_error_handling.cpp` (32) · `test_message_handler.cpp` (30) – plus die Regressionssuiten (insg. 40 CTest-Einträge).
 
-## 1b. Ressourcen-Limits pro Collection (v0.39, FA-28, `docs/guides/limits.md`)
+## 1b. Ressourcen-Limits pro Collection (v0.39, FA-28, `docs/de/guides/limits.md`)
 
 Opt-in via `Collection::setLimits(CollectionLimits)` – Default unbegrenzt (0):
 `maxDocuments`, `maxDocumentBytes` (JSON-Größe), `maxFieldsPerDocument`, `maxIndexes`.

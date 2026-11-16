@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.13); Quellen ohne Abhängigkeiten: CSV, JSON, JSONL, Snapshot, SQL-Dump, BSON; optional: SQLite via `-DINMEMDB_WITH_SQLITE=ON` |
-| Bezug | Anforderungen FA-21 (Kann), NFA-06 (keine Pflichtabhängigkeiten), `docs/guides/type-mapping.md` |
+| Bezug | Anforderungen FA-21 (Kann), NFA-06 (keine Pflichtabhängigkeiten), `docs/de/guides/type-mapping.md` |
 
 ## Architektur
 

@@ -70,7 +70,7 @@ public:
     /// @brief Wie `Collection::size`.
     std::size_t size() const;
 
-    /// @name String-DSL (NFA-03, `docs/guides/query-dsl.md`) – wie die Expression-Varianten,
+    /// @name String-DSL (NFA-03, `docs/de/guides/query-dsl.md`) – wie die Expression-Varianten,
     ///        Query als String (ohne `@relation`-Kontext; dafür `Collection::find(dsl, db)`).
     /// @{
     std::size_t update(std::string_view dsl, const std::function<void(Document&)>& mutator);

@@ -6,6 +6,13 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
 
 ## [Unreleased]
 
+### Added
+- Englische Übersetzung der kompletten Dokumentation: `docs/en/` (Index, Getting Started,
+  21 Guides, 4 Internes) neben der deutschen Original-Doku in `docs/de/`; Root-`README.md`
+  ist jetzt Englisch mit Sprach-Hinweis, die deutsche README liegt in `README.de.md`;
+  `docs/README.md` ist Sprach-Wahl (de/en); Bilder bleiben geteilt in `docs/images/`;
+  anforderungen.md und CHANGELOG.md bleiben deutschsprachig
+
 ## [1.0.0] – 2026-11-16
 
 **Erstes offizielles Release** (Git-Tag `v1.0.0`). Ab dieser Version gilt SemVer: Die öffentliche
@@ -17,7 +24,7 @@ in einem Major-Release.
   übernimmt `${PROJECT_VERSION}`), `vcpkg.json`, `conanfile.py`, README/anforderungen;
   Doku-Beispiele: `find_package(InMemDB 1.0 REQUIRED)` / FetchContent `GIT_TAG v1.0.0`
 - Dokumentation komplett umstrukturiert (Stil populärer Repositories, PR #51): `docs/` mit
-  eigenem [Index](docs/README.md), neuem [Getting Started](docs/getting-started.md) (Build,
+  eigenem [Index](docs/README.md), neuem [Getting Started](docs/de/getting-started.md) (Build,
   Einbindung, CLI-Tools, Beispiele – aus der README verschoben), Guides unter `docs/guides/`,
   Internes (Architektur/ADRs, Fehlerbehandlung, Härtung, Performance) unter `docs/internals/`;
   README als schlanke Landing-Page; `CHANGELOG.md` neu angelegt
@@ -50,7 +57,7 @@ in einem Major-Release.
   Tiefenlimit 1000 (vorher Segfault ab ~20000 Verschachtelung) (#48)
 
 ### Added
-- Zentrale Härtungs-Doku `docs/internals/hardening.md` mit allen Limits und Test-Strategie (#48)
+- Zentrale Härtungs-Doku `docs/de/internals/hardening.md` mit allen Limits und Test-Strategie (#48)
 
 ## [0.37] – 2026-11-16
 
@@ -70,7 +77,7 @@ in einem Major-Release.
 ## [0.35] – 2026-11-16
 
 ### Changed
-- Exception-Policy (`docs/internals/error-handling.md`): Query-Scan und Observer fangen Exceptions pro
+- Exception-Policy (`docs/de/internals/error-handling.md`): Query-Scan und Observer fangen Exceptions pro
   Element ab (Zähler `evalErrors`/`eventErrors` in den Metriken), `loadJson`/`fromJson`
   validieren vor Mutation (atomar, kein Partial State), alle CLI-Tools fangen `std::exception`
   inkl. Options-Parsing (sauberer Exit-Code statt terminate); echte Fehler (Unique/Schema/
@@ -212,7 +219,7 @@ in einem Major-Release.
   Snapshot-Datei, CLI `inmemdb_graph` (#18)
 
 ### Changed
-- Doku-Überarbeitung: Lastenheft → `anforderungen.md`, `docs/internals/architecture.md` aktualisiert (#19)
+- Doku-Überarbeitung: Lastenheft → `anforderungen.md`, `docs/de/internals/architecture.md` aktualisiert (#19)
 
 ## [0.14] – 2026-11-14
 

@@ -1,25 +1,27 @@
 # InMemDB
 
-**InMemDB ist eine Datenbank, die komplett im Arbeitsspeicher (RAM) läuft und direkt in
-C++-Programme eingebettet wird** – als objektorientierte C++17-Bibliothek, ohne eigenen
-Server, ohne Netzwerk und ohne externe Pflichtabhängigkeiten (Auslieferung als statische
-Library, intern über das Pimpl-Idiom entkoppelt). MIT-Lizenz.
+> 🇩🇪 **Deutsche Version:** [README.de.md](README.de.md) · Deutsche Doku: [docs/de/](docs/de/README.md)
 
-Statt Tabellen gibt es **Collections** (Sammlungen) von **Dokumenten**. Ein Dokument ist
-ein JSON-ähnliches Objekt aus Feldern – und weil InMemDB **schema-los** ist, darf jedes
-Dokument beliebige, auch wechselnde Felder haben (z. B. `{"name": "Ada", "age": 36}` und
-`{"name": "Bob", "vip": true}` in derselben Collection).
+**InMemDB is a database that runs entirely in memory (RAM) and is embedded directly into
+C++ programs** – as an object-oriented C++17 library, with no server of its own, no network,
+and no mandatory external dependencies (shipped as a static library, internally decoupled
+via the Pimpl idiom). MIT license.
 
-Abgefragt wird auf zwei Arten, die zur selben Query werden: als **typsicher C++-Ausdruck**
-(`Field("age") >= 18 && Field("stadt") == "Berlin"`) oder als **String** (`"age >= 18 && stadt == 'Berlin'"`).
-Über Felder kann man beliebig **Indizes** legen, damit Abfragen nicht alles durchsuchen müssen.
+Instead of tables there are **collections** of **documents**. A document is a JSON-like
+object of fields – and because InMemDB is **schema-less**, every document may have arbitrary,
+changing fields (e.g. `{"name": "Ada", "age": 36}` and `{"name": "Bob", "vip": true}` in the
+same collection).
 
-> **Wichtig:** „In-Memory" heißt: Beim Beenden des Prozesses sind die Daten weg.
-> Sichern geht jederzeit als JSON-Snapshot (`saveToFile`) oder verschlüsselt
-> (`saveToFileEncrypted(path, passwort)`).
+Queries come in two forms that compile to the same query: a **type-safe C++ expression**
+(`Field("age") >= 18 && Field("city") == "Berlin"`) or a **string** (`"age >= 18 && city == 'Berlin'"`).
+You can put **indexes** on any field so queries don't have to scan everything.
 
-> **Aktueller Release: v1.0.0** (2026-11-16, Git-Tag `v1.0.0`) – erstes offizielles Release,
-> ab jetzt SemVer (API stabil). Historie: [CHANGELOG.md](CHANGELOG.md).
+> **Important:** "in-memory" means: when the process exits, the data is gone.
+> You can save at any time as a JSON snapshot (`saveToFile`) or encrypted
+> (`saveToFileEncrypted(path, password)`).
+
+> **Current release: v1.0.0** (2026-11-16, git tag `v1.0.0`) – first official release,
+> SemVer from now on (stable API). History: [CHANGELOG.md](CHANGELOG.md).
 
 ## Quickstart
 
@@ -27,51 +29,51 @@ Abgefragt wird auf zwei Arten, die zur selben Query werden: als **typsicher C++-
 #include <memdb/memdb.hpp>
 memdb::Database db("shop");
 auto products = db.createCollection("products");
-products.createIndex("name", true);                              // eindeutiger Index auf "name"
-products.insert({{"name", "Buch"}, {"preis", 10.5}, {"tags", {"neu"}}});
-for (const auto& p : products.find("preis < 20 && tags.contains('neu')"))
-    std::cout << p.at("name").asString() << '\n';                // DSL-Abfrage -> "Buch"
-db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsselter Snapshot
+products.createIndex("name", true);                              // unique index on "name"
+products.insert({{"name", "Book"}, {"price", 10.5}, {"tags", {"new"}}});
+for (const auto& p : products.find("price < 20 && tags.contains('new')"))
+    std::cout << p.at("name").asString() << '\n';                // DSL query -> "Book"
+db.saveToFileEncrypted("shop.enc", "secret");                    // encrypted snapshot
 ```
 
-## Was kann InMemDB? (Features, v1.0)
+## What can InMemDB do? (Features, v1.0)
 
-**Daten & Abfragen**
-- Schema-lose Dokumente mit dynamisch erweiterbaren Feldern (auch verschachtelt, Punktnotation `"adresse.plz"`)
-- Abfragen als C++-Ausdruckbaum oder String-DSL, inkl. eigener Operatoren (`matches` für Mini-RegEx – Thompson-NFA, gehärtet v0.34 mit harten Limits gegen Stack-Overflow/Hang, kompiliert einmalig pro Query; `in`, eigene via Registry) und `@relation`-Joins (v0.14)
-- Sekundärindizes pro Feld, inkl. Unique-Constraints (z. B. eindeutige E-Mail) – beschleunigte Gleichheits- und Bereichsabfragen (FA-10)
-- Aggregationen: `count`, `min`, `max`, `sum`, `avg`, `distinct` sowie `groupBy` (FA-13)
-- Foundations (v0.27): `memdb::ValueLess` (Value als map/set-Schlüssel), `distinctValues(feld, q)` (index-beschleunigt), `sample(maxN, seed)` (reproduzierbares Zufalls-Sample), `AggOp::Distinct`, `Expression::isMatchAll()`
-- Bulk-Operationen (`insertBulk`) und Bulk-Update per DSL mit Projektion: `update("age >= 18", "adult = true, age = age + 1")` (v0.21)
-- Upsert: einfügen oder aktualisieren, per ID oder per Query (FA-07)
+**Data & queries**
+- Schema-less documents with dynamically extensible fields (also nested, dot notation `"address.zip"`)
+- Queries as a C++ expression tree or string DSL, incl. custom operators (`matches` for a mini regex – Thompson NFA, hardened in v0.34 with hard limits against stack overflow/hangs, compiled once per query; `in`, custom ones via registry) and `@relation` joins (v0.14)
+- Secondary indexes per field, incl. unique constraints (e.g. unique email) – accelerated equality and range queries (FA-10)
+- Aggregations: `count`, `min`, `max`, `sum`, `avg`, `distinct` plus `groupBy` (FA-13)
+- Foundations (v0.27): `memdb::ValueLess` (Value as map/set key), `distinctValues(field, q)` (index-accelerated), `sample(maxN, seed)` (reproducible random sample), `AggOp::Distinct`, `Expression::isMatchAll()`
+- Bulk operations (`insertBulk`) and bulk update via DSL with projection: `update("age >= 18", "adult = true, age = age + 1")` (v0.21)
+- Upsert: insert or update, by ID or by query (FA-07)
 
-**Struktur & Beziehungen**
-- **Referenzen** zwischen Collections/Dokumenten (`ReferenceIndex`): in beide Richtungen abfragbar, Traversierung inkl. Ringprüfung (`traverse`/`hasCycle`/`search`), Dangling-Erkennung und -Bereinigung (FA-18); index-beschleunigter Join bei Abfrage (`joinIds`/`join`, v0.17); direkt in Queries als `@kunde.name == 'Ada'`
-- **Merge:** mehrere Collections in eine zusammenführen – `Database::mergeCollections` bzw. `mergeAllCollections` für die ganze Datenbank, mit neuen IDs, `_source`-Herkunftsfeld und optionalem Löschen der Quellen inkl. Referenz-Umschreiben (FA-24, v0.24/v0.25)
-- **Datenbank-Graph** als JSON, Mermaid oder Markdown – auch aus Snapshot-Dateien; CLI-Tool `inmemdb_graph` (FA-22)
+**Structure & relationships**
+- **References** between collections/documents (`ReferenceIndex`): queryable in both directions, traversal incl. cycle detection (`traverse`/`hasCycle`/`search`), dangling detection and cleanup (FA-18); index-accelerated join in queries (`joinIds`/`join`, v0.17); directly in queries as `@customer.name == 'Ada'`
+- **Merge:** combine several collections into one – `Database::mergeCollections` or `mergeAllCollections` for the whole database, with new IDs, `_source` provenance field and optional deletion of the sources incl. reference rewriting (FA-24, v0.24/v0.25)
+- **Database graph** as JSON, Mermaid or Markdown – also from snapshot files; CLI tool `inmemdb_graph` (FA-22)
 
-**Sicherheit, Persistenz & Betrieb**
-- Atomare **Transaktionen** pro Collection: alles oder nichts, commit/rollback, Rollback per Copy-on-Write (schnell auch bei Millionen Dokumenten, v0.19); RAII-Rollback (FA-12)
-- **JSON-Snapshot** der ganzen DB oder einzelner Collections: `toJson`/`fromJson`/`saveToFile`/`loadFromFile` (FA-14); eigener Parser gehärtet v0.37 (Verschachtelungs-Limit 1000 gegen Segfault, `$binary` nur bei gültigem Hex, Hex-Float-Fallback nur mit `0x`)
-- **Verschlüsselte Snapshots**: `saveToFileEncrypted`/`loadFromFileEncrypted` mit Passwort (PBKDF2 + ChaCha20 + HMAC-SHA256, ohne externe Krypto-Bibliothek, FA-19)
-- Optionales **striktes Schema** pro Collection: Feldtypen als Metadaten, undefinierte Felder werden abgelehnt (FA-20)
-- **Observer**: Callbacks bei jedem Einfügen/Ändern/Löschen (`onChange`), in Transaktionen erst beim Commit (FA-15)
-- **TTL / Auto-Expiry** (abschaltbar, default aus): Dokumente mit Verfallszeit (`expiresIn(sek)` / `expiresAt(unixSekunden)`) werden automatisch entfernt (FA-25, v0.26)
-- **Relationship-Discovery** (FA-27, v0.29): `discoverForeignKeys` / `discoverFunctionalDependencies` / `discoverCorrelations` / `discoverNearDuplicates` / `discoverRelations` – collection- und database-übergreifend, ohne Abhängigkeiten; `applyDiscovered` legt FA-18-Referenzen an; Kardinalität (1:1/n:1/1:n/n:m), Orphan-Report, Pfad-Suche (v0.30), Datenprofil + Candidate Keys (v0.31), Cross-DB-Diff + Merge-Vorschläge (v0.32), **automatische Gesamtanalyse + Report** `analyze()` mit Health-Score (Ampel 🟢🟡🔴) und Präsentation als Markdown/JSON/Mermaid/Konsole (`toMarkdown`/`toJson`/`toMermaid`/`printSummary`, v0.33); CLI `inmemdb_discover` mit JSON/Mermaid-Report (`--orphans`, `--path`) und Gesamt-Report (`--report <prefix>`); **Ausreißer-Erkennung** `discoverOutliers` (z-Score + IQR pro numerischem Feld, als Health-Score-Faktor, v0.40), CLI `--outliers`
-- **Hybrid / Out-of-Core**: bei zu wenig RAM lagert `setOverflow(spillFile, maxInMemory)` älteste Dokumente in eine Datei aus und liest sie bei Bedarf nach (v0.18)
-- **Metriken & Diagnose** (v0.22): `Collection::metrics()`/`Database::metrics()` – Zugriffe, Index-Nutzung vs. Vollscan, Query-Dauer, Spill-IO, Transaktionen, Events, TTL-Expiry, `evalErrors`/`eventErrors` (v0.35). **Exception-Policy** (v0.35, [docs/internals/error-handling.md](docs/internals/error-handling.md)): Query-Scan und Observer fangen pro Element ab (Zähler in Metriken), Bulk-Load validiert vor Mutation (atomar), CLI beendet sauber mit Exit-Code; echte Fehler (Unique/Schema/Crypto/kaputte Datei) werfen weiterhin. **MessageHandler-Singleton** (v0.36): eigene Handler via `MessageHandler::instance().subscribe(...)` – die Abfang-Stellen melden dorthin (`query-eval`/`observer`/`load`/`import`/`regex`/`cli`), thread-safe, Level-Filter + Zähler. **Härtung** ([docs/internals/hardening.md](docs/internals/hardening.md)): harte Limits in allen Parsern (RegEx/JSON/DSL/BSON – keine Segfaults/Hangs mehr an pathologischen Eingaben), strikte Zahlen, Exception-Policy + MessageHandler, **optionale Collection-Limits** (`setLimits`: max. Docs/Bytes/Felder/Indizes → `LimitError` + Metrik, [docs/guides/limits.md](docs/guides/limits.md))
-- **Import** aus CSV, JSON/JSONL, SQL-Dump, BSON, eigenen Snapshots und (optional, `INMEMDB_WITH_SQLITE=ON`) SQLite-Dateien; CLI-Tool `inmemdb_import` (FA-21); **Fremdschlüssel werden als FA-18-Referenzen mitimportiert** (SQLite `PRAGMA foreign_key_list`, SQL-Dump `REFERENCES`/`FOREIGN KEY`, abschaltbar via `--no-foreign-keys`, FA-26, v0.28)
-- Thread-Safety über `shared_mutex` (parallele Lesezugriffe, serialisierte Schreibzugriffe); Zahlen sind locale-unabhängig (immer Dezimalpunkt, auch bei `de_DE`, Bugfix v0.23.1)
-- **Qt/qmake-Einbindung** über `InMemDB.pro`/`InMemDB.pri` plus fertiger `QAbstractTableModel`-Adapter (`memdb::qt::MemDbTableModel`, nur QtCore, ohne harte Qt-Abhängigkeit, FA-23, v0.23)
+**Security, persistence & operations**
+- Atomic **transactions** per collection: all or nothing, commit/rollback, rollback via copy-on-write (fast even with millions of documents, v0.19); RAII rollback (FA-12)
+- **JSON snapshot** of the whole DB or single collections: `toJson`/`fromJson`/`saveToFile`/`loadFromFile` (FA-14); own parser hardened in v0.37 (nesting limit 1000 against segfaults, `$binary` only for valid hex, hex-float fallback only with `0x`)
+- **Encrypted snapshots**: `saveToFileEncrypted`/`loadFromFileEncrypted` with a password (PBKDF2 + ChaCha20 + HMAC-SHA256, no external crypto library, FA-19)
+- Optional **strict schema** per collection: field types as metadata, undefined fields are rejected (FA-20)
+- **Observer**: callbacks on every insert/update/delete (`onChange`), in transactions only on commit (FA-15)
+- **TTL / auto-expiry** (switchable, off by default): documents with an expiry time (`expiresIn(sec)` / `expiresAt(unixSeconds)`) are removed automatically (FA-25, v0.26)
+- **Relationship discovery** (FA-27, v0.29): `discoverForeignKeys` / `discoverFunctionalDependencies` / `discoverCorrelations` / `discoverNearDuplicates` / `discoverRelations` – across collections and databases, without dependencies; `applyDiscovered` creates FA-18 references; cardinality (1:1/n:1/1:n/n:m), orphan report, path search (v0.30), data profiling + candidate keys (v0.31), cross-DB diff + merge suggestions (v0.32), **automatic full analysis + report** `analyze()` with health score (traffic light 🟢🟡🔴) and presentation as Markdown/JSON/Mermaid/console (`toMarkdown`/`toJson`/`toMermaid`/`printSummary`, v0.33); CLI `inmemdb_discover` with JSON/Mermaid report (`--orphans`, `--path`) and full report (`--report <prefix>`); **outlier detection** `discoverOutliers` (z-score + IQR per numeric field, as a health-score factor, v0.40), CLI `--outliers`
+- **Hybrid / out-of-core**: when RAM runs low, `setOverflow(spillFile, maxInMemory)` spills oldest documents to a file and reads them on demand (v0.18)
+- **Metrics & diagnostics** (v0.22): `Collection::metrics()`/`Database::metrics()` – accesses, index usage vs. full scan, query duration, spill I/O, transactions, events, TTL expiry, `evalErrors`/`eventErrors` (v0.35). **Exception policy** (v0.35, [docs/en/internals/error-handling.md](docs/en/internals/error-handling.md)): query scans and observers catch per element (counters in metrics), bulk load validates before mutating (atomic), CLI exits cleanly with an exit code; real errors (unique/schema/crypto/broken file) still throw. **MessageHandler singleton** (v0.36): register your own handlers via `MessageHandler::instance().subscribe(...)` – the catch points report there (`query-eval`/`observer`/`load`/`import`/`regex`/`cli`), thread-safe, level filter + counters. **Hardening** ([docs/en/internals/hardening.md](docs/en/internals/hardening.md)): hard limits in all parsers (regex/JSON/DSL/BSON – no more segfaults/hangs on pathological input), strict numbers, exception policy + message handler, **optional collection limits** (`setLimits`: max docs/bytes/fields/indexes → `LimitError` + metric, [docs/en/guides/limits.md](docs/en/guides/limits.md))
+- **Import** from CSV, JSON/JSONL, SQL dump, BSON, own snapshots and (optional, `INMEMDB_WITH_SQLITE=ON`) SQLite files; CLI tool `inmemdb_import` (FA-21); **foreign keys are imported as FA-18 references** (SQLite `PRAGMA foreign_key_list`, SQL dump `REFERENCES`/`FOREIGN KEY`, can be disabled via `--no-foreign-keys`, FA-26, v0.28)
+- Thread safety via `shared_mutex` (parallel reads, serialized writes); numbers are locale-independent (always a decimal point, even with `de_DE`, bugfix v0.23.1)
+- **Qt/qmake integration** via `InMemDB.pro`/`InMemDB.pri` plus a ready-made `QAbstractTableModel` adapter (`memdb::qt::MemDbTableModel`, QtCore only, no hard Qt dependency, FA-23, v0.23)
 
-## Dokumentation
+## Documentation
 
-Der komplette Einstieg und alle Guides liegen in **[docs/](docs/README.md)**:
+The full documentation lives in **[docs/](docs/README.md)** (language picker):
 
-- [Getting Started](docs/getting-started.md) – Build & Tests, Einbindung (CMake/find_package/FetchContent/vcpkg/Conan/qmake), CLI-Tools (`inmemdb_import`, `inmemdb_graph`, `inmemdb_discover`), lauffähiges Beispiel, Beispiele-Übersicht
-- [Guides](docs/README.md#guides-docsguides) – ein Dokument pro Feature: [Query-API](docs/guides/query-api.md) · [String-DSL](docs/guides/query-dsl.md) · [Indizes](docs/guides/indexes.md) · [Transaktionen](docs/guides/transactions.md) · [Snapshot/JSON](docs/guides/snapshot-json.md) · [Verschlüsselte Snapshots](docs/guides/encrypted-snapshot.md) · [Aggregationen](docs/guides/aggregations.md) · [Observer](docs/guides/observer.md) · [Schema](docs/guides/schema.md) · [Referenzen & Joins](docs/guides/references.md) · [Merge von Collections](docs/guides/merge-collections.md) · [TTL/Auto-Expiry](docs/guides/ttl-expiry.md) · [Import](docs/guides/import.md) · [Datenbank-Graph](docs/guides/db-graph.md) · [Discovery (API)](docs/guides/discovery.md) · [Discovery-Guide (erklärend, mit Graphen)](docs/guides/discovery-guide.md) · [Hybrid/Out-of-Core](docs/guides/hybrid-outofcore.md) · [Metriken](docs/guides/metrics.md) · [Collection-Limits](docs/guides/limits.md) · [Qt/qmake](docs/guides/qt-qmake.md) · [Typ-Mapping](docs/guides/type-mapping.md)
-- [Internes](docs/README.md#internesdocsinternals) – [Architektur/ADRs](docs/internals/architecture.md) · [Fehlerbehandlung](docs/internals/error-handling.md) · [Härtung](docs/internals/hardening.md) · [Performance](docs/internals/performance.md)
-- [Anforderungen / Lastenheft](anforderungen.md) (FA-01…FA-28, NFA-01…NFA-09) · [Changelog](CHANGELOG.md) · API-Referenz per Doxygen (siehe [Getting Started](docs/getting-started.md#api-dokumentation-doxygen-nfa-08))
+- [Getting Started (English)](docs/en/getting-started.md) · [Getting Started (Deutsch)](docs/de/getting-started.md) – build & tests, embedding into your own projects (CMake/find_package/FetchContent/vcpkg/Conan/qmake), CLI tools (`inmemdb_import`, `inmemdb_graph`, `inmemdb_discover`), runnable example, examples overview
+- [Guides](docs/en/README.md) – one document per feature: [Query API](docs/en/guides/query-api.md) · [String DSL](docs/en/guides/query-dsl.md) · [Indexes](docs/en/guides/indexes.md) · [Transactions](docs/en/guides/transactions.md) · [Snapshot/JSON](docs/en/guides/snapshot-json.md) · [Encrypted snapshots](docs/en/guides/encrypted-snapshot.md) · [Aggregations](docs/en/guides/aggregations.md) · [Observer](docs/en/guides/observer.md) · [Schema](docs/en/guides/schema.md) · [References & joins](docs/en/guides/references.md) · [Merging collections](docs/en/guides/merge-collections.md) · [TTL/auto-expiry](docs/en/guides/ttl-expiry.md) · [Import](docs/en/guides/import.md) · [Database graph](docs/en/guides/db-graph.md) · [Discovery (API)](docs/en/guides/discovery.md) · [Discovery guide (explained, with graphs)](docs/en/guides/discovery-guide.md) · [Hybrid/out-of-core](docs/en/guides/hybrid-outofcore.md) · [Metrics](docs/en/guides/metrics.md) · [Collection limits](docs/en/guides/limits.md) · [Qt/qmake](docs/en/guides/qt-qmake.md) · [Type mapping](docs/en/guides/type-mapping.md)
+- [Internals](docs/en/README.md) – [architecture/ADRs](docs/en/internals/architecture.md) · [Error handling](docs/en/internals/error-handling.md) · [Hardening](docs/en/internals/hardening.md) · [Performance](docs/en/internals/performance.md)
+- [Requirements / specification (German)](anforderungen.md) (FA-01…FA-28, NFA-01…NFA-09) · [Changelog (German)](CHANGELOG.md) · API reference via Doxygen (see [Getting Started](docs/en/getting-started.md#api-documentation-doxygen-nfa-08))
 
 ## Build & Test
 
@@ -81,9 +83,9 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-Details (Benchmark, Installation, `find_package`/FetchContent/vcpkg/Conan, Beispiele):
-[Getting Started](docs/getting-started.md).
+Details (benchmark, installation, `find_package`/FetchContent/vcpkg/Conan, examples):
+[Getting Started](docs/en/getting-started.md).
 
-## Lizenz
+## License
 
 [MIT License](LICENSE) – Copyright (c) 2026 FuhMhanShu.

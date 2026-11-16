@@ -25,7 +25,7 @@ std::string sum     = g.summary();     // "2 Collections, 4 Dokumente, 1 Referen
 ```
 
 - `GraphNode`: Collection-Name, Dokumentanzahl, `hasSchema`, Felder (`GraphField`: Name/Pfad,
-  Typname aus `docs/guides/type-mapping.md`, `nullable`, Index-Annotation `""`/`"index"`/`"unique"`).
+  Typname aus `docs/de/guides/type-mapping.md`, `nullable`, Index-Annotation `""`/`"index"`/`"unique"`).
 - `GraphEdge`: `from`/`to` als `collection#id` (Dokument) oder `collection` (Collection-Level),
   `relation`, `dangling` (Ziel existiert nicht mehr).
 - Die interne Speicher-Collection der Referenzen (`__references`) erscheint **nicht** als
