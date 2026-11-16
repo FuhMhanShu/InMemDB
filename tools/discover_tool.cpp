@@ -1,0 +1,101 @@
+// CLI: inmemdb_discover – Relationship-Discovery (v0.29)
+// Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X]
+//          [--min-confidence X] [--min-correlation X] [--sample N] [--seed N]
+//          [--mermaid] [--apply] [--out <datei>]
+// Mehrere Dateien = database-übergreifende Analyse (Report über alle Collections).
+// --apply: FK-Befunde (confidence >= --min-confidence) pro Database als FA-18-Referenzen
+//          anlegen und die jeweilige Datei zurückschreiben (verschlüsselt bei --password).
+#include <memdb/memdb.hpp>
+#include <memdb/references.hpp>
+
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <vector>
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::cerr << "Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X] "
+                     "[--min-confidence X] [--min-correlation X] [--min-similarity X] [--sample N] [--seed N] "
+                     "[--mermaid] [--apply] [--out <datei>]\n"
+                     "  Dateien: .inmemdb.json / .json-Snapshot (plain) bzw. verschlüsselt mit --password\n";
+        return 2;
+    }
+    std::vector<std::string> files;
+    std::string password, out;
+    memdb::DiscoveryOptions opts;
+    bool mermaid = false, apply = false;
+    double applyMinConf = 0.9;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        auto next = [&]() -> std::string {
+            if (i + 1 >= argc) {
+                std::cerr << "fehlender Wert fuer " << a << "\n";
+                std::exit(2);
+            }
+            return argv[++i];
+        };
+        if (a == "--password") password = next();
+        else if (a == "--out") out = next();
+        else if (a == "--min-support") opts.minSupport = std::stod(next());
+        else if (a == "--min-confidence") { opts.minConfidence = std::stod(next()); applyMinConf = opts.minConfidence; }
+        else if (a == "--min-correlation") opts.minCorrelation = std::stod(next());
+        else if (a == "--min-similarity") opts.minSimilarity = std::stod(next());
+        else if (a == "--sample") opts.sampleSize = static_cast<std::size_t>(std::stoull(next()));
+        else if (a == "--seed") opts.seed = std::stoull(next());
+        else if (a == "--mermaid") mermaid = true;
+        else if (a == "--apply") apply = true;
+        else if (!a.empty() && a[0] == '-') { std::cerr << "unbekannte Option: " << a << "\n"; return 2; }
+        else files.push_back(a);
+    }
+    if (files.empty()) {
+        std::cerr << "keine Eingabedatei\n";
+        return 2;
+    }
+
+    std::vector<memdb::Database> dbs;
+    std::vector<memdb::Collection> allColls;
+    for (const auto& f : files) {
+        memdb::Database db = password.empty() ? memdb::Database::loadFromFile(f)
+                                              : memdb::Database::loadFromFileEncrypted(f, password);
+        for (const auto& n : db.collectionNames()) {
+            // Referenz-Speicher nicht als Daten-Collection analysieren
+            if (n == "__references")
+                continue;
+            allColls.push_back(db.collection(n));
+        }
+        dbs.push_back(std::move(db));
+    }
+
+    auto rels = memdb::discoverRelations(allColls, opts);
+    std::cout << memdb::toJson(rels) << "\n";
+    if (mermaid)
+        std::cout << memdb::toMermaid(rels) << "\n";
+    if (!out.empty()) {
+        std::ofstream o(out, std::ios::binary);
+        o << memdb::toJson(rels);
+    }
+    std::cerr << rels.size() << " Relationen gefunden\n";
+
+    if (apply) {
+        std::size_t total = 0;
+        for (std::size_t i = 0; i < dbs.size(); ++i) {
+            memdb::ReferenceIndex refs(dbs[i]);
+            // pro DB nur die Befunde anwenden, deren Collections in dieser DB liegen
+            std::vector<memdb::DiscoveredRelation> local;
+            for (const auto& r : rels)
+                if (r.kind == memdb::RelationKind::ForeignKey && dbs[i].hasCollection(r.fromCollection) &&
+                    dbs[i].hasCollection(r.toCollection))
+                    local.push_back(r);
+            total += memdb::applyDiscovered(dbs[i], local, refs, applyMinConf);
+            if (password.empty())
+                dbs[i].saveToFile(files[i]);
+            else
+                dbs[i].saveToFileEncrypted(files[i], password);
+        }
+        std::cerr << "apply: " << total << " Referenzen angelegt und Dateien zurückgeschrieben\n";
+    }
+    return 0;
+}

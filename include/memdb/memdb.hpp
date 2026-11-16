@@ -11,6 +11,7 @@
 #include "collection.hpp"
 #include "cursor.hpp"
 #include "database.hpp"
+#include "discovery.hpp"
 #include "db_graph.hpp"
 #include "document.hpp"
 #include "document_id.hpp"
