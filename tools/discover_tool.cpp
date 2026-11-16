@@ -1,7 +1,8 @@
 // CLI: inmemdb_discover – Relationship-Discovery (v0.29)
 // Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X]
 //          [--min-confidence X] [--min-correlation X] [--sample N] [--seed N]
-//          [--mermaid] [--apply] [--out <datei>]
+//          [--mermaid] [--orphans] [--path A B] [--diff] [--suggest-merges]
+//          [--report <prefix>] [--apply] [--out <datei>]
 // Mehrere Dateien = database-übergreifende Analyse (Report über alle Collections).
 // --apply: FK-Befunde (confidence >= --min-confidence) pro Database als FA-18-Referenzen
 //          anlegen und die jeweilige Datei zurückschreiben (verschlüsselt bei --password).
@@ -18,14 +19,17 @@ int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X] "
                      "[--min-confidence X] [--min-correlation X] [--min-similarity X] [--sample N] [--seed N] "
-                     "[--mermaid] [--apply] [--out <datei>]\n"
-                     "  Dateien: .inmemdb.json / .json-Snapshot (plain) bzw. verschlüsselt mit --password\n";
+                     "[--mermaid] [--orphans] [--path A B] [--diff] [--suggest-merges] [--report <prefix>] "
+                     "[--apply] [--out <datei>]\n"
+                     "  Dateien: .inmemdb.json / .json-Snapshot (plain) bzw. verschlüsselt mit --password\n"
+                     "  --report <prefix>: Gesamtanalyse (v0.33) -> <prefix>.report.md / .relations.json / .graph.mmd + Summary\n";
         return 2;
     }
     std::vector<std::string> files;
     std::string password, out;
     memdb::DiscoveryOptions opts;
     bool mermaid = false, apply = false, orphans = false, diffMode = false, suggestMerges = false;
+    std::string reportPrefix;
     std::string pathFrom, pathTo;
     double applyMinConf = 0.9;
 
@@ -50,6 +54,7 @@ int main(int argc, char** argv) {
         else if (a == "--orphans") orphans = true;
         else if (a == "--diff") diffMode = true;
         else if (a == "--suggest-merges") suggestMerges = true;
+        else if (a == "--report") reportPrefix = next();
         else if (a == "--path") { pathFrom = next(); pathTo = next(); }
         else if (a == "--apply") apply = true;
         else if (!a.empty() && a[0] == '-') { std::cerr << "unbekannte Option: " << a << "\n"; return 2; }
@@ -76,6 +81,15 @@ int main(int argc, char** argv) {
 
     auto rels = memdb::discoverRelations(allColls, opts);
     std::cout << memdb::toJson(rels) << "\n";
+
+    if (!reportPrefix.empty()) {
+        auto rep = memdb::analyze(allColls, opts);
+        memdb::printSummary(rep, std::cout);
+        std::ofstream(reportPrefix + ".report.md", std::ios::binary) << memdb::toMarkdown(rep);
+        std::ofstream(reportPrefix + ".relations.json", std::ios::binary) << memdb::toJson(rep);
+        std::ofstream(reportPrefix + ".graph.mmd", std::ios::binary) << memdb::toMermaid(rep);
+        std::cerr << "Report geschrieben: " << reportPrefix << ".report.md / .relations.json / .graph.mmd\n";
+    }
     if (mermaid)
         std::cout << memdb::toMermaid(rels) << "\n";
     if (!out.empty()) {

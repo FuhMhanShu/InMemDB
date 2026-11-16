@@ -8,6 +8,7 @@
 #include <map>
 #include <optional>
 #include <cstdint>
+#include <iosfwd>
 #include <string>
 #include <vector>
 
@@ -181,6 +182,34 @@ struct MergeSuggestion {
 /// @brief Paarweise Merge-Vorschläge über beliebige Collections (auch cross-database).
 std::vector<MergeSuggestion> suggestMerges(const std::vector<Collection>& colls,
                                             const DiscoveryOptions& opts = {});
+
+/// @brief Gesamtergebnis einer automatischen Analyse (v0.33).
+struct AnalysisReport {
+    std::vector<CollectionProfile> profiles;         ///< Datenprofil pro Collection
+    std::vector<DiscoveredRelation> relations;       ///< FK / FD / Korrelation / Near-Dupes
+    std::vector<OrphanReport> orphans;               ///< Integritäts-Checks (FK-Orphans)
+    std::vector<MergeSuggestion> mergeSuggestions;   ///< Merge-Kandidaten (v0.32)
+    std::vector<std::vector<DiscoveredRelation>> paths; ///< wichtigste Multi-Hop-FK-Pfade
+    std::size_t totalCollections = 0;
+    std::size_t totalDocs = 0;
+    double healthScore = 0.0;                        ///< 0..100 (v0.33, Ampel: >=80 gruen, >=50 gelb)
+};
+
+/// @brief Automatische Gesamtanalyse (v0.33): Profile + alle Discovery-Funktionen +
+/// Orphans + Merge-Vorschläge + Health-Score – read-only, auch cross-database
+/// (einfach `std::vector<Collection>` aus mehreren Databases übergeben).
+AnalysisReport analyze(const std::vector<Collection>& colls, const DiscoveryOptions& opts = {});
+/// @brief Wie oben für eine ganze Database.
+AnalysisReport analyze(Database& db, const DiscoveryOptions& opts = {});
+
+/// @brief Report als JSON (v0.33) – maschinenlesbar/LLM-freundlich.
+std::string toJson(const AnalysisReport& r);
+/// @brief Report als Markdown (v0.33) – menschenlesbar: Tabellen, Health-Ampel, Empfehlungen.
+std::string toMarkdown(const AnalysisReport& r);
+/// @brief Beziehungsgraph des Reports als Mermaid (v0.33).
+std::string toMermaid(const AnalysisReport& r);
+/// @brief Kompakte Konsolen-Zusammenfassung (v0.33).
+void printSummary(const AnalysisReport& r, std::ostream& os);
 
 /// @brief Report als JSON (v0.29; inkl. Kardinalität ab v0.30).
 std::string toJson(const std::vector<DiscoveredRelation>& rels);

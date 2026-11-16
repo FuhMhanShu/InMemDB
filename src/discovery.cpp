@@ -7,6 +7,7 @@
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <ostream>
 #include <map>
 #include <set>
 #include <string>
@@ -890,6 +891,259 @@ std::vector<MergeSuggestion> suggestMerges(const std::vector<Collection>& colls,
     std::sort(out.begin(), out.end(),
               [](const MergeSuggestion& x, const MergeSuggestion& y) { return x.schemaSimilarity > y.schemaSimilarity; });
     return out;
+}
+
+AnalysisReport analyze(const std::vector<Collection>& colls, const DiscoveryOptions& opts) {
+    AnalysisReport r;
+    std::vector<Collection> dataColls;
+    for (const auto& c : colls)
+        if (c.name() != "__references")
+            dataColls.push_back(c);
+    r.totalCollections = dataColls.size();
+    for (const auto& c : dataColls) {
+        r.profiles.push_back(profileCollection(c, opts));
+        r.totalDocs += c.size();
+    }
+    r.relations = discoverRelations(dataColls, opts);
+    r.orphans = findOrphansForRelations(dataColls, r.relations, opts);
+    r.mergeSuggestions = suggestMerges(dataColls, opts);
+    // wichtigste Multi-Hop-Pfade: Endpunkte der stärksten FK-Befunde (cap 20 Pfade)
+    {
+        std::vector<DiscoveredRelation> fks;
+        for (const auto& rel : r.relations)
+            if (rel.kind == RelationKind::ForeignKey)
+                fks.push_back(rel);
+        std::set<std::string> done;
+        for (const auto& fk : fks) {
+            if (r.paths.size() >= 20)
+                break;
+            const std::string key = fk.fromCollection + ">" + fk.toCollection;
+            if (done.count(key))
+                continue;
+            done.insert(key);
+            auto ps = findPaths(r.relations, fk.fromCollection, fk.toCollection, 3);
+            for (auto& p : ps) {
+                if (r.paths.size() >= 20)
+                    break;
+                r.paths.push_back(std::move(p));
+            }
+        }
+    }
+    // Health-Score 0..100: Integrität (Orphans), Redundanz (Dupes), Struktur (FK-Abdeckung),
+    // Typ-Konsistenz (dominanter Typ pro Feld)
+    double integrity = 1.0;
+    {
+        std::size_t scanned = 0, orph = 0;
+        for (const auto& o : r.orphans) {
+            scanned += o.scanned;
+            orph += o.orphans;
+        }
+        if (scanned > 0)
+            integrity = 1.0 - std::min(1.0, static_cast<double>(orph) / scanned);
+    }
+    double redundancy = 1.0;
+    {
+        std::size_t dupes = 0;
+        for (const auto& rel : r.relations)
+            if (rel.kind == RelationKind::NearDuplicate)
+                ++dupes;
+        if (r.totalDocs > 0)
+            redundancy = 1.0 - std::min(1.0, static_cast<double>(dupes) / r.totalDocs);
+    }
+    double structure = 1.0; // neutral: keine FKs gefunden ist kein Mangel
+    {
+        std::set<std::string> touched; // Collections, die in mind. einer FK-Beziehung stehen
+        for (const auto& rel : r.relations)
+            if (rel.kind == RelationKind::ForeignKey) {
+                touched.insert(rel.fromCollection);
+                touched.insert(rel.toCollection);
+            }
+        if (!touched.empty() && r.totalCollections > 0)
+            structure = std::min(1.0, static_cast<double>(touched.size()) / r.totalCollections);
+    }
+    double consistency = 1.0;
+    {
+        double sum = 0;
+        std::size_t n = 0;
+        for (const auto& p : r.profiles) {
+            for (const auto& f : p.fields) {
+                if (f.present == 0)
+                    continue;
+                std::size_t dom = 0;
+                for (const auto& [t, cnt] : f.typeCounts)
+                    dom = std::max(dom, cnt);
+                sum += static_cast<double>(dom) / f.present;
+                ++n;
+            }
+        }
+        if (n > 0)
+            consistency = sum / n;
+    }
+    r.healthScore = 100.0 * (0.35 * integrity + 0.20 * redundancy + 0.25 * structure + 0.20 * consistency);
+    return r;
+}
+
+AnalysisReport analyze(Database& db, const DiscoveryOptions& opts) {
+    std::vector<Collection> colls;
+    for (const auto& n : db.collectionNames())
+        colls.push_back(db.collection(n));
+    return analyze(colls, opts);
+}
+
+namespace {
+std::string ampel(double score) {
+    if (score >= 80.0)
+        return "\xF0\x9F\x9F\xA2"; // gruen
+    if (score >= 50.0)
+        return "\xF0\x9F\x9F\xA1"; // gelb
+    return "\xF0\x9F\x94\xB4";     // rot
+}
+std::string escMd(const std::string& s) { // Pipe in Tabellen escapen
+    std::string o;
+    for (char c : s)
+        o += (c == '|') ? "\\|" : std::string(1, c);
+    return o;
+}
+} // namespace
+
+std::string toMarkdown(const AnalysisReport& r) {
+    std::string o = "# InMemDB Analyse-Report\n\n";
+    o += "- Collections: **" + std::to_string(r.totalCollections) + "**, Dokumente: **" +
+         std::to_string(r.totalDocs) + "**\n";
+    o += "- Health-Score: **" + num(r.healthScore) + " / 100** " + ampel(r.healthScore) + "\n";
+    o += "- Relationen: " + std::to_string(r.relations.size()) + ", Orphans: " +
+         std::to_string(r.orphans.size()) + ", Merge-Vorschläge: " +
+         std::to_string(r.mergeSuggestions.size()) + "\n\n";
+
+    o += "## Übersicht (Profile)\n\n| Collection | Docs | Felder | häufigster Typ-Anteil |\n|---|---|---|---|\n";
+    for (const auto& p : r.profiles) {
+        double dom = 0;
+        std::size_t withF = 0;
+        for (const auto& f : p.fields) {
+            if (f.present == 0)
+                continue;
+            ++withF;
+            std::size_t m = 0;
+            for (const auto& [t, c] : f.typeCounts)
+                m = std::max(m, c);
+            dom += static_cast<double>(m) / f.present;
+        }
+        if (withF > 0)
+            dom /= withF;
+        o += "| " + escMd(p.collection) + " | " + std::to_string(p.docCount) + " | " +
+             std::to_string(p.fields.size()) + " | " + num(dom) + " |\n";
+    }
+    o += "\n## Entdeckte Beziehungen\n\n| Art | Von | Nach | Konfidenz | Kardinalität |\n|---|---|---|---|---|\n";
+    for (const auto& rel : r.relations) {
+        o += std::string("| ") + kindName(rel.kind) + " | " + escMd(rel.fromCollection + "." + rel.field) + " | " +
+             escMd(rel.toCollection + "." + rel.toField) + " | " + num(rel.confidence) + " | " + rel.cardinality +
+             " |\n";
+    }
+    o += "\n## Integrität (Orphans)\n\n| Von | Nach | geprüft | Orphans |\n|---|---|---|---|\n";
+    for (const auto& orp : r.orphans)
+        o += "| " + escMd(orp.fromCollection + "." + orp.field) + " | " +
+             escMd(orp.toCollection + "." + orp.toField) + " | " + std::to_string(orp.scanned) + " | " +
+             std::to_string(orp.orphans) + " |\n";
+    if (!r.mergeSuggestions.empty()) {
+        o += "\n## Merge-Vorschläge\n\n| A | B | Schema-Ähnlichkeit | Werte-Overlap | Feld |\n|---|---|---|---|---|\n";
+        for (const auto& m : r.mergeSuggestions)
+            o += "| " + escMd(m.collectionA) + " | " + escMd(m.collectionB) + " | " + num(m.schemaSimilarity) +
+                 " | " + num(m.valueOverlap) + " | " + escMd(m.commonField) + " |\n";
+    }
+    o += "\n## Empfehlungen\n\n";
+    std::size_t orphTotal = 0;
+    for (const auto& orp : r.orphans)
+        orphTotal += orp.orphans;
+    if (orphTotal > 0)
+        o += "- **Integrität:** " + std::to_string(orphTotal) + " Orphan-Werte bereinigen oder Ziel-Docs anlegen.\n";
+    if (!r.mergeSuggestions.empty())
+        o += "- **Merge:** " + escMd(r.mergeSuggestions[0].collectionA) + " + " +
+             escMd(r.mergeSuggestions[0].collectionB) + " (Ähnlichkeit " +
+             num(r.mergeSuggestions[0].schemaSimilarity) + ") via `mergeCollections` prüfen.\n";
+    std::size_t dupes = 0;
+    for (const auto& rel : r.relations)
+        if (rel.kind == RelationKind::NearDuplicate)
+            ++dupes;
+    if (dupes > 0)
+        o += "- **Redundanz:** " + std::to_string(dupes) + " Near-Duplicate-Paar(e) prüfen (Duplikate?).\n";
+    if (orphTotal == 0 && r.mergeSuggestions.empty() && dupes == 0)
+        o += "- Keine Auffälligkeiten gefunden.\n";
+    return o;
+}
+
+std::string toMermaid(const AnalysisReport& r) {
+    std::string o = "graph LR\n";
+    std::set<std::string> nodes;
+    for (const auto& p : r.profiles)
+        nodes.insert(p.collection);
+    std::size_t id = 0;
+    std::map<std::string, std::string> nodeId;
+    for (const auto& n : nodes) {
+        nodeId[n] = "N" + std::to_string(id++);
+        o += "  " + nodeId[n] + "[\"" + n + "\"]\n";
+    }
+    for (const auto& rel : r.relations) {
+        if (rel.kind == RelationKind::ForeignKey) {
+            if (!nodeId.count(rel.fromCollection) || !nodeId.count(rel.toCollection))
+                continue;
+            o += "  " + nodeId[rel.fromCollection] + " -->|\"" + rel.field + " (" + num(rel.confidence) + ")\"| " +
+                 nodeId[rel.toCollection] + "\n";
+        } else if (rel.kind == RelationKind::Correlation && rel.fromCollection == rel.toCollection) {
+            if (!nodeId.count(rel.fromCollection))
+                continue;
+            o += "  " + nodeId[rel.fromCollection] + " -. \"" + rel.field + " ~ " + rel.toField + "\" .-> " +
+                 nodeId[rel.fromCollection] + "\n";
+        }
+    }
+    return o;
+}
+
+std::string toJson(const AnalysisReport& r) {
+    std::string o = "{\"healthScore\":" + num(r.healthScore) + ",\"totalCollections\":" +
+                    std::to_string(r.totalCollections) + ",\"totalDocs\":" + std::to_string(r.totalDocs) +
+                    ",\"profiles\":[";
+    bool first = true;
+    for (const auto& p : r.profiles) {
+        if (!first) o += ',';
+        first = false;
+        o += toJson(p);
+    }
+    o += "],\"relations\":" + toJson(r.relations) + ",\"orphans\":[";
+    first = true;
+    for (const auto& orp : r.orphans) {
+        if (!first) o += ',';
+        first = false;
+        o += "{\"from\":" + detail::writeJsonString(orp.fromCollection + "." + orp.field) + ",\"to\":" +
+             detail::writeJsonString(orp.toCollection + "." + orp.toField) + ",\"scanned\":" +
+             std::to_string(orp.scanned) + ",\"orphans\":" + std::to_string(orp.orphans) + "}";
+    }
+    o += "],\"mergeSuggestions\":[";
+    first = true;
+    for (const auto& m : r.mergeSuggestions) {
+        if (!first) o += ',';
+        first = false;
+        o += "{\"a\":" + detail::writeJsonString(m.collectionA) + ",\"b\":" +
+             detail::writeJsonString(m.collectionB) + ",\"schemaSimilarity\":" + num(m.schemaSimilarity) +
+             ",\"valueOverlap\":" + num(m.valueOverlap) + ",\"commonField\":" +
+             detail::writeJsonString(m.commonField) + "}";
+    }
+    o += "]}";
+    return o;
+}
+
+void printSummary(const AnalysisReport& r, std::ostream& os) {
+    os << "InMemDB Analyse: " << r.totalCollections << " Collections, " << r.totalDocs << " Dokumente, Health "
+       << num(r.healthScore) << "/100 " << ampel(r.healthScore) << "\n";
+    os << "  Relationen: " << r.relations.size() << ", Orphans: ";
+    std::size_t orph = 0;
+    for (const auto& o : r.orphans)
+        orph += o.orphans;
+    os << orph << ", Merge-Vorschläge: " << r.mergeSuggestions.size() << "\n";
+    for (const auto& rel : r.relations) {
+        if (rel.kind == RelationKind::ForeignKey)
+            os << "  FK  " << rel.fromCollection << "." << rel.field << " -> " << rel.toCollection << "."
+               << rel.toField << " (conf=" << num(rel.confidence) << ", " << rel.cardinality << ")\n";
+    }
 }
 
 std::string toJson(const std::vector<DiscoveredRelation>& rels) {
