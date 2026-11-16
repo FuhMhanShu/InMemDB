@@ -9,7 +9,7 @@
 #include <memdb/db_graph.hpp>
 #include <memdb/memdb.hpp>
 
-int main(int argc, char** argv) {
+static int run(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Aufruf: inmemdb_graph <snapshot.json> [--format mermaid|json|md|all] "
                      "[--out <datei>]\n";
@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
         else { std::cerr << "unbekannte Option: " << a << "\n"; return 2; }
     }
 
-    try {
+    {
         memdb::DbGraph g = memdb::DbGraph::fromSnapshotFile(file);
         std::cout << "# " << g.summary() << "\n\n";
         auto writeOut = [&](const std::string& content, const std::string& suffix) {
@@ -57,7 +57,18 @@ int main(int argc, char** argv) {
             return 2;
         }
         return 0;
+    }
+}
+
+int main(int argc, char** argv) {
+    // v0.35: gesamter Lauf inkl. Options-Parsing abgedeckt – auch std::stod/std::stoull auf
+    // ungueltigen Werten melden sauber mit Exit-Code statt terminate/crash.
+    try {
+        return run(argc, argv);
     } catch (const memdb::Error& e) {
+        std::cerr << "Fehler: " << e.what() << "\n";
+        return 1;
+    } catch (const std::exception& e) {
         std::cerr << "Fehler: " << e.what() << "\n";
         return 1;
     }
