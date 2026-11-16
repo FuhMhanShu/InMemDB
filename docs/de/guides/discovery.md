@@ -1,7 +1,7 @@
 # Relationship-Discovery (FA-27, v0.29) – API-Referenz
 
 > **Ausführlicher, erklärender Guide mit Beispielen und Bildern:**
-> [`docs/guides/discovery-guide.md`](discovery-guide.md)
+> [`docs/de/guides/discovery-guide.md`](discovery-guide.md)
 
 | Feld | Wert |
 |---|---|

@@ -47,7 +47,7 @@ struct SearchHit {
 ///
 /// Referenzen werden name-basiert in einer normalen (reservierten) Collection
 /// gespeichert – ohne Änderung am Kern (NFA-03) und snapshot-fähig (FA-14).
-/// Details siehe `docs/guides/references.md`.
+/// Details siehe `docs/de/guides/references.md`.
 class ReferenceIndex {
 public:
     /// @param db Database, in der gearbeitet wird.

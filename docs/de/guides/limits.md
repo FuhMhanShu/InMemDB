@@ -3,7 +3,7 @@
 | Feld | Wert |
 |---|---|
 | Status | umgesetzt (v0.39), **opt-in** |
-| Bezug | NFA-02 (Speicher), `docs/internals/hardening.md` (Ressourcen-Schranken), Hybrid/Spill v0.18 als RAM-Alternative |
+| Bezug | NFA-02 (Speicher), `docs/de/internals/hardening.md` (Ressourcen-Schranken), Hybrid/Spill v0.18 als RAM-Alternative |
 
 InMemDB bleibt im Kern **unbegrenzt** (Default: alle Limits 0). Wer eine Schranke gegen
 Speicherbomben/unbegrenztes Wachstum braucht, setzt sie pro Collection:

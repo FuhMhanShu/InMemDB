@@ -85,7 +85,7 @@ public:
     /// @brief Anzahl der Dokumente, die `q` matchen.
     std::size_t count(const Expression& q = Expression{}) const;
 
-    /// @name String-DSL (NFA-03, siehe `docs/guides/query-dsl.md`)
+    /// @name String-DSL (NFA-03, siehe `docs/de/guides/query-dsl.md`)
     /// Gleiche Operationen mit Query als String, z. B.
     /// `find("age >= 18 && name.contains('a')")`; Parsing via `parseQuery`.
     /// @throws QueryError bei DSL-Syntaxfehler.
@@ -98,7 +98,7 @@ public:
     std::size_t update(std::string_view dsl, const std::function<void(Document&)>& mutator);
     /// @brief Bulk-Update per DSL mit Projektion (v0.21): Query waehlt, Set-DSL beschreibt die
     /// Aenderung, z. B. `update("age >= 18", "adult = true, status = 'adult', age = age + 1")`.
-    /// Set-Grammatik siehe `parseUpdateSet` (`docs/guides/query-dsl.md`).
+    /// Set-Grammatik siehe `parseUpdateSet` (`docs/de/guides/query-dsl.md`).
     /// @throws QueryError bei Syntaxfehler, Error bei Typfehlern in der Set-DSL.
     std::size_t update(std::string_view dsl, std::string_view setDsl);
     std::size_t remove(std::string_view dsl);
@@ -182,7 +182,7 @@ public:
 
     /// @brief Metrik-/Diagnose-Snapshot der Collection (v0.22): Zaehler fuer Schreib- und
     /// Lesezugriffe, Index-Nutzung, Query-Dauer, Spill-IO, Transaktionen; plus Ist-Werte
-    /// (docs, indexCount, lastCandidateCount). Siehe `docs/guides/metrics.md`.
+    /// (docs, indexCount, lastCandidateCount). Siehe `docs/de/guides/metrics.md`.
     CollectionMetrics metrics() const;
     /// @brief Alle Metrik-Zaehler dieser Collection zuruecksetzen (Ist-Werte bleiben).
     void resetMetrics();

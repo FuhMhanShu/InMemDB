@@ -1,7 +1,7 @@
 # Getting Started
 
 Build, Tests, Einbindung in eigene Projekte, CLI-Tools und Beispiele.
-(Der schnelle Einstieg mit Minimal-Beispiel steht im [README](../README.md#quickstart).)
+(Der schnelle Einstieg mit Minimal-Beispiel steht im [README](../../README.de.md#quickstart).)
 
 ## Build & Test
 
@@ -69,7 +69,7 @@ Alle Tools liegen nach dem Build in `build/` (und werden mit `cmake --install` i
 ## API-Dokumentation (Doxygen, NFA-08)
 
 Alle öffentlichen Klassen und Methoden in `include/memdb/` sind Doxygen-kommentiert.
-Das Root-[README](../README.md) dient dabei als Einstiegsseite.
+Das Root-[README](../../README.de.md) dient dabei als Einstiegsseite.
 
 ```sh
 cmake -S . -B build -DINMEMDB_BUILD_DOCS=ON

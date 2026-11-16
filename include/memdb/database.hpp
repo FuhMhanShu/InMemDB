@@ -107,7 +107,7 @@ public:
                                    ReferenceIndex* refs = nullptr);
 
     /// @brief Gesamte Database als JSON-String (FA-14), inkl. Index-Definitionen
-    /// pro Collection. Format siehe `docs/guides/snapshot-json.md`.
+    /// pro Collection. Format siehe `docs/de/guides/snapshot-json.md`.
     std::string toJson() const;
     /// @brief Lädt JSON in diese Database: fehlende Collections werden angelegt,
     /// bestehende behalten ihre Index-Definitionen, Dokumente werden ersetzt.

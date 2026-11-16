@@ -4,9 +4,9 @@
 // Dieses Header wird nur kompiliert, wenn INMEMDB_WITH_QT definiert ist (setzt InMemDB.pri
 // automatisch, sobald das einbindende qmake-Projekt QT += core hat). Benötigt nur QtCore
 // (QAbstractTableModel/QVariant) - QtWidgets erst fuer die View (QTableView etc.).
-// Siehe docs/guides/qt-qmake.md, Abschnitt "Qt-Modell-Adapter (v0.23)".
+// Siehe docs/de/guides/qt-qmake.md, Abschnitt "Qt-Modell-Adapter (v0.23)".
 #if !defined(INMEMDB_WITH_QT)
-#error "memdb/qt/memdb_qt_model.hpp benoetigt Qt: INMEMDB_WITH_QT definieren (InMemDB.pri setzt es bei QT += core), siehe docs/guides/qt-qmake.md"
+#error "memdb/qt/memdb_qt_model.hpp benoetigt Qt: INMEMDB_WITH_QT definieren (InMemDB.pri setzt es bei QT += core), siehe docs/de/guides/qt-qmake.md"
 #endif
 
 #include <memdb/memdb.hpp>

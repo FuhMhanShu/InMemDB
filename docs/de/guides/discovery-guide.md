@@ -6,10 +6,10 @@
 | Abhängigkeiten | **keine** – nur InMemDB selbst + C++17 (NFA-06) |
 | Wirkt auf | read-only; verändert keine Daten (außer `applyDiscovered`, das gezielt Referenzen anlegt) |
 | Umfang | collection- **und database-übergreifend** |
-| API-Referenz | [docs/guides/discovery.md](discovery.md) · Tests: `tests/test_discovery*.cpp` (124 Checks) |
+| API-Referenz | [docs/de/guides/discovery.md](discovery.md) · Tests: `tests/test_discovery*.cpp` (124 Checks) |
 
 Dieser Guide erklärt **jede Methode des Discovery-Moduls verständlich mit Beispielen**.
-Die API-Referenz mit allen Signaturen findest du in [docs/guides/discovery.md](discovery.md).
+Die API-Referenz mit allen Signaturen findest du in [docs/de/guides/discovery.md](discovery.md).
 
 ---
 
@@ -84,7 +84,7 @@ Ein kleiner Shop als Snapshot `shop.inmemdb.json` (erzeugt z. B. per CSV-Import 
 | `orders` | `id`, `user_id`, `total`, `status` | 3 Bestellungen – eine mit `user_id = 999` (**Orphan!**) |
 | `order_items` | `id`, `order_id`, `product_id`, `qty` | 3 Positionen |
 
-<img src="../images/discovery-beispiel-graph.svg" alt="Beispiel-Beziehungsgraph users/orders/products/order_items" width="760">
+<img src="../../images/discovery-beispiel-graph.svg" alt="Beispiel-Beziehungsgraph users/orders/products/order_items" width="760">
 
 So sieht der Beziehungsgraph aus, den `inmemdb_discover --report` als Mermaid ausgibt
 (auszugsweise, reale Ausgabe):
@@ -269,7 +269,7 @@ v0.40 hat den Ausreißer-Faktor ergänzt und die Gewichte entsprechend renormier
 
 Ampel: 🟢 ≥ 80 · 🟡 ≥ 50 · 🔴 < 50.
 
-<img src="../images/discovery-health-score.svg" alt="Health-Score-Gauge grün" width="360">
+<img src="../../images/discovery-health-score.svg" alt="Health-Score-Gauge grün" width="360">
 
 **Beispiel (Shop):** 1 Orphan bei 3 gescannten `user_id`-Werten → Integrität 0.667;
 keine Dupes, alle 4 Collections in FK-Beziehungen, alle Felder typ-rein, keine
@@ -403,7 +403,7 @@ Mehrere Dateien = **database-übergreifende** Analyse über alle Collections all
   gedeckelt und Strings auf 64 Zeichen begrenzt.
 - **`analyze()` ist read-only** und auch cross-database nutzbar – ideal für
   Datenqualitäts-Checks nach einem Import (z. B. SQL/SQLite, siehe
-  [docs/guides/import.md](import.md); dort importierte FKs landen als Referenzen, fehlende
+  [docs/de/guides/import.md](import.md); dort importierte FKs landen als Referenzen, fehlende
   Beziehungen finden sich hier wieder).
 - **`applyDiscovered` nur innerhalb einer Database** – cross-database-Befunde werden
   übersprungen.
@@ -412,9 +412,9 @@ Mehrere Dateien = **database-übergreifende** Analyse über alle Collections all
 
 ## 8. Weiterführend
 
-- API-Referenz mit allen Signaturen: [docs/guides/discovery.md](discovery.md)
-- Import inkl. FK-Import (FA-26): [docs/guides/import.md](import.md)
-- Referenzen & Joins (FA-18): [docs/guides/references.md](references.md)
-- Merge von Collections (FA-24): [docs/guides/merge-collections.md](merge-collections.md)
+- API-Referenz mit allen Signaturen: [docs/de/guides/discovery.md](discovery.md)
+- Import inkl. FK-Import (FA-26): [docs/de/guides/import.md](import.md)
+- Referenzen & Joins (FA-18): [docs/de/guides/references.md](references.md)
+- Merge von Collections (FA-24): [docs/de/guides/merge-collections.md](merge-collections.md)
 - Tests: `tests/test_discovery.cpp` (21), `test_discovery2.cpp` (17), `test_discovery3.cpp`
   (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23), `test_discovery6.cpp` (26, v0.40) – insg. 124 Checks
