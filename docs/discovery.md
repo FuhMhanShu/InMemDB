@@ -1,4 +1,7 @@
-# Relationship-Discovery (FA-27, v0.29)
+# Relationship-Discovery (FA-27, v0.29) – API-Referenz
+
+> **Ausführlicher, erklärender Guide mit Beispielen und Bildern:**
+> [`docs/discovery-guide.md`](discovery-guide.md)
 
 | Feld | Wert |
 |---|---|
@@ -33,7 +36,25 @@ std::size_t n = memdb::applyDiscovered(db, fk, refs, /*minConfidence=*/0.9);
 // 7) Reports
 std::string j = memdb::toJson(all);
 std::string m = memdb::toMermaid(all);   // rendert als Diagramm
+
+// 8) v0.30: Kardinalität steckt in DiscoveredRelation::cardinality (1:1/n:1/1:n/n:m)
+auto orph = memdb::findOrphansForRelations(colls, all, opts);      // Verweise ins Leere
+auto paths = memdb::findPaths(all, "order_items", "users", 4);     // Multi-Hop-FK-Pfade
+// 9) v0.31: Datenprofil + Candidate Keys
+auto prof = memdb::profileCollection(coll, opts);  std::string pj = memdb::toJson(prof);
+auto keys = memdb::discoverCandidateKeys(coll, opts);
+// 10) v0.32: Diff + Merge-Vorschläge (auch cross-database)
+auto d = memdb::diffDatabases(db1, db2, opts);     std::string dj = memdb::toJson(d);
+auto sug = memdb::suggestMerges(colls, opts);      // Kandidaten für FA-24 mergeCollections
+// 11) v0.33: automatische Gesamtanalyse + Health-Score + Report-Präsentation
+memdb::AnalysisReport rep = memdb::analyze(db, opts);            // oder analyze({c1, c2}, opts) cross-database
+memdb::printSummary(rep, std::cout);
+std::ofstream("analyse.md")   << memdb::toMarkdown(rep);
+std::ofstream("analyse.json") << memdb::toJson(rep);
+std::ofstream("graph.mmd")    << memdb::toMermaid(rep);
 ```
+
+Details, Semantik und Beispiele zu jedem Schritt: [discovery-guide.md](discovery-guide.md).
 
 ## Semantik
 
@@ -61,15 +82,32 @@ std::string m = memdb::toMermaid(all);   // rendert als Diagramm
 inmemdb_discover shop1.inmemdb.json shop2.inmemdb.json          # cross-database Report (JSON)
 inmemdb_discover shop.enc --password geheim --mermaid           # verschlüsselt, Mermaid-Ausgabe
 inmemdb_discover a.json b.json --min-support 0.9 --sample 10000 --seed 7
+inmemdb_discover a.json --orphans                               # Orphan-Report (v0.30)
+inmemdb_discover a.json --path order_items users                # FK-Pfade A -> B (v0.30)
+inmemdb_discover a.json b.json --diff                           # diffDatabases (v0.32)
+inmemdb_discover a.json --suggest-merges                        # Merge-Vorschläge (v0.32)
+inmemdb_discover a.json --report analyse                         # Gesamtanalyse (v0.33): analyse.report.md/.relations.json/.graph.mmd + Summary
 inmemdb_discover a.json --apply                                 # FK-Refs anlegen + Datei zurückschreiben
 inmemdb_discover a.json --apply --out report.json
 ```
 
+Alle Optionen: `--password`, `--min-support`, `--min-confidence`, `--min-correlation`,
+`--min-similarity`, `--sample`, `--seed`, `--mermaid`, `--orphans`, `--path A B`,
+`--diff`, `--suggest-merges`, `--report <prefix>`, `--apply`, `--out <datei>`.
+Details und Beispiele: [discovery-guide.md](discovery-guide.md) §6.
+
 ## Tests
 
-`tests/test_discovery.cpp` (21 Checks): FK in einer DB + **zwei Databases**, FD (inkl.
-trivial-Vermerk), Pearson + kategorial, Near-Duplicates cross-collection, applyDiscovered
-+ `joinIds`, toJson/toMermaid, Sampling-Reproduzierbarkeit.
+- `tests/test_discovery.cpp` (21 Checks): FK in einer DB + **zwei Databases**, FD (inkl.
+  trivial-Vermerk), Pearson + kategorial, Near-Duplicates cross-collection, applyDiscovered
+  + `joinIds`, toJson/toMermaid, Sampling-Reproduzierbarkeit
+- `tests/test_discovery2.cpp` (17 Checks, v0.30): Kardinalität, `findOrphans`/`findOrphansForRelations`, `findPaths`
+- `tests/test_discovery3.cpp` (18 Checks, v0.31): `profileCollection`/`toJson`, `discoverCandidateKeys`
+- `tests/test_discovery4.cpp` (19 Checks, v0.32): `diffCollections`/`diffDatabases`, `suggestMerges`
+- `tests/test_discovery5.cpp` (23 Checks, v0.33): `analyze` + `AnalysisReport`, alle vier
+  Präsentationen (JSON/Markdown/Mermaid/Konsole), Health-Score (saubere DB > DB mit Orphan)
+
+Insgesamt 98 Discovery-Checks.
 
 ## Erweiterungen v0.30
 
