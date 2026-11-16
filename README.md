@@ -63,13 +63,13 @@ db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsse
 
 ## Dokumentation
 
-- [Anforderungen](anforderungen.md) – das Lastenheft (fachliche Anforderungen FA-01…FA-25, nicht-funktionale NFA-01…NFA-09)
+- [Anforderungen](anforderungen.md) – das Lastenheft (fachliche Anforderungen FA-01…FA-27, nicht-funktionale NFA-01…NFA-09)
 - [Architektur-Entscheidungen](docs/architecture.md) – warum statische Library mit Pimpl
 - [Query-API](docs/query-api.md) – der C++-Ausdruckbaum im Detail
 - [String-DSL](docs/query-dsl.md) – `find("age >= 18 && ...")`, eigene Operatoren, `@relation`-Joins
 - [Indizes](docs/indexes.md) (FA-10) · [Transaktionen](docs/transactions.md) (FA-12) · [Snapshot/JSON](docs/snapshot-json.md) (FA-14) · [Verschlüsselte Snapshots](docs/encrypted-snapshot.md) (FA-19)
 - [Aggregationen](docs/aggregations.md) (FA-13) · [Observer](docs/observer.md) (FA-15) · [Schema](docs/schema.md) (FA-20)
-- [Referenzen & Joins](docs/references.md) (FA-18) · [Merge von Collections](docs/merge-collections.md) (FA-24) · [TTL/Auto-Expiry](docs/ttl-expiry.md) (FA-25) · [Relationship-Discovery & Auto-Analyse/Report](docs/discovery.md) (FA-27, v0.29–v0.33)
+- [Referenzen & Joins](docs/references.md) (FA-18) · [Merge von Collections](docs/merge-collections.md) (FA-24) · [TTL/Auto-Expiry](docs/ttl-expiry.md) (FA-25) · [Relationship-Discovery & Auto-Analyse/Report](docs/discovery.md) (FA-27, v0.29–v0.33) · [Discovery-Guide (erklärend, mit Beispielen & Graphen)](docs/discovery-guide.md)
 - [Import externer Daten](docs/import.md) (FA-21, z. B. SQLite/SQL-Dump/CSV) · [Datenbank-Graph](docs/db-graph.md) (FA-22) · [Typ-Mapping zu SQL/MongoDB/JSON](docs/type-mapping.md)
 - [Hybrid / Out-of-Core](docs/hybrid-outofcore.md) (v0.18) · [Metriken & Diagnose](docs/metrics.md) (v0.22) · [Qt/qmake & Modell-Adapter](docs/qt-qmake.md) (FA-23, v0.23)
 
