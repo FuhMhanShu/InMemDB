@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/10_observer.dir/link.d CMakeFiles/10_observer.dir/examples/10_observer.cpp.o -o 10_observer  libmemdb.a

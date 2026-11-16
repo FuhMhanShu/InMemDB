@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/12_encrypted_snapshot.dir/link.d CMakeFiles/12_encrypted_snapshot.dir/examples/12_encrypted_snapshot.cpp.o -o 12_encrypted_snapshot  libmemdb.a

@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/memdb_tests_regex.dir/link.d CMakeFiles/memdb_tests_regex.dir/tests/test_regex.cpp.o -o memdb_tests_regex  libmemdb.a

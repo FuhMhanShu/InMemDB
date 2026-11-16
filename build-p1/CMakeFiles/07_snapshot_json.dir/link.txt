@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/07_snapshot_json.dir/link.d CMakeFiles/07_snapshot_json.dir/examples/07_snapshot_json.cpp.o -o 07_snapshot_json  libmemdb.a

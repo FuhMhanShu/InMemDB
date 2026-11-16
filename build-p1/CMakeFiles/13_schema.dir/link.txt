@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/13_schema.dir/link.d CMakeFiles/13_schema.dir/examples/13_schema.cpp.o -o 13_schema  libmemdb.a

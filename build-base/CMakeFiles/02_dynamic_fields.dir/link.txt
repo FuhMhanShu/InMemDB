@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/02_dynamic_fields.dir/link.d CMakeFiles/02_dynamic_fields.dir/examples/02_dynamic_fields.cpp.o -o 02_dynamic_fields  libmemdb.a

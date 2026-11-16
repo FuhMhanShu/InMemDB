@@ -1,0 +1,695 @@
+Start testing: Nov 16 12:29 UTC
+----------------------------------------------------------
+1/36 Testing: memdb_tests
+1/36 Test: memdb_tests
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+425 Checks, 0 Fehler
+ALLE TESTS BESTANDEN
+<end of output>
+Test time =   1.16 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests" end time: Nov 16 12:29 UTC
+"memdb_tests" time elapsed: 00:00:01
+----------------------------------------------------------
+
+2/36 Testing: memdb_tests_db_graph
+2/36 Test: memdb_tests_db_graph
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_db_graph"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_db_graph" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+46 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_db_graph" end time: Nov 16 12:29 UTC
+"memdb_tests_db_graph" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/36 Testing: memdb_tests_ref_join
+3/36 Test: memdb_tests_ref_join
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_ref_join"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_ref_join" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+10 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_ref_join" end time: Nov 16 12:29 UTC
+"memdb_tests_ref_join" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/36 Testing: memdb_tests_hybrid
+4/36 Test: memdb_tests_hybrid
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_hybrid"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_hybrid" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+35 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_hybrid" end time: Nov 16 12:29 UTC
+"memdb_tests_hybrid" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/36 Testing: memdb_tests_tx_cow
+5/36 Test: memdb_tests_tx_cow
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_tx_cow"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_tx_cow" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+44 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_tx_cow" end time: Nov 16 12:29 UTC
+"memdb_tests_tx_cow" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/36 Testing: memdb_tests_regex
+6/36 Test: memdb_tests_regex
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_regex"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_regex" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+116 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_regex" end time: Nov 16 12:29 UTC
+"memdb_tests_regex" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/36 Testing: memdb_tests_dsl_update
+7/36 Test: memdb_tests_dsl_update
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_dsl_update"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_dsl_update" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+55 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_dsl_update" end time: Nov 16 12:29 UTC
+"memdb_tests_dsl_update" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/36 Testing: memdb_tests_metrics
+8/36 Test: memdb_tests_metrics
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_metrics"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_metrics" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+34 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_metrics" end time: Nov 16 12:29 UTC
+"memdb_tests_metrics" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/36 Testing: memdb_tests_import_csv
+9/36 Test: memdb_tests_import_csv
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_import_csv"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_import_csv" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+62 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_import_csv" end time: Nov 16 12:29 UTC
+"memdb_tests_import_csv" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/36 Testing: memdb_tests_import_formats
+10/36 Test: memdb_tests_import_formats
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_import_formats"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_import_formats" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+105 Checks, 0 Fehler
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_import_formats" end time: Nov 16 12:29 UTC
+"memdb_tests_import_formats" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/36 Testing: memdb_tests_query_dsl
+11/36 Test: memdb_tests_query_dsl
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_query_dsl"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_query_dsl" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+54 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_query_dsl" end time: Nov 16 12:29 UTC
+"memdb_tests_query_dsl" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/36 Testing: memdb_tests_locale
+12/36 Test: memdb_tests_locale
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_locale"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_locale" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+C-Locale de_DE aktiv: nein (nur C++-Facet)
+28 Checks, 0 Fehler
+<end of output>
+Test time =   0.57 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_locale" end time: Nov 16 12:29 UTC
+"memdb_tests_locale" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/36 Testing: memdb_tests_merge
+13/36 Test: memdb_tests_merge
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_merge"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_merge" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+68 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_merge" end time: Nov 16 12:29 UTC
+"memdb_tests_merge" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/36 Testing: memdb_tests_ttl
+14/36 Test: memdb_tests_ttl
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_ttl"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_ttl" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+47 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_ttl" end time: Nov 16 12:29 UTC
+"memdb_tests_ttl" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/36 Testing: memdb_tests_foundations
+15/36 Test: memdb_tests_foundations
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_foundations"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_foundations" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+139 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_foundations" end time: Nov 16 12:29 UTC
+"memdb_tests_foundations" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/36 Testing: memdb_tests_import_fk
+16/36 Test: memdb_tests_import_fk
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_import_fk"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_import_fk" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+20 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_import_fk" end time: Nov 16 12:29 UTC
+"memdb_tests_import_fk" time elapsed: 00:00:00
+----------------------------------------------------------
+
+17/36 Testing: memdb_tests_discovery
+17/36 Test: memdb_tests_discovery
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_discovery"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_discovery" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+21 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_discovery" end time: Nov 16 12:29 UTC
+"memdb_tests_discovery" time elapsed: 00:00:00
+----------------------------------------------------------
+
+18/36 Testing: memdb_tests_discovery2
+18/36 Test: memdb_tests_discovery2
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_discovery2"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_discovery2" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+17 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_discovery2" end time: Nov 16 12:29 UTC
+"memdb_tests_discovery2" time elapsed: 00:00:00
+----------------------------------------------------------
+
+19/36 Testing: memdb_tests_discovery3
+19/36 Test: memdb_tests_discovery3
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_discovery3"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_discovery3" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+18 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_discovery3" end time: Nov 16 12:29 UTC
+"memdb_tests_discovery3" time elapsed: 00:00:00
+----------------------------------------------------------
+
+20/36 Testing: memdb_tests_discovery4
+20/36 Test: memdb_tests_discovery4
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_discovery4"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_discovery4" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+19 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_discovery4" end time: Nov 16 12:29 UTC
+"memdb_tests_discovery4" time elapsed: 00:00:00
+----------------------------------------------------------
+
+21/36 Testing: memdb_tests_discovery5
+21/36 Test: memdb_tests_discovery5
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/memdb_tests_discovery5"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"memdb_tests_discovery5" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+23 Checks, 0 Fehler
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"memdb_tests_discovery5" end time: Nov 16 12:29 UTC
+"memdb_tests_discovery5" time elapsed: 00:00:00
+----------------------------------------------------------
+
+22/36 Testing: 01_hello_database
+22/36 Test: 01_hello_database
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/01_hello_database"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"01_hello_database" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+eingefuegt mit ID 1
+name=Tastatur preis=49.99 lager=12
+Collections: products
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"01_hello_database" end time: Nov 16 12:29 UTC
+"01_hello_database" time elapsed: 00:00:00
+----------------------------------------------------------
+
+23/36 Testing: 02_dynamic_fields
+23/36 Test: 02_dynamic_fields
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/02_dynamic_fields"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"02_dynamic_fields" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+A Felder: 2, B Felder: 3 (unterschiedliche Struktur – schema-los)
+A nach Aenderung: prio=hoch (Typ geaendert int->string), erledigt=false, Felder=2
+B verschachtelt: adresse.plz=10115
+A neues Feld nachtraeglich: neu_feld=42
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"02_dynamic_fields" end time: Nov 16 12:29 UTC
+"02_dynamic_fields" time elapsed: 00:00:00
+----------------------------------------------------------
+
+24/36 Testing: 03_queries
+24/36 Test: 03_queries
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/03_queries"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"03_queries" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+alle (4): Dee(19) Cy(40) Bob(25) Ada(36)
+age >= 30 (2): Cy(40) Ada(36)
+Berlin && >= 30 (1): Ada(36)
+Hamburg || < 20 (2): Dee(19) Cy(40)
+nicht gesperrt (3): Dee(19) Bob(25) Ada(36)
+tag enthaelt 'cpp' (1): Ada(36)
+ verschachtelt adresse.stadt == Hamburg (0):
+ Feld 'gesperrt' existiert (1): Cy(40)
+ fehlendes Feld != 1 (4): Dee(19) Cy(40) Bob(25) Ada(36)
+findOne name=Bob -> age=25
+count(age < 30) = 2
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"03_queries" end time: Nov 16 12:29 UTC
+"03_queries" time elapsed: 00:00:00
+----------------------------------------------------------
+
+25/36 Testing: 04_crud
+25/36 Test: 04_crud
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/04_crud"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"04_crud" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+insertBulk: 3 Dokumente, size=3
+update(offen==true): 2 geaendert, noch offen: 0
+updateById prio: 1
+replace: titel=A2 felder=3
+remove(offen==true): 0
+removeById: 1, size=2
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"04_crud" end time: Nov 16 12:29 UTC
+"04_crud" time elapsed: 00:00:00
+----------------------------------------------------------
+
+26/36 Testing: 05_indexes
+26/36 Test: 05_indexes
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/05_indexes"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"05_indexes" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+ohne Index: count(age==42) Kandidaten = 10 Treffer, Kandidaten = 1000
+mit Index:  count(age==42) Treffer = 10, Kandidaten = 10
+mit Index:  count(age>=90) Kandidaten = 100
+Unique-Constraint greift: Unique-Index verletzt fuer Feld 'name'
+Indizes: age name(unique)
+nach dropIndex(age): hasIndex = false
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"05_indexes" end time: Nov 16 12:29 UTC
+"05_indexes" time elapsed: 00:00:00
+----------------------------------------------------------
+
+27/36 Testing: 06_transactions
+27/36 Test: 06_transactions
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/06_transactions"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"06_transactions" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+in Transaktion: Alice=70 Bob=50
+commit -> Alice=70 Bob=50
+in Transaktion (vor rollback): Alice=-999
+nach rollback: Alice=70 (unveraendert)
+RAII ohne commit (Destruktor rollt zurueck): size=2
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"06_transactions" end time: Nov 16 12:29 UTC
+"06_transactions" time elapsed: 00:00:00
+----------------------------------------------------------
+
+28/36 Testing: 07_snapshot_json
+28/36 Test: 07_snapshot_json
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/07_snapshot_json"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"07_snapshot_json" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+JSON ( gekuerzt ): {"name":"shop","collections":{"products":{"indexes":[{"field":"name","unique":true}],"documents":[{"lager":12,"name":"Ta...
+gespeichert nach inmemdb_snapshot.json (im Arbeitsverzeichnis)
+geladen: name=shop, products=2, index name vorhanden: true
+Maus: preis=19.95
+Tastatur: tags=["elektronik", "input"]
+aus JSON-String: db2.name=kopie, products=2
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"07_snapshot_json" end time: Nov 16 12:29 UTC
+"07_snapshot_json" time elapsed: 00:00:00
+----------------------------------------------------------
+
+29/36 Testing: 08_upsert
+29/36 Test: 08_upsert
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/08_upsert"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"08_upsert" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+upsert (neu):   id=1 size=1
+upsert (match): id=1 (gleich: true) age=37 size=1
+upsertById:     id=1 age=38
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"08_upsert" end time: Nov 16 12:29 UTC
+"08_upsert" time elapsed: 00:00:00
+----------------------------------------------------------
+
+30/36 Testing: 09_aggregations
+30/36 Test: 09_aggregations
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/09_aggregations"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"09_aggregations" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+count=5 sum=57.5 avg=11.5 min=5 max=20
+  "Berlin": count=2 sum=30
+  "Hamburg": count=2 sum=20
+  "München": count=1 sum=7.5
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"09_aggregations" end time: Nov 16 12:29 UTC
+"09_aggregations" time elapsed: 00:00:00
+----------------------------------------------------------
+
+31/36 Testing: 10_observer
+31/36 Test: 10_observer
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/10_observer"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"10_observer" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+event: INSERT in 'users' id=1 name=Ada
+event: UPDATE in 'users' id=1 name=Ada
+event: INSERT in 'users' id=2 name=Bob
+event: REMOVE in 'users' id=1 name=Ada
+(in Transaktion, noch keine Events)
+event: INSERT in 'users' id=3 name=InTx
+nach offChange: keine Events mehr
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"10_observer" end time: Nov 16 12:29 UTC
+"10_observer" time elapsed: 00:00:00
+----------------------------------------------------------
+
+32/36 Testing: 11_references
+32/36 Test: 11_references
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/11_references"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"11_references" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+outgoing von users#ada (1):
+  users#1 -> orders# (hat-bestellungen)
+incoming auf orders (2):
+  users#1 -> orders# (hat-bestellungen)
+  users# -> orders# (kennt)
+beide Richtungen users#ada (2):
+  orders#1 -> users#1
+  users#1 -> orders# (hat-bestellungen)
+resolve('users', '../orders') = orders
+dangling nach removeById(o1) (1):
+  orders#1 -> users#1
+pruneDangling entfernt: 1
+traverse ab users#ada (outgoing) (3):
+  users#1 -> orders# (hat-bestellungen)
+  orders# -> users#1
+  users#1 -> users#1 (kennt-sich)
+traverse maxDepth=1: 2 Kanten
+hasCycle(users#ada, outgoing) = true
+traversierende Suche ab users#ada (preis > 5): 1 Treffer
+  products#1 ueber 2 Kante(n)
+nach Snapshot-Roundtrip: incoming auf orders (2):
+  users#1 -> orders# (hat-bestellungen)
+  users# -> orders# (kennt)
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"11_references" end time: Nov 16 12:29 UTC
+"11_references" time elapsed: 00:00:00
+----------------------------------------------------------
+
+33/36 Testing: 12_encrypted_snapshot
+33/36 Test: 12_encrypted_snapshot
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/12_encrypted_snapshot"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"12_encrypted_snapshot" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+verschlüsselt gespeichert: inmemdb_encrypted_demo.bin
+geladen: name=geheim-db, konten=2, index iban: true
+Ada: saldo=1500
+falsches Passwort erkannt: falsches Passwort oder Datei beschädigt (HMAC-Prüfung fehlgeschlagen): inmemdb_encrypted_demo.bin
+<end of output>
+Test time =   0.85 sec
+----------------------------------------------------------
+Test Passed.
+"12_encrypted_snapshot" end time: Nov 16 12:29 UTC
+"12_encrypted_snapshot" time elapsed: 00:00:00
+----------------------------------------------------------
+
+34/36 Testing: 13_schema
+34/36 Test: 13_schema
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/13_schema"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"13_schema" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+ohne Schema: alles erlaubt, size=1
+Schema gesetzt: 3 Felder deklariert
+gueltiges insert ok, size=1
+fehlendes name (notNull): abgelehnt -> Feld 'name' fehlt oder ist null (notNull)
+undefiniertes Feld (strikt): abgelehnt -> Feld 'undefiniert' ist nicht im Schema deklariert
+age als double statt int: abgelehnt -> Feld 'age': Typ-Mismatch, erwartet int, ist double
+Snapshot enthaelt Schema: true, size=1
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"13_schema" end time: Nov 16 12:29 UTC
+"13_schema" time elapsed: 00:00:00
+----------------------------------------------------------
+
+35/36 Testing: 14_query_dsl
+35/36 Test: 14_query_dsl
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/14_query_dsl"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"14_query_dsl" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+DSL: age >= 18 && stadt == 'Berlin' -> 2
+DSL: tags.contains('db')            -> 2
+DSL: name.matches('^[A-C].*')       -> 3
+DSL: age.in(17, 40)                 -> 2
+DSL: age.even() (eigener Operator)  -> 2
+DSL: @kunde.stadt == 'Berlin'       -> 2
+DSL: @kunde.name == 'Ada' && total >= 200 -> 1
+DSL == C++-API: ja
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"14_query_dsl" end time: Nov 16 12:29 UTC
+"14_query_dsl" time elapsed: 00:00:00
+----------------------------------------------------------
+
+36/36 Testing: 15_db_graph
+36/36 Test: 15_db_graph
+Command: "/workspace/github__FuhMhanShu__InMemDB/build-p1/15_db_graph"
+Directory: /workspace/github__FuhMhanShu__InMemDB/build-p1
+"15_db_graph" start time: Nov 16 12:29 UTC
+Output:
+----------------------------------------------------------
+2 Collections, 4 Dokumente, 1 Referenzen
+
+--- Mermaid ---
+graph LR
+  orders["orders · 2 Dokumente<br/>(schema-los)"]
+  users["users · 2 Dokumente<br/>age: int?<br/>name: string! [unique]"]
+  orders_1["orders#1"]
+  users_1["users#1"]
+  orders_1 -->|kunde| users_1
+
+--- JSON ---
+{"collections":[{"name":"orders","documents":2,"schema":null},{"name":"users","documents":2,"schema":{"fields":[{"name":"age","type":"int","nullable":true},{"name":"name","type":"string","nullable":false,"index":"unique"}]}}],"references":[{"from":"orders#1","to":"users#1","relation":"kunde","dangling":false}]}
+
+--- Markdown ---
+# Datenbank-Graph
+
+2 Collections, 4 Dokumente, 1 Referenzen
+
+## Collections
+
+| Collection | Dokumente | Schema | Felder |
+|---|---|---|---|
+| orders | 2 | nein | schema-los |
+| users | 2 | ja | `age: int?`, `name: string! [unique]` |
+
+## Referenzen
+
+| Von | Nach | Relation | Dangling |
+|---|---|---|---|
+| orders#1 | users#1 | kunde | nein |
+
+aus Snapshot: 2 Collections, 4 Dokumente, 1 Referenzen
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"15_db_graph" end time: Nov 16 12:29 UTC
+"15_db_graph" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Nov 16 12:29 UTC
