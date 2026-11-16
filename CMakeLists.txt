@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(InMemDB VERSION 0.33 LANGUAGES CXX)
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
 add_library(memdb STATIC
     src/value.cpp
     src/document_id.cpp
@@ -24,7 +27,11 @@ add_library(memdb STATIC
     src/database.cpp
     src/references.cpp
 )
-target_include_directories(memdb PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(memdb PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+add_library(memdb::memdb ALIAS memdb)
 target_compile_features(memdb PUBLIC cxx_std_17)
 set_target_properties(memdb PROPERTIES
     CXX_STANDARD 17
@@ -53,6 +60,36 @@ if(INMEMDB_WITH_SQLITE)
     target_link_libraries(memdb PRIVATE SQLite::SQLite3)
     target_compile_definitions(memdb PUBLIC INMEMDB_HAS_SQLITE)
 endif()
+
+install(TARGETS memdb
+    EXPORT InMemDBTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    FILES_MATCHING PATTERN "*.hpp"
+)
+install(EXPORT InMemDBTargets
+    NAMESPACE memdb::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/InMemDB
+)
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/InMemDBConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/InMemDBConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/InMemDB
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/InMemDBConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/InMemDBConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/InMemDBConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/InMemDB
+)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     enable_testing()
@@ -174,4 +211,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         endif()
         add_test(NAME ${example_name} COMMAND ${example_name})
     endforeach()
+
+    install(TARGETS inmemdb_import inmemdb_graph inmemdb_discover
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
 endif()
