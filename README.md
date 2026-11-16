@@ -31,7 +31,7 @@ for (const auto& p : products.find("preis < 20 && tags.contains('neu')"))
 db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsselter Snapshot
 ```
 
-## Was kann InMemDB? (Features, v0.31)
+## Was kann InMemDB? (Features, v0.32)
 
 **Daten & Abfragen**
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern (auch verschachtelt, Punktnotation `"adresse.plz"`)
@@ -54,7 +54,7 @@ db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsse
 - Optionales **striktes Schema** pro Collection: Feldtypen als Metadaten, undefinierte Felder werden abgelehnt (FA-20)
 - **Observer**: Callbacks bei jedem Einfügen/Ändern/Löschen (`onChange`), in Transaktionen erst beim Commit (FA-15)
 - **TTL / Auto-Expiry** (abschaltbar, default aus): Dokumente mit Verfallszeit (`expiresIn(sek)` / `expiresAt(unixSekunden)`) werden automatisch entfernt (FA-25, v0.26)
-- **Relationship-Discovery** (FA-27, v0.29): `discoverForeignKeys` / `discoverFunctionalDependencies` / `discoverCorrelations` / `discoverNearDuplicates` / `discoverRelations` – collection- und database-übergreifend, ohne Abhängigkeiten; `applyDiscovered` legt FA-18-Referenzen an; Kardinalität (1:1/n:1/1:n/n:m), Orphan-Report, Pfad-Suche (v0.30), Datenprofil + Candidate Keys (v0.31); CLI `inmemdb_discover` mit JSON/Mermaid-Report (`--orphans`, `--path`)
+- **Relationship-Discovery** (FA-27, v0.29): `discoverForeignKeys` / `discoverFunctionalDependencies` / `discoverCorrelations` / `discoverNearDuplicates` / `discoverRelations` – collection- und database-übergreifend, ohne Abhängigkeiten; `applyDiscovered` legt FA-18-Referenzen an; Kardinalität (1:1/n:1/1:n/n:m), Orphan-Report, Pfad-Suche (v0.30), Datenprofil + Candidate Keys (v0.31), Cross-DB-Diff + Merge-Vorschläge (v0.32); CLI `inmemdb_discover` mit JSON/Mermaid-Report (`--orphans`, `--path`)
 - **Hybrid / Out-of-Core**: bei zu wenig RAM lagert `setOverflow(spillFile, maxInMemory)` älteste Dokumente in eine Datei aus und liest sie bei Bedarf nach (v0.18)
 - **Metriken & Diagnose**: `Collection::metrics()`/`Database::metrics()` – Zugriffe, Index-Nutzung vs. Vollscan, Query-Dauer, Spill-IO, Transaktionen, Events (v0.22)
 - **Import** aus CSV, JSON/JSONL, SQL-Dump, BSON, eigenen Snapshots und (optional, `INMEMDB_WITH_SQLITE=ON`) SQLite-Dateien; CLI-Tool `inmemdb_import` (FA-21); **Fremdschlüssel werden als FA-18-Referenzen mitimportiert** (SQLite `PRAGMA foreign_key_list`, SQL-Dump `REFERENCES`/`FOREIGN KEY`, abschaltbar via `--no-foreign-keys`, FA-26, v0.28)

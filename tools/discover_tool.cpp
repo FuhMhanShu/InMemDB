@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> files;
     std::string password, out;
     memdb::DiscoveryOptions opts;
-    bool mermaid = false, apply = false, orphans = false;
+    bool mermaid = false, apply = false, orphans = false, diffMode = false, suggestMerges = false;
     std::string pathFrom, pathTo;
     double applyMinConf = 0.9;
 
@@ -48,6 +48,8 @@ int main(int argc, char** argv) {
         else if (a == "--seed") opts.seed = std::stoull(next());
         else if (a == "--mermaid") mermaid = true;
         else if (a == "--orphans") orphans = true;
+        else if (a == "--diff") diffMode = true;
+        else if (a == "--suggest-merges") suggestMerges = true;
         else if (a == "--path") { pathFrom = next(); pathTo = next(); }
         else if (a == "--apply") apply = true;
         else if (!a.empty() && a[0] == '-') { std::cerr << "unbekannte Option: " << a << "\n"; return 2; }
@@ -94,6 +96,24 @@ int main(int argc, char** argv) {
         }
         oj += "]}";
         std::cout << oj << "\n";
+    }
+    if (diffMode && dbs.size() >= 2) {
+        auto dd = memdb::diffDatabases(dbs[0], dbs[1], opts);
+        std::cout << memdb::toJson(dd) << "\n";
+    }
+    if (suggestMerges) {
+        auto sug = memdb::suggestMerges(allColls, opts);
+        std::string sj = "{\"mergeSuggestions\":[";
+        bool f3 = true;
+        for (const auto& m : sug) {
+            if (!f3) sj += ',';
+            f3 = false;
+            sj += "{\"a\":\"" + m.collectionA + "\",\"b\":\"" + m.collectionB + "\",\"schemaSimilarity\":" +
+                  std::to_string(m.schemaSimilarity) + ",\"valueOverlap\":" + std::to_string(m.valueOverlap) +
+                  ",\"commonField\":\"" + m.commonField + "\"}";
+        }
+        sj += "]}";
+        std::cout << sj << "\n";
     }
     if (!pathFrom.empty() && !pathTo.empty()) {
         auto paths = memdb::findPaths(rels, pathFrom, pathTo, 4);

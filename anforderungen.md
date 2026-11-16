@@ -207,6 +207,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | v0.29 | Relationship-Discovery (FA-27): FK/FD/Korrelation/Near-Duplicates, cross-database, JSON/Mermaid-Report, CLI `inmemdb_discover` |
 | v0.30 | Discovery-Erweiterungen: Kardinalität (1:1/n:1/1:n/n:m) im FK-Report, Orphan-Report (`findOrphans`/`findOrphansForRelations`), Pfad-Suche (`findPaths`), CLI `--orphans`/`--path` |
 | v0.31 | Discovery: Datenprofil (`profileCollection`/`toJson`) + Candidate-Key-Discovery (`discoverCandidateKeys`) |
+| v0.32 | Discovery: Cross-DB-Diff (`diffCollections`/`diffDatabases`/`toJson(DatabaseDiff)`) + Merge-Vorschläge (`suggestMerges`, Jaccard + Werte-Overlap, cross-database, passend zu FA-24), CLI `--diff`/`--suggest-merges` |
 
 ---
 

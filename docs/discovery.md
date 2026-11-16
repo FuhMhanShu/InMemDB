@@ -2,7 +2,7 @@
 
 | Feld | Wert |
 |---|---|
-| Status | umgesetzt (v0.29; Erweiterungen v0.30/v0.31) – **ohne externe Abhängigkeiten** (nur InMemDB + C++17) |
+| Status | umgesetzt (v0.29; Erweiterungen v0.30/v0.31/v0.32) – **ohne externe Abhängigkeiten** (nur InMemDB + C++17) |
 | Bezug | Anforderungen FA-27 (Kann); baut auf Foundations v0.27 (`ValueLess`, `distinctValues`, `sample`, `AggOp::Distinct`) und FA-18/FA-26 auf |
 
 Modul `include/memdb/discovery.hpp` + `src/discovery.cpp`: untersucht Daten auf
@@ -88,3 +88,14 @@ trivial-Vermerk), Pearson + kategorial, Near-Duplicates cross-collection, applyD
   distinct, Min/Max (Zahlen/Strings), bis zu 3 Beispiele; `toJson(profile)` als Report.
 - `discoverCandidateKeys(coll, opts)`: minimale Feldmengen, die Dokumente eindeutig
   identifizieren (Einzelfelder zuerst; Paare nur, wenn keiner der beiden allein Key ist).
+
+## Erweiterungen v0.32: Cross-DB-Diff & Merge-Vorschläge
+
+- `diffCollections(a, b, opts)` → `CollectionDiff`: Felder nur in A/B, gemeinsame Felder,
+  Jaccard-Feldähnlichkeit, Row-Counts, Werte-Überlappung pro gemeinsamem Feld
+- `diffDatabases(db1, db2, opts)` → `DatabaseDiff`: gemeinsame Collections paarweise gedifft,
+  Namen nur in A/B separat; `toJson(diff)` als Report; `__references` wird ignoriert
+- `suggestMerges(colls, opts)` → `MergeSuggestion` pro Paar mit Schema-Jaccard ≥
+  `minSchemaSimilarity` (id-artige Felder boosten die Werte-Überlappung) – direkter
+  Kandidat für FA-24 `Database::mergeCollections`; auch cross-database
+- CLI: `inmemdb_discover a.json b.json --diff` und `--suggest-merges`
