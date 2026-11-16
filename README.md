@@ -83,6 +83,34 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
+## Einbindung in eigene Projekte
+
+Installieren (Library, Header, CMake-Paket und CLI-Tools) und per `find_package` konsumieren:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+cmake --install build --prefix /pfad/zur/installation
+```
+
+```cmake
+find_package(InMemDB 0.33 REQUIRED)
+target_link_libraries(mein_programm PRIVATE memdb::memdb)
+```
+
+Oder ohne Installation direkt per FetchContent:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(InMemDB
+    GIT_REPOSITORY https://github.com/FuhMhanShu/InMemDB.git
+    GIT_TAG v0.33)
+FetchContent_MakeAvailable(InMemDB)
+target_link_libraries(mein_programm PRIVATE memdb::memdb)
+```
+
+Paketmanager: `vcpkg.json` (vcpkg-Manifest) und `conanfile.py` (Conan-Rezept) liegen im Repo-Wurzelverzeichnis. Der Kern bleibt abhängigkeitsfrei; der optionale SQLite-Import bleibt ein reines CMake-Flag (`INMEMDB_WITH_SQLITE=ON`).
+
 ## API-Dokumentation (Doxygen, NFA-08)
 
 Alle öffentlichen Klassen und Methoden in `include/memdb/` sind Doxygen-kommentiert.
