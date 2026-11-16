@@ -34,9 +34,14 @@ double rdF64(const std::uint8_t* p) {
     return d;
 }
 
+// v0.38: harte Verschachtelungsgrenze (parseDoc <-> parseElement rekursiv -> sonst
+// Stack-Overflow/Segfault bei tief verschachtelten BSON-Dokumenten)
+constexpr int kMaxBsonDepth = 1000;
+
 struct BsonReader {
     const std::uint8_t* p;
     const std::uint8_t* end;
+    int depth = 0;
 
     void need(std::size_t n) const {
         if (static_cast<std::size_t>(end - p) < n)
@@ -194,6 +199,8 @@ Value parseElement(std::uint8_t type, BsonReader& r) {
 }
 
 std::shared_ptr<Document> parseDoc(BsonReader& r) {
+    if (++r.depth > kMaxBsonDepth)
+        throw Error("BSON: Verschachtelung zu tief (max " + std::to_string(kMaxBsonDepth) + ")");
     r.need(4);
     std::int32_t len = rdI32(r.p);
     if (len < 5)
@@ -211,6 +218,7 @@ std::shared_ptr<Document> parseDoc(BsonReader& r) {
         doc->set(name, parseElement(type, r));
     }
     r.p = docEnd; // robust gegen fehlenden Terminator
+    --r.depth;
     return doc;
 }
 
