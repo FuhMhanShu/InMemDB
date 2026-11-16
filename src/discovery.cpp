@@ -893,6 +893,110 @@ std::vector<MergeSuggestion> suggestMerges(const std::vector<Collection>& colls,
     return out;
 }
 
+// v0.40: Ausreißer-Erkennung pro numerischem Feld (z-Score + IQR/Tukey), read-only.
+namespace {
+double quantile(const std::vector<double>& xs, double p) { // lineare Interpolation, xs sortiert
+    if (xs.empty())
+        return 0.0;
+    double pos = p * static_cast<double>(xs.size() - 1);
+    std::size_t lo = static_cast<std::size_t>(pos);
+    double frac = pos - static_cast<double>(lo);
+    if (lo + 1 >= xs.size())
+        return xs.back();
+    return xs[lo] + frac * (xs[lo + 1] - xs[lo]);
+}
+} // namespace
+
+std::vector<FieldOutliers> discoverOutliers(const Collection& c, const DiscoveryOptions& opts) {
+    std::vector<FieldOutliers> out;
+    std::map<std::string, std::vector<Value>> byField; // nur numerische Werte, in Dokument-Reihenfolge
+    std::set<std::string> fieldNames;
+    std::vector<DocumentId> ids;
+    bool sampled = opts.sampleSize > 0 && opts.sampleSize < c.size();
+    if (sampled)
+        ids = c.sample(opts.sampleSize, opts.seed);
+    auto collect = [&](const Document& d) {
+        d.forEachField([&](const std::string& k, const Value& v) {
+            fieldNames.insert(k);
+            if (v.isNumber())
+                byField[k].push_back(v);
+        });
+    };
+    if (sampled) {
+        for (auto id : ids)
+            if (auto d = c.findById(id))
+                collect(*d);
+    } else {
+        c.forEach(Expression{}, collect);
+    }
+    if (fieldNames.size() > opts.maxFieldsPerCollection)
+        fieldNames.erase(std::next(fieldNames.begin(), opts.maxFieldsPerCollection), fieldNames.end());
+    for (const auto& f : fieldNames) {
+        auto it = byField.find(f);
+        if (it == byField.end())
+            continue; // Feld hat keine numerischen Werte
+        const auto& vals = it->second;
+        if (vals.size() < opts.minOutlierSamples)
+            continue;
+        std::vector<double> xs;
+        xs.reserve(vals.size());
+        for (const auto& v : vals)
+            xs.push_back(v.asDouble());
+        std::sort(xs.begin(), xs.end());
+        double mean = 0;
+        for (double x : xs)
+            mean += x;
+        mean /= xs.size();
+        double var = 0;
+        for (double x : xs)
+            var += (x - mean) * (x - mean);
+        double stddev = std::sqrt(var / xs.size());
+        double q1 = quantile(xs, 0.25), med = quantile(xs, 0.5), q3 = quantile(xs, 0.75);
+        double iqr = q3 - q1;
+        double lo = q1 - opts.outlierIqrK * iqr, hi = q3 + opts.outlierIqrK * iqr;
+        FieldOutliers fo;
+        fo.collection = c.name();
+        fo.field = f;
+        fo.count = vals.size();
+        fo.mean = mean;
+        fo.stddev = stddev;
+        fo.q1 = q1;
+        fo.median = med;
+        fo.q3 = q3;
+        fo.iqr = iqr;
+        bool anyZ = false, anyIqr = false;
+        for (const auto& v : vals) {
+            double x = v.asDouble();
+            double z = stddev > 0 ? std::fabs(x - mean) / stddev : 0.0;
+            bool zOut = z > opts.outlierZ;
+            bool iqrOut = x < lo || x > hi;
+            if (zOut || iqrOut) {
+                ++fo.outliers;
+                anyZ = anyZ || zOut;
+                anyIqr = anyIqr || iqrOut;
+                if (fo.values.size() < 100)
+                    fo.values.push_back(v);
+            }
+        }
+        fo.outlierRate = fo.count ? static_cast<double>(fo.outliers) / fo.count : 0.0;
+        fo.method = (anyZ && anyIqr) ? "z-score+IQR" : (anyZ ? "z-score" : "IQR");
+        if (fo.outliers > 0)
+            out.push_back(std::move(fo));
+    }
+    return out;
+}
+
+std::vector<FieldOutliers> discoverOutliers(const std::vector<Collection>& colls, const DiscoveryOptions& opts) {
+    std::vector<FieldOutliers> out;
+    for (const auto& c : colls) {
+        if (c.name() == "__references")
+            continue;
+        auto part = discoverOutliers(c, opts);
+        out.insert(out.end(), std::make_move_iterator(part.begin()), std::make_move_iterator(part.end()));
+    }
+    return out;
+}
+
 AnalysisReport analyze(const std::vector<Collection>& colls, const DiscoveryOptions& opts) {
     AnalysisReport r;
     std::vector<Collection> dataColls;
@@ -907,6 +1011,7 @@ AnalysisReport analyze(const std::vector<Collection>& colls, const DiscoveryOpti
     r.relations = discoverRelations(dataColls, opts);
     r.orphans = findOrphansForRelations(dataColls, r.relations, opts);
     r.mergeSuggestions = suggestMerges(dataColls, opts);
+    r.outliers = discoverOutliers(dataColls, opts); // v0.40
     // wichtigste Multi-Hop-Pfade: Endpunkte der stärksten FK-Befunde (cap 20 Pfade)
     {
         std::vector<DiscoveredRelation> fks;
@@ -930,7 +1035,7 @@ AnalysisReport analyze(const std::vector<Collection>& colls, const DiscoveryOpti
         }
     }
     // Health-Score 0..100: Integrität (Orphans), Redundanz (Dupes), Struktur (FK-Abdeckung),
-    // Typ-Konsistenz (dominanter Typ pro Feld)
+    // Typ-Konsistenz (dominanter Typ pro Feld), Ausreißer (v0.40: Outlier-Rate numerischer Felder)
     double integrity = 1.0;
     {
         std::size_t scanned = 0, orph = 0;
@@ -979,7 +1084,20 @@ AnalysisReport analyze(const std::vector<Collection>& colls, const DiscoveryOpti
         if (n > 0)
             consistency = sum / n;
     }
-    r.healthScore = 100.0 * (0.35 * integrity + 0.20 * redundancy + 0.25 * structure + 0.20 * consistency);
+    // v0.40: Outlier-Komponente (gewichtete Rate ueber alle numerischen Felder; ohne numerische
+    // Werte neutral 1.0). Gewichte renormiert: 0.30 / 0.15 / 0.20 / 0.20 / 0.15.
+    double outlierScore = 1.0;
+    {
+        std::size_t totCount = 0, totOut = 0;
+        for (const auto& fo : r.outliers) {
+            totCount += fo.count;
+            totOut += fo.outliers;
+        }
+        if (totCount > 0)
+            outlierScore = 1.0 - std::min(1.0, static_cast<double>(totOut) / totCount);
+    }
+    r.healthScore = 100.0 * (0.30 * integrity + 0.15 * redundancy + 0.20 * structure + 0.20 * consistency +
+                             0.15 * outlierScore);
     return r;
 }
 
@@ -1011,9 +1129,12 @@ std::string toMarkdown(const AnalysisReport& r) {
     o += "- Collections: **" + std::to_string(r.totalCollections) + "**, Dokumente: **" +
          std::to_string(r.totalDocs) + "**\n";
     o += "- Health-Score: **" + num(r.healthScore) + " / 100** " + ampel(r.healthScore) + "\n";
+    std::size_t outlTotal = 0;
+    for (const auto& fo : r.outliers)
+        outlTotal += fo.outliers;
     o += "- Relationen: " + std::to_string(r.relations.size()) + ", Orphans: " +
          std::to_string(r.orphans.size()) + ", Merge-Vorschläge: " +
-         std::to_string(r.mergeSuggestions.size()) + "\n\n";
+         std::to_string(r.mergeSuggestions.size()) + ", Outliers: " + std::to_string(outlTotal) + "\n\n";
 
     o += "## Übersicht (Profile)\n\n| Collection | Docs | Felder | häufigster Typ-Anteil |\n|---|---|---|---|\n";
     for (const auto& p : r.profiles) {
@@ -1038,6 +1159,19 @@ std::string toMarkdown(const AnalysisReport& r) {
         o += std::string("| ") + kindName(rel.kind) + " | " + escMd(rel.fromCollection + "." + rel.field) + " | " +
              escMd(rel.toCollection + "." + rel.toField) + " | " + num(rel.confidence) + " | " + rel.cardinality +
              " |\n";
+    }
+    if (!r.outliers.empty()) {
+        o += "\n## Ausreißer (Outliers, z-Score + IQR)\n\n| Collection.Feld | Werte | Ausreißer | Rate | Methode | Beispiele |\n|---|---|---|---|---|---|\n";
+        for (const auto& fo : r.outliers) {
+            std::string ex;
+            for (std::size_t i = 0; i < fo.values.size() && i < 5; ++i) {
+                if (i) ex += ", ";
+                ex += detail::writeJson(fo.values[i]);
+            }
+            o += "| " + escMd(fo.collection + "." + fo.field) + " | " + std::to_string(fo.count) + " | " +
+                 std::to_string(fo.outliers) + " | " + num(fo.outlierRate) + " | " + escMd(fo.method) + " | " +
+                 escMd(ex) + " |\n";
+        }
     }
     o += "\n## Integrität (Orphans)\n\n| Von | Nach | geprüft | Orphans |\n|---|---|---|---|\n";
     for (const auto& orp : r.orphans)
@@ -1066,7 +1200,9 @@ std::string toMarkdown(const AnalysisReport& r) {
             ++dupes;
     if (dupes > 0)
         o += "- **Redundanz:** " + std::to_string(dupes) + " Near-Duplicate-Paar(e) prüfen (Duplikate?).\n";
-    if (orphTotal == 0 && r.mergeSuggestions.empty() && dupes == 0)
+    if (outlTotal > 0)
+        o += "- **Ausreißer:** " + std::to_string(outlTotal) + " Wert(e) in numerischen Feldern außerhalb z-Score/IQR-Fence (siehe Tabelle) – Messfehler oder Spitzenwerte prüfen.\n";
+    if (orphTotal == 0 && r.mergeSuggestions.empty() && dupes == 0 && outlTotal == 0)
         o += "- Keine Auffälligkeiten gefunden.\n";
     return o;
 }
@@ -1127,6 +1263,25 @@ std::string toJson(const AnalysisReport& r) {
              ",\"valueOverlap\":" + num(m.valueOverlap) + ",\"commonField\":" +
              detail::writeJsonString(m.commonField) + "}";
     }
+    o += "],\"outliers\":[";
+    first = true;
+    for (const auto& fo : r.outliers) {
+        if (!first) o += ',';
+        first = false;
+        o += "{\"collection\":" + detail::writeJsonString(fo.collection) + ",\"field\":" +
+             detail::writeJsonString(fo.field) + ",\"count\":" + std::to_string(fo.count) +
+             ",\"mean\":" + num(fo.mean) + ",\"stddev\":" + num(fo.stddev) +
+             ",\"q1\":" + num(fo.q1) + ",\"median\":" + num(fo.median) + ",\"q3\":" + num(fo.q3) +
+             ",\"outliers\":" + std::to_string(fo.outliers) + ",\"rate\":" + num(fo.outlierRate) +
+             ",\"method\":" + detail::writeJsonString(fo.method) + ",\"values\":[";
+        bool fv = true;
+        for (const auto& v : fo.values) {
+            if (!fv) o += ',';
+            fv = false;
+            o += detail::writeJson(v);
+        }
+        o += "]}";
+    }
     o += "]}";
     return o;
 }
@@ -1134,11 +1289,14 @@ std::string toJson(const AnalysisReport& r) {
 void printSummary(const AnalysisReport& r, std::ostream& os) {
     os << "InMemDB Analyse: " << r.totalCollections << " Collections, " << r.totalDocs << " Dokumente, Health "
        << num(r.healthScore) << "/100 " << ampel(r.healthScore) << "\n";
+    std::size_t outl = 0;
+    for (const auto& fo : r.outliers)
+        outl += fo.outliers;
     os << "  Relationen: " << r.relations.size() << ", Orphans: ";
     std::size_t orph = 0;
     for (const auto& o : r.orphans)
         orph += o.orphans;
-    os << orph << ", Merge-Vorschläge: " << r.mergeSuggestions.size() << "\n";
+    os << orph << ", Merge-Vorschläge: " << r.mergeSuggestions.size() << ", Outliers: " << outl << "\n";
     for (const auto& rel : r.relations) {
         if (rel.kind == RelationKind::ForeignKey)
             os << "  FK  " << rel.fromCollection << "." << rel.field << " -> " << rel.toCollection << "."

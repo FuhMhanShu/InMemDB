@@ -1,4 +1,4 @@
-# Discovery-Guide: Beziehungen & Abhängigkeiten automatisch finden (FA-27, v0.29–v0.33)
+# Discovery-Guide: Beziehungen & Abhängigkeiten automatisch finden (FA-27, v0.29–v0.40)
 
 | Feld | Wert |
 |---|---|
@@ -6,7 +6,7 @@
 | Abhängigkeiten | **keine** – nur InMemDB selbst + C++17 (NFA-06) |
 | Wirkt auf | read-only; verändert keine Daten (außer `applyDiscovered`, das gezielt Referenzen anlegt) |
 | Umfang | collection- **und database-übergreifend** |
-| API-Referenz | [docs/discovery.md](discovery.md) · Tests: `tests/test_discovery*.cpp` (98 Checks) |
+| API-Referenz | [docs/discovery.md](discovery.md) · Tests: `tests/test_discovery*.cpp` (124 Checks) |
 
 Dieser Guide erklärt **jede Methode des Discovery-Moduls verständlich mit Beispielen**.
 Die API-Referenz mit allen Signaturen findest du in [docs/discovery.md](discovery.md).
@@ -23,10 +23,11 @@ sie müssen erst **erkannt** werden. Das Discovery-Modul untersucht die vorhande
 - **Funktionale Abhängigkeiten** innerhalb einer Collection (welches Feld bestimmt welches andere?)
 - **Korrelationen** zwischen Feldern (steigen zwei Zahlen together? hängt ein Status von einem anderen Feld ab?)
 - **Near-Duplicates** (fast gleiche Texte, z. B. Tippfehler – auch über Collections hinweg)
+- **Ausreißer** in numerischen Feldern (z-Score + IQR/Tukey-Fence, v0.40) – und als Faktor im Health-Score
 - **Orphans** (Verweise, die ins Leere zeigen – Integritätsprüfung)
 - **Candidate Keys** (welche Feldkombination identifiziert ein Dokument eindeutig?)
 - **Diffs & Merge-Vorschläge** (wie ähnlich sind zwei Collections/Databases?)
-- und fasst alledem in einem **Analyse-Report mit Health-Score** zusammen (`analyze()`, v0.33)
+- und fasst alledem in einem **Analyse-Report mit Health-Score** zusammen (`analyze()`, v0.33, inkl. Ausreißer ab v0.40)
 
 Alles arbeitet auf einer internen Momentaufnahme („Scan“) pro Collection: Feldnamen plus
 pro Feld die Menge der distinct Werte und die Anzahl der Dokumente mit dem Feld. Bei
@@ -247,27 +248,32 @@ Schema-Ähnlichkeit. CLI: `--suggest-merges`.
 | `orphans` | `findOrphansForRelations` (v0.30) |
 | `mergeSuggestions` | `suggestMerges` (v0.32) |
 | `paths` | wichtigste Multi-Hop-FK-Pfade (max. 20) |
+| `outliers` | Ausreißer pro numerischem Feld via `discoverOutliers` (v0.40) |
 | `totalCollections`, `totalDocs` | Summen |
 | `healthScore` | **0–100**, siehe 4.14 |
 
-### 4.14 Der Health-Score (v0.33)
+### 4.14 Der Health-Score (v0.33, Gewichte ab v0.40)
 
-`healthScore = 100 · (0.35·Integrität + 0.20·Redundanz + 0.25·Struktur + 0.20·Typ-Konsistenz)`
+`healthScore = 100 · (0.30·Integrität + 0.15·Redundanz + 0.20·Struktur + 0.20·Typ-Konsistenz + 0.15·Ausreißer)`
+
+(v0.33–v0.39: `100 · (0.35·Integrität + 0.20·Redundanz + 0.25·Struktur + 0.20·Typ-Konsistenz)` –
+v0.40 hat den Ausreißer-Faktor ergänzt und die Gewichte entsprechend renormiert.)
 
 | Komponente | Bedeutung | Berechnung |
 |---|---|---|
-| Integrität (0.35) | Verweise ins Leere | `1 − Orphan-Rate` (Orphans / geprüfte Quellwerte; ohne Orphans = 1.0) |
-| Redundanz (0.20) | doppelte Datensätze | `1 − Near-Duplicate-Rate` (Near-Dupes / Dokumente) |
-| Struktur (0.25) | verknüpfte Collections | Anteil der Collections in mind. einer FK-Beziehung; **ohne FKs neutral 1.0** (fehlende Beziehungen sind kein Mangel) |
+| Integrität (0.30) | Verweise ins Leere | `1 − Orphan-Rate` (Orphans / geprüfte Quellwerte; ohne Orphans = 1.0) |
+| Redundanz (0.15) | doppelte Datensätze | `1 − Near-Duplicate-Rate` (Near-Dupes / Dokumente) |
+| Struktur (0.20) | verknüpfte Collections | Anteil der Collections in mind. einer FK-Beziehung; **ohne FKs neutral 1.0** (fehlende Beziehungen sind kein Mangel) |
 | Typ-Konsistenz (0.20) | unsaubere Felder | mittlerer Anteil des dominanten Typs pro Feld (z. B. 90 % Int + 10 % String → 0.9) |
+| Ausreißer (0.15) | statistische Ausreißer | `1 − min(1, Outlier-Rate)` über alle numerischen Werte (siehe 4.16); **ohne numerische Werte neutral 1.0** |
 
 Ampel: 🟢 ≥ 80 · 🟡 ≥ 50 · 🔴 < 50.
 
-<img src="images/discovery-health-score.svg" alt="Health-Score-Gauge 93.5/100 grün" width="360">
+<img src="images/discovery-health-score.svg" alt="Health-Score-Gauge grün" width="360">
 
-**Beispiel (Shop):** 1 Orphan bei 3 gescannten `user_id`-Werten → Integrität 0.67;
-keine Dupes, alle 4 Collections in FK-Beziehungen, alle Felder typ-rein →
-**Health ≈ 93.5 🟢** (reale Ausgabe: `Health 93.5185185185185/100 🟢`).
+**Beispiel (Shop):** 1 Orphan bei 3 gescannten `user_id`-Werten → Integrität 0.667;
+keine Dupes, alle 4 Collections in FK-Beziehungen, alle Felder typ-rein, keine
+Ausreißer → **Health = 100·(0.30·0.667 + 0.15 + 0.20 + 0.20 + 0.15) = 85.0 🟢**.
 
 ### 4.15 Präsentation des Reports: `toJson` / `toMarkdown` / `toMermaid` / `printSummary` (v0.33)
 
@@ -281,8 +287,8 @@ keine Dupes, alle 4 Collections in FK-Beziehungen, alle Felder typ-rein →
 Reale Konsolen-Ausgabe für den Shop:
 
 ```
-InMemDB Analyse: 4 Collections, 12 Dokumente, Health 93.5185185185185/100 🟢
-  Relationen: 37, Orphans: 5, Merge-Vorschläge: 0
+InMemDB Analyse: 4 Collections, 12 Dokumente, Health 85/100 🟢
+  Relationen: 37, Orphans: 5, Merge-Vorschläge: 0, Outliers: 0
   FK  order_items.order_id -> orders.id (conf=1, n:1)
   FK  order_items.product_id -> products.id (conf=1, 1:1)
   FK  orders.user_id -> users.id (conf=0.666…, 1:1)
@@ -291,6 +297,50 @@ InMemDB Analyse: 4 Collections, 12 Dokumente, Health 93.5185185185185/100 🟢
 CLI schreibt alle drei Dateien auf einmal:
 `inmemdb_discover shop.inmemdb.json --report analyse` →
 `analyse.report.md` + `analyse.relations.json` + `analyse.graph.mmd`.
+
+### 4.16 Ausreißer-Erkennung: `discoverOutliers(coll | colls | db, opts)` (v0.40)
+
+**Was:** Pro numerischem Feld (Int/Double) werden statistische Ausreißer erkannt –
+kombiniert aus **z-Score** (|z| > `outlierZ`, Default 3.0) und **IQR/Tukey-Fence**
+(Wert außerhalb `[Q1 − k·IQR, Q3 + k·IQR]`, `k = outlierIqrK`, Default 1.5).
+Quantile per linearer Interpolation. Ein Feld wird nur geprüft, wenn es mindestens
+`minOutlierSamples` (Default 8) numerische Werte hat (bei kleinen Datenmengen senken);
+Sampling via `sampleSize`/`seed` wird respektiert. Read-only, auch cross-database.
+
+```cpp
+memdb::DiscoveryOptions opts;
+opts.minOutlierSamples = 4;                 // kleine Testdaten
+auto outs = memdb::discoverOutliers(db, opts);        // Database& oder vector<Collection>
+for (const auto& f : outs)                   // f = FieldOutliers
+    std::cout << f.collection << "." << f.field << ": " << f.outliers << "/" << f.count
+              << " (" << f.method << ")\n";           // method: "z-score" / "IQR" / "z-score+IQR"
+```
+
+`FieldOutliers` liefert: `count`, `mean`, `stddev`, `q1`, `median`, `q3`, `iqr`,
+`outliers` (Anzahl), `outlierRate`, `method` und bis zu 100 Beispielwerte (`values`).
+Nur Felder **mit mindestens einem Ausreißer** erscheinen im Ergebnis.
+
+**Integration in `analyze()`:** `AnalysisReport::outliers` enthält die Befunde; sie
+fließen als fünfter Faktor (Gewicht 0.15) in den Health-Score ein
+(`1 − min(1, Outlier-Rate)` über alle numerischen Werte; ohne numerische Werte neutral 1.0)
+und erscheinen in allen vier Präsentationen: JSON (`"outliers":[...]`), Markdown
+(eigene Sektion „Ausreißer"), `printSummary` (`Outliers: N`) und als Empfehlung.
+
+**Reale Konsolen-Ausgabe** (`inmemdb_discover shop.json --outliers`, 9 Produkte,
+davon `price = 999.0` als Fehlerpreis):
+
+```
+{"outliers":[{"from":"products.price","count":9,"outliers":1,"rate":0.111111,"method":"IQR"}]}
+```
+
+```
+InMemDB Analyse: 1 Collections, 9 Dokumente, Health 98.33333333333331/100 🟢
+  Relationen: 6, Orphans: 0, Merge-Vorschläge: 0, Outliers: 1
+```
+
+**CLI:** `inmemdb_discover a.json --outliers` gibt den Outlier-Report als JSON auf
+stdout aus (zusätzlich zum normalen Relationen-Report); `--report <prefix>`
+integriert die Ausreißer in `.report.md` / `.relations.json`.
 
 ---
 
@@ -307,6 +357,9 @@ CLI schreibt alle drei Dateien auf einmal:
 | `maxFieldsPerCollection` | 64 | Schutz gegen sehr breite Collections |
 | `maxValuesPerField` | 2000 | Schutz fürs Fuzzy-Matching (Werte pro Feld) |
 | `minSchemaSimilarity` | 0.6 | Mindest-Jaccard für Merge-Vorschläge (v0.32) |
+| `outlierZ` | 3.0 | z-Score-Schwelle für Ausreißer (v0.40) |
+| `outlierIqrK` | 1.5 | Tukey-Faktor k für die IQR-Fence (v0.40) |
+| `minOutlierSamples` | 8 | Mindestanzahl numerischer Werte pro Feld, bevor geprüft wird (v0.40) |
 
 ---
 
@@ -323,6 +376,7 @@ inmemdb_discover <datei1> [datei2 ...] [Optionen]
 | `--sample N` / `--seed N` | reproduktives Sampling |
 | `--mermaid` | Mermaid-Graph statt JSON auf stdout |
 | `--orphans` | zusätzlicher Orphan-Report (JSON) |
+| `--outliers` | zusätzlicher Ausreißer-Report (JSON, v0.40) |
 | `--path A B` | FK-Pfade von Collection A nach B |
 | `--diff` | (bei ≥ 2 Dateien) `diffDatabases` als JSON |
 | `--suggest-merges` | Merge-Vorschläge als JSON |
@@ -363,4 +417,4 @@ Mehrere Dateien = **database-übergreifende** Analyse über alle Collections all
 - Referenzen & Joins (FA-18): [docs/references.md](references.md)
 - Merge von Collections (FA-24): [docs/merge-collections.md](merge-collections.md)
 - Tests: `tests/test_discovery.cpp` (21), `test_discovery2.cpp` (17), `test_discovery3.cpp`
-  (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23) – insg. 98 Checks
+  (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23), `test_discovery6.cpp` (26, v0.40) – insg. 124 Checks

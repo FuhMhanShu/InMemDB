@@ -1,7 +1,7 @@
 // CLI: inmemdb_discover – Relationship-Discovery (v0.29)
 // Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X]
 //          [--min-confidence X] [--min-correlation X] [--sample N] [--seed N]
-//          [--mermaid] [--orphans] [--path A B] [--diff] [--suggest-merges]
+//          [--mermaid] [--orphans] [--outliers] [--path A B] [--diff] [--suggest-merges]
 //          [--report <prefix>] [--apply] [--out <datei>]
 // Mehrere Dateien = database-übergreifende Analyse (Report über alle Collections).
 // --apply: FK-Befunde (confidence >= --min-confidence) pro Database als FA-18-Referenzen
@@ -25,7 +25,7 @@ static int run(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X] "
                      "[--min-confidence X] [--min-correlation X] [--min-similarity X] [--sample N] [--seed N] "
-                     "[--mermaid] [--orphans] [--path A B] [--diff] [--suggest-merges] [--report <prefix>] "
+                     "[--mermaid] [--orphans] [--outliers] [--path A B] [--diff] [--suggest-merges] [--report <prefix>] "
                      "[--apply] [--out <datei>]\n"
                      "  Dateien: .inmemdb.json / .json-Snapshot (plain) bzw. verschlüsselt mit --password\n"
                      "  --report <prefix>: Gesamtanalyse (v0.33) -> <prefix>.report.md / .relations.json / .graph.mmd + Summary\n";
@@ -34,7 +34,7 @@ static int run(int argc, char** argv) {
     std::vector<std::string> files;
     std::string password, out;
     memdb::DiscoveryOptions opts;
-    bool mermaid = false, apply = false, orphans = false, diffMode = false, suggestMerges = false;
+    bool mermaid = false, apply = false, orphans = false, diffMode = false, suggestMerges = false, outliers = false;
     std::string reportPrefix;
     std::string pathFrom, pathTo;
     double applyMinConf = 0.9;
@@ -58,6 +58,7 @@ static int run(int argc, char** argv) {
         else if (a == "--seed") opts.seed = std::stoull(next());
         else if (a == "--mermaid") mermaid = true;
         else if (a == "--orphans") orphans = true;
+        else if (a == "--outliers") outliers = true; // v0.40
         else if (a == "--diff") diffMode = true;
         else if (a == "--suggest-merges") suggestMerges = true;
         else if (a == "--report") reportPrefix = next();
@@ -113,6 +114,20 @@ static int run(int argc, char** argv) {
             f2 = false;
             oj += "{\"from\":\"" + r.fromCollection + "." + r.field + "\",\"to\":\"" + r.toCollection + "." + r.toField +
                   "\",\"scanned\":" + std::to_string(r.scanned) + ",\"orphans\":" + std::to_string(r.orphans) + "}";
+        }
+        oj += "]}";
+        std::cout << oj << "\n";
+    }
+    if (outliers) { // v0.40: Ausreißer pro numerischem Feld (z-Score + IQR)
+        auto outs = memdb::discoverOutliers(allColls, opts);
+        std::string oj = "{\"outliers\":[";
+        bool fo = true;
+        for (const auto& f : outs) {
+            if (!fo) oj += ',';
+            fo = false;
+            oj += "{\"from\":\"" + f.collection + "." + f.field + "\",\"count\":" + std::to_string(f.count) +
+                  ",\"outliers\":" + std::to_string(f.outliers) + ",\"rate\":" + std::to_string(f.outlierRate) +
+                  ",\"method\":\"" + f.method + "\"}";
         }
         oj += "]}";
         std::cout << oj << "\n";

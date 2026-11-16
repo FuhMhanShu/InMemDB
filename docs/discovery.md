@@ -52,6 +52,9 @@ memdb::printSummary(rep, std::cout);
 std::ofstream("analyse.md")   << memdb::toMarkdown(rep);
 std::ofstream("analyse.json") << memdb::toJson(rep);
 std::ofstream("graph.mmd")    << memdb::toMermaid(rep);
+// 12) v0.40: Ausreißer-Erkennung (z-Score + IQR) pro numerischem Feld, auch cross-database
+auto outs = memdb::discoverOutliers(db, opts);   // oder discoverOutliers(coll, opts) / ({c1, c2}, opts)
+// outs fließen in analyze() ein: AnalysisReport::outliers + Health-Score-Faktor (Gewichte 0.30/0.15/0.20/0.20/0.15)
 ```
 
 Details, Semantik und Beispiele zu jedem Schritt: [discovery-guide.md](discovery-guide.md).
@@ -83,6 +86,7 @@ inmemdb_discover shop1.inmemdb.json shop2.inmemdb.json          # cross-database
 inmemdb_discover shop.enc --password geheim --mermaid           # verschlüsselt, Mermaid-Ausgabe
 inmemdb_discover a.json b.json --min-support 0.9 --sample 10000 --seed 7
 inmemdb_discover a.json --orphans                               # Orphan-Report (v0.30)
+inmemdb_discover a.json --outliers                              # Ausreißer-Report (v0.40, z-Score + IQR)
 inmemdb_discover a.json --path order_items users                # FK-Pfade A -> B (v0.30)
 inmemdb_discover a.json b.json --diff                           # diffDatabases (v0.32)
 inmemdb_discover a.json --suggest-merges                        # Merge-Vorschläge (v0.32)
@@ -92,8 +96,8 @@ inmemdb_discover a.json --apply --out report.json
 ```
 
 Alle Optionen: `--password`, `--min-support`, `--min-confidence`, `--min-correlation`,
-`--min-similarity`, `--sample`, `--seed`, `--mermaid`, `--orphans`, `--path A B`,
-`--diff`, `--suggest-merges`, `--report <prefix>`, `--apply`, `--out <datei>`.
+`--min-similarity`, `--sample`, `--seed`, `--mermaid`, `--orphans`, `--outliers`,
+`--path A B`, `--diff`, `--suggest-merges`, `--report <prefix>`, `--apply`, `--out <datei>`.
 Details und Beispiele: [discovery-guide.md](discovery-guide.md) §6.
 
 ## Tests
@@ -106,8 +110,11 @@ Details und Beispiele: [discovery-guide.md](discovery-guide.md) §6.
 - `tests/test_discovery4.cpp` (19 Checks, v0.32): `diffCollections`/`diffDatabases`, `suggestMerges`
 - `tests/test_discovery5.cpp` (23 Checks, v0.33): `analyze` + `AnalysisReport`, alle vier
   Präsentationen (JSON/Markdown/Mermaid/Konsole), Health-Score (saubere DB > DB mit Orphan)
+- `tests/test_discovery6.cpp` (26 Checks, v0.40): `discoverOutliers` (z-Score + IQR, Schwellen,
+  minOutlierSamples, cross-database), Integration in `analyze()` (Report-Feld `outliers`,
+  Health-Score sinkt mit Ausreißer), alle vier Präsentationen
 
-Insgesamt 98 Discovery-Checks.
+Insgesamt 124 Discovery-Checks.
 
 ## Erweiterungen v0.30
 
@@ -148,8 +155,10 @@ auch database-übergreifend (`analyze(std::vector<Collection>, opts)` oder `anal
 - **Health-Score 0–100** mit Ampel 🟢(≥80)/🟡(≥50)/🔴(<50): gewichtete Mischung aus
   Integrität (1 − Orphan-Rate), Redundanz (1 − Near-Duplicate-Rate), Struktur
   (Anteil der Collections in mind. einer FK-Beziehung; ohne FKs neutral 1.0 –
-  fehlende Beziehungen sind kein Mangel) und Typ-Konsistenz (mittlerer Anteil des
-  dominanten Typs pro Feld). Gewichte: 0.35 / 0.20 / 0.25 / 0.20.
+  fehlende Beziehungen sind kein Mangel), Typ-Konsistenz (mittlerer Anteil des
+  dominanten Typs pro Feld) und ab **v0.40** Ausreißer (1 − Outlier-Rate über alle
+  numerischen Werte; ohne numerische Werte neutral 1.0).
+  Gewichte ab v0.40: 0.30 / 0.15 / 0.20 / 0.20 / 0.15 (v0.33–v0.39: 0.35 / 0.20 / 0.25 / 0.20).
 
 Präsentation des Reports in vier Formen:
 
@@ -173,3 +182,30 @@ CLI: `inmemdb_discover a.json b.json --report analyse` schreibt `analyse.report.
 
 Tests: `tests/test_discovery5.cpp` (23 Checks): Report-Struktur, alle vier Präsentationen,
 cross-database-`analyze`, Health-Score (saubere DB ohne Orphans scored höher als DB mit Orphan).
+
+## Erweiterung v0.40: Ausreißer-Erkennung (Outliers)
+
+`discoverOutliers(const Collection&, opts)` bzw. `discoverOutliers(const std::vector<Collection>&, opts)`
+(und damit auch `analyze(Database&, opts)`) erkennen statistische Ausreißer pro **numerischem Feld**:
+
+- Ein Durchgang pro Collection sammelt die numerischen Werte jedes Feldes (Sampling via
+  `sampleSize`/`seed` wird respektiert, Feld-Cap `maxFieldsPerCollection`).
+- Prüfung nur, wenn das Feld mindestens `minOutlierSamples` (Default 8) numerische Werte hat.
+- **z-Score:** Wert ist Ausreißer, wenn `|x − mean| / stddev > outlierZ` (Default 3.0).
+- **IQR/Tukey-Fence:** Wert ist Ausreißer, wenn er außerhalb `[Q1 − outlierIqrK·IQR, Q3 + outlierIqrK·IQR]`
+  liegt (`outlierIqrK` Default 1.5; Quantile per linearer Interpolation).
+- Ergebnis `FieldOutliers{collection, field, count, mean, stddev, q1, median, q3, iqr,
+  outliers, outlierRate, method, values (max. 100 Beispiele)}` – nur Felder mit
+  mindestens einem Ausreißer werden gemeldet; `method` = `"z-score"` / `"IQR"` / `"z-score+IQR"`.
+- **Health-Score:** `AnalysisReport::outliers` wird von `analyze()` gefüllt; neuer Faktor
+  Ausreißer mit Gewicht 0.15 (`1 − min(1, Outlier-Rate)` über alle numerischen Werte,
+  neutral 1.0 ohne numerische Werte). Gewichte ab v0.40: 0.30 / 0.15 / 0.20 / 0.20 / 0.15.
+- Präsentationen: JSON (`"outliers":[{...}]` inkl. Quantilen + Beispielwerten),
+  Markdown (eigene Sektion „Ausreißer (Outliers, z-Score + IQR)" + Empfehlung),
+  `printSummary` (`..., Outliers: N`).
+- CLI: `inmemdb_discover a.json --outliers` (Outlier-Report als JSON) und
+  `--report <prefix>` (integriert).
+
+Tests: `tests/test_discovery6.cpp` (26 Checks): Erkennung eines klaren Ausreißers,
+sauberes Feld, Schwellen konfigurierbar, minOutlierSamples, cross-database,
+`analyze()`-Integration (Health-Score sinkt, alle vier Präsentationen).

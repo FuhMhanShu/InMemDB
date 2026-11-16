@@ -50,6 +50,10 @@ struct DiscoveryOptions {
     std::size_t maxFieldsPerCollection = 64; ///< Schutz gegen sehr breite Collections
     std::size_t maxValuesPerField = 2000;    ///< Schutz für Fuzzy-Matching (Werte pro Feld)
     double minSchemaSimilarity = 0.6;         ///< v0.32: Mindest-Jaccard für Merge-Vorschläge
+
+    double outlierZ = 3.0;              ///< v0.40: |z| > outlierZ gilt als Ausreißer (z-Score)
+    double outlierIqrK = 1.5;           ///< v0.40: Tukey-Fence Q1-k*IQR / Q3+k*IQR
+    std::size_t minOutlierSamples = 8;  ///< v0.40: Felder mit weniger numerischen Werten werden uebersprungen
 };
 
 /// @brief Fremdschlüssel-Kandidaten per Werte-Überlappung – **collection- und
@@ -183,6 +187,26 @@ struct MergeSuggestion {
 std::vector<MergeSuggestion> suggestMerges(const std::vector<Collection>& colls,
                                             const DiscoveryOptions& opts = {});
 
+/// @brief Ausreißer-Befund pro numerischem Feld (v0.40): z-Score (|z| > outlierZ) und/oder
+/// IQR/Tukey-Fence (außerhalb Q1-k*IQR .. Q3+k*IQR). Nur numerische Felder mit mind.
+/// `minOutlierSamples` Werten. Read-only.
+struct FieldOutliers {
+    std::string collection, field;
+    std::size_t count = 0;                    ///< untersuchte numerische Werte
+    double mean = 0.0, stddev = 0.0;          ///< fuer z-Score
+    double q1 = 0.0, median = 0.0, q3 = 0.0, iqr = 0.0; ///< IQR (Quantile per linearer Interpolation)
+    std::size_t outliers = 0;
+    double outlierRate = 0.0;                 ///< outliers / count
+    std::string method;                       ///< "z-score" / "IQR" / "z-score+IQR"
+    std::vector<Value> values;                ///< die Ausreißer-Werte (gedeckelt auf 100)
+};
+
+/// @brief Ausreißer-Erkennung pro numerischem Feld (v0.40), eine Collection.
+std::vector<FieldOutliers> discoverOutliers(const Collection& c, const DiscoveryOptions& opts = {});
+/// @brief Wie oben, fuer beliebige Collections (auch database-übergreifend).
+std::vector<FieldOutliers> discoverOutliers(const std::vector<Collection>& colls,
+                                            const DiscoveryOptions& opts = {});
+
 /// @brief Gesamtergebnis einer automatischen Analyse (v0.33).
 struct AnalysisReport {
     std::vector<CollectionProfile> profiles;         ///< Datenprofil pro Collection
@@ -190,6 +214,7 @@ struct AnalysisReport {
     std::vector<OrphanReport> orphans;               ///< Integritäts-Checks (FK-Orphans)
     std::vector<MergeSuggestion> mergeSuggestions;   ///< Merge-Kandidaten (v0.32)
     std::vector<std::vector<DiscoveredRelation>> paths; ///< wichtigste Multi-Hop-FK-Pfade
+    std::vector<FieldOutliers> outliers;             ///< v0.40: Ausreißer pro numerischem Feld
     std::size_t totalCollections = 0;
     std::size_t totalDocs = 0;
     double healthScore = 0.0;                        ///< 0..100 (v0.33, Ampel: >=80 gruen, >=50 gelb)
