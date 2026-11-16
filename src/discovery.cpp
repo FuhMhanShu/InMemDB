@@ -732,6 +732,166 @@ std::vector<std::vector<std::string>> discoverCandidateKeys(const Collection& c,
     return keys;
 }
 
+namespace {
+double jaccard(const std::set<std::string>& a, const std::set<std::string>& b) {
+    if (a.empty() && b.empty())
+        return 1.0;
+    std::size_t inter = 0;
+    for (const auto& x : a)
+        if (b.count(x))
+            ++inter;
+    return static_cast<double>(inter) / (a.size() + b.size() - inter);
+}
+} // namespace
+
+CollectionDiff diffCollections(const Collection& a, const Collection& b, const DiscoveryOptions& opts) {
+    CollectionScan sa = scanCollection(a, opts);
+    CollectionScan sb = scanCollection(b, opts);
+    CollectionDiff d;
+    d.name = a.name() == b.name() ? a.name() : a.name() + " vs " + b.name();
+    d.docCountA = sa.docCount;
+    d.docCountB = sb.docCount;
+    std::set<std::string> fa(sa.fields.begin(), sa.fields.end());
+    std::set<std::string> fb(sb.fields.begin(), sb.fields.end());
+    for (const auto& f : fa) {
+        if (fb.count(f))
+            d.commonFields.push_back(f);
+        else
+            d.fieldsOnlyInA.push_back(f);
+    }
+    for (const auto& f : fb)
+        if (!fa.count(f))
+            d.fieldsOnlyInB.push_back(f);
+    d.fieldSimilarity = jaccard(fa, fb);
+    for (const auto& f : d.commonFields) {
+        const auto& va = sa.byField.at(f).values;
+        const auto& vb = sb.byField.at(f).values;
+        if (va.empty())
+            continue;
+        std::size_t inter = 0;
+        for (const auto& v : va)
+            if (vb.count(v))
+                ++inter;
+        d.valueOverlap[f] = static_cast<double>(inter) / va.size();
+    }
+    return d;
+}
+
+DatabaseDiff diffDatabases(const Database& a, const Database& b, const DiscoveryOptions& opts) {
+    DatabaseDiff d;
+    auto na = a.collectionNames();
+    auto nb = b.collectionNames();
+    std::set<std::string> sa, sb;
+    for (const auto& n : na)
+        if (n != "__references")
+            sa.insert(n);
+    for (const auto& n : nb)
+        if (n != "__references")
+            sb.insert(n);
+    for (const auto& n : sa)
+        if (!sb.count(n))
+            d.collectionsOnlyInA.push_back(n);
+    for (const auto& n : sb)
+        if (!sa.count(n))
+            d.collectionsOnlyInB.push_back(n);
+    for (const auto& n : sa) {
+        if (!sb.count(n))
+            continue;
+        CollectionDiff cd = diffCollections(a.collection(n), b.collection(n), opts);
+        cd.name = n;
+        d.common.push_back(std::move(cd));
+    }
+    return d;
+}
+
+std::string toJson(const DatabaseDiff& d) {
+    std::string out = "{\"onlyInA\":[";
+    for (std::size_t i = 0; i < d.collectionsOnlyInA.size(); ++i) {
+        if (i) out += ',';
+        out += detail::writeJsonString(d.collectionsOnlyInA[i]);
+    }
+    out += "],\"onlyInB\":[";
+    for (std::size_t i = 0; i < d.collectionsOnlyInB.size(); ++i) {
+        if (i) out += ',';
+        out += detail::writeJsonString(d.collectionsOnlyInB[i]);
+    }
+    out += "],\"common\":[";
+    bool first = true;
+    for (const auto& c : d.common) {
+        if (!first) out += ',';
+        first = false;
+        out += "{\"name\":" + detail::writeJsonString(c.name) + ",\"docsA\":" + std::to_string(c.docCountA) +
+               ",\"docsB\":" + std::to_string(c.docCountB) + ",\"fieldSimilarity\":" + num(c.fieldSimilarity) +
+               ",\"fieldsOnlyInA\":[";
+        for (std::size_t i = 0; i < c.fieldsOnlyInA.size(); ++i) {
+            if (i) out += ',';
+            out += detail::writeJsonString(c.fieldsOnlyInA[i]);
+        }
+        out += "],\"fieldsOnlyInB\":[";
+        for (std::size_t i = 0; i < c.fieldsOnlyInB.size(); ++i) {
+            if (i) out += ',';
+            out += detail::writeJsonString(c.fieldsOnlyInB[i]);
+        }
+        out += "],\"valueOverlap\":{";
+        bool fo = true;
+        for (const auto& [f, ov] : c.valueOverlap) {
+            if (!fo) out += ',';
+            fo = false;
+            out += detail::writeJsonString(f) + ":" + num(ov);
+        }
+        out += "}}";
+    }
+    out += "]}";
+    return out;
+}
+
+std::vector<MergeSuggestion> suggestMerges(const std::vector<Collection>& colls, const DiscoveryOptions& opts) {
+    std::vector<MergeSuggestion> out;
+    std::vector<CollectionScan> scans;
+    for (const auto& c : colls)
+        scans.push_back(scanCollection(c, opts));
+    for (std::size_t i = 0; i < scans.size(); ++i) {
+        for (std::size_t j = i + 1; j < scans.size(); ++j) {
+            const auto& A = scans[i];
+            const auto& B = scans[j];
+            std::set<std::string> fa(A.fields.begin(), A.fields.end());
+            std::set<std::string> fb(B.fields.begin(), B.fields.end());
+            const double sim = jaccard(fa, fb);
+            if (sim < opts.minSchemaSimilarity)
+                continue;
+            MergeSuggestion s;
+            s.collectionA = A.name;
+            s.collectionB = B.name;
+            s.schemaSimilarity = sim;
+            // beste Werte-Überlappung über gemeinsame Felder (id-artige bevorzugt)
+            for (const auto& f : fa) {
+                if (!fb.count(f))
+                    continue;
+                const auto& va = A.byField.at(f).values;
+                const auto& vb = B.byField.at(f).values;
+                if (va.empty())
+                    continue;
+                std::size_t inter = 0;
+                for (const auto& v : va)
+                    if (vb.count(v))
+                        ++inter;
+                double ov = static_cast<double>(inter) / va.size();
+                if (nameHeuristic(f) || targetHeuristic(f))
+                    ov = std::min(1.0, ov + 0.1); // id-artige Felder boosten
+                if (ov > s.valueOverlap) {
+                    s.valueOverlap = ov;
+                    s.commonField = f;
+                }
+            }
+            s.note = "merge via Database::mergeCollections(\"" + A.name + "\", {…}, opts)";
+            out.push_back(std::move(s));
+        }
+    }
+    std::sort(out.begin(), out.end(),
+              [](const MergeSuggestion& x, const MergeSuggestion& y) { return x.schemaSimilarity > y.schemaSimilarity; });
+    return out;
+}
+
 std::string toJson(const std::vector<DiscoveredRelation>& rels) {
     std::string out = "{\"relations\":[";
     bool first = true;

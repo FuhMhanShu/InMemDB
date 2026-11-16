@@ -48,6 +48,7 @@ struct DiscoveryOptions {
     std::uint64_t seed = 42;          ///< Seed fürs Sampling
     std::size_t maxFieldsPerCollection = 64; ///< Schutz gegen sehr breite Collections
     std::size_t maxValuesPerField = 2000;    ///< Schutz für Fuzzy-Matching (Werte pro Feld)
+    double minSchemaSimilarity = 0.6;         ///< v0.32: Mindest-Jaccard für Merge-Vorschläge
 };
 
 /// @brief Fremdschlüssel-Kandidaten per Werte-Überlappung – **collection- und
@@ -143,6 +144,43 @@ std::string toJson(const CollectionProfile& p);
 /// wenn keiner der beiden Einzelfelder schon Key ist). Ergebnis aufsteigend nach Größe.
 std::vector<std::vector<std::string>> discoverCandidateKeys(const Collection& c,
                                                             const DiscoveryOptions& opts = {});
+
+/// @brief Diff zweier Collections (v0.32): Feldmengen, Jaccard-Ähnlichkeit, Row-Counts,
+/// Werte-Überlappung pro gemeinsamem Feld.
+struct CollectionDiff {
+    std::string name;
+    bool onlyInA = false, onlyInB = false;
+    std::size_t docCountA = 0, docCountB = 0;
+    std::vector<std::string> fieldsOnlyInA, fieldsOnlyInB, commonFields;
+    double fieldSimilarity = 0.0;              ///< Jaccard über Feldnamen
+    std::map<std::string, double> valueOverlap; ///< pro gemeinsamem Feld: |A ∩ B| / |A|
+};
+
+/// @brief Diff zweier Databases (v0.32): gleiche Collection-Namen werden paarweise
+/// verglichen, Namen nur in A/B separat ausgewiesen (`__references` wird ignoriert).
+struct DatabaseDiff {
+    std::vector<std::string> collectionsOnlyInA, collectionsOnlyInB;
+    std::vector<CollectionDiff> common;
+};
+
+CollectionDiff diffCollections(const Collection& a, const Collection& b, const DiscoveryOptions& opts = {});
+DatabaseDiff diffDatabases(const Database& a, const Database& b, const DiscoveryOptions& opts = {});
+std::string toJson(const DatabaseDiff& d);
+
+/// @brief Merge-Vorschlag (v0.32): zwei Collections mit hoher Schema-Ähnlichkeit
+/// (Jaccard über Feldnamen) und Werte-Überlappung – direkter Kandidat für FA-24
+/// `Database::mergeCollections`.
+struct MergeSuggestion {
+    std::string collectionA, collectionB;
+    double schemaSimilarity = 0.0; ///< Jaccard der Feldnamen
+    double valueOverlap = 0.0;     ///< beste Werte-Überlappung eines gemeinsamen Feldes
+    std::string commonField;       ///< das Feld mit der besten Überlappung
+    std::string note;
+};
+
+/// @brief Paarweise Merge-Vorschläge über beliebige Collections (auch cross-database).
+std::vector<MergeSuggestion> suggestMerges(const std::vector<Collection>& colls,
+                                            const DiscoveryOptions& opts = {});
 
 /// @brief Report als JSON (v0.29; inkl. Kardinalität ab v0.30).
 std::string toJson(const std::vector<DiscoveredRelation>& rels);
