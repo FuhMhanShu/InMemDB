@@ -24,6 +24,7 @@
 #include "import_sqldump.hpp"
 #include "index.hpp"
 #include "metrics.hpp"
+#include "message_handler.hpp"
 #include "query.hpp"
 #include "query_dsl.hpp"
 #include "references.hpp"

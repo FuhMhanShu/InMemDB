@@ -5,7 +5,7 @@
 | Feld | Wert |
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
-| Version | 0.35 |
+| Version | 0.36 |
 | Status | fortgeschrieben; FA-01…FA-27 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
@@ -233,6 +233,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | v0.33 | Discovery: automatische Gesamtanalyse (`analyze()` → `AnalysisReport`: Profile + Relationen + Orphans + Merge-Vorschläge + Pfade) mit **Health-Score 0–100 (Ampel 🟢🟡🔴)** und vier Präsentationen (`toMarkdown`/`toJson`/`toMermaid`/`printSummary`), cross-database; CLI `inmemdb_discover --report <prefix>` schreibt `.report.md`/`.relations.json`/`.graph.mmd`; Doku: ausführlicher Guide `docs/discovery-guide.md` + Beispiel-Graphen (`docs/images/*.svg`) |
 | v0.34 | Mini-RegEx gehärtet: harte Limits (Pattern ≤ 4096 Zeichen, Verschachtelung ≤ 256, NFA ≤ 50000 Anweisungen, Match-Budget 100 Mio. Schritte) — pathologische Patterns werfen `std::invalid_argument`/`std::runtime_error` statt Segfault/Hang; `detail::Regex` (kompiliertes Pattern, thread-sicher) wird von `matches` einmalig pro Query genutzt; Fuzz-Test; `docs/query-dsl.md` dokumentiert Syntax, Full-Match-Semantik, Byte/UTF-8-Verhalten und Grenzen (keine Backrefs/Lookaround/`\b`) |
 | v0.35 | Exception-Policy (`docs/error-handling.md`): Query-Scan fängt Eval-Fehler pro Dokument ab (`metrics().evalErrors`, Dokument = Nicht-Treffer), Observer-Exceptions werden pro Callback abgefangen (`metrics().eventErrors`, Schreib-OP und restliche Observer laufen weiter), `loadJson`/`fromJson` validieren vor Mutation (bei kaputtem Element bleibt alles unverändert, kein Partial State), alle CLI-Tools fangen `std::exception` inkl. Options-Parsing (sauberer Exit-Code statt terminate); echte Fehler (Unique/Schema/Crypto/Datei) werfen weiterhin; Tests `tests/test_error_handling.cpp` (32 Checks) |
+| v0.36 | **MessageHandler-Singleton** (`include/memdb/message_handler.hpp` + `src/message_handler.cpp`): eigene Handler via `subscribe()`/`unsubscribe()`, Level-Filter (`setMinLevel`), thread-sicheres `publish()` (throwende Handler werden abgefangen, `handlerErrors()`), Zähler `count()/totalCount()`; die Abfang-Stellen der Exception-Policy v0.35 melden dorthin (`query-eval`, `observer`, `load`, `import`, `regex`, `cli`); CLI-Tools melden Fehler über den Handler (stderr-Abonnement); Tests `tests/test_message_handler.cpp` (30 Checks); Doku `docs/error-handling.md` |
 
 ---
 

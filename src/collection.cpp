@@ -1,4 +1,5 @@
 #include "memdb/collection.hpp"
+#include "memdb/message_handler.hpp"
 #include "memdb/exceptions.hpp"
 #include "memdb/query_dsl.hpp"
 
@@ -44,8 +45,12 @@ void fireEvents(const std::shared_ptr<detail::CollectionState>& state, const std
         for (const auto& cb : cbs) {
             try {
                 cb(e);
+            } catch (const std::exception& ex) {
+                ++errors;
+                MessageHandler::instance().error("observer", ex.what()); // v0.36
             } catch (...) {
                 ++errors;
+                MessageHandler::instance().error("observer", "unbekannter Fehler (keine std::exception)");
             }
         }
     if (errors)

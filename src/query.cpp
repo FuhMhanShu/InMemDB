@@ -5,6 +5,7 @@
 #include "memdb/references.hpp"
 
 #include "regex.hpp"
+#include "memdb/message_handler.hpp"
 
 #include <vector>
 
@@ -132,7 +133,8 @@ struct MatchesNode : ExprNode {
             return false;
         try {
             return re.match(l->asString());
-        } catch (const std::exception&) {
+        } catch (const std::exception& ex) {
+            MessageHandler::instance().error("regex", ex.what()); // v0.36: Match-Budget/Fehler melden
             return false; // ungueltiges/zu aufwaendiges Pattern -> kein Match (nie crashen)
         }
     }

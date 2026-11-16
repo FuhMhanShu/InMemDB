@@ -10,8 +10,14 @@
 #include <memdb/import.hpp>
 #include <memdb/import_csv.hpp>
 #include <memdb/memdb.hpp>
+#include <memdb/message_handler.hpp>
 
 static int run(int argc, char** argv) {
+    // v0.36: CLI-Meldungen laufen ueber den MessageHandler (stderr ab Warning)
+    memdb::MessageHandler::instance().subscribe([](const memdb::Message& m) {
+        if (static_cast<int>(m.level) >= static_cast<int>(memdb::MessageLevel::Warning))
+            std::cerr << "Fehler: " << m.text << "\n";
+    });
     if (argc == 2 && std::string(argv[1]) == "--list-sources") {
         std::cout << "registrierte Import-Quellen:\n";
         for (const auto& n : memdb::ImportRegistry::instance().sourceNames())
@@ -105,10 +111,10 @@ int main(int argc, char** argv) {
     try {
         return run(argc, argv);
     } catch (const memdb::Error& e) {
-        std::cerr << "Fehler: " << e.what() << "\n";
+        memdb::MessageHandler::instance().error("cli", e.what()); // v0.36: ueber MessageHandler (stderr-Handler)
         return 1;
     } catch (const std::exception& e) {
-        std::cerr << "Fehler: " << e.what() << "\n";
+        memdb::MessageHandler::instance().error("cli", e.what());
         return 1;
     }
 }

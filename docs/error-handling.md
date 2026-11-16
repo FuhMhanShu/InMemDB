@@ -2,7 +2,7 @@
 
 | Feld | Wert |
 |---|---|
-| Status | umgesetzt (v0.35) |
+| Status | umgesetzt (v0.35); MessageHandler v0.36 |
 | Bezug | NFA-05 (Zuverlässigkeit), FA-12/FA-15/FA-20, ADR-01/ADR-02 |
 
 Grundsatz: **Exceptions sind für echte Fehler da** (API-Missbrauch, Constraint-Verletzungen,
@@ -83,3 +83,36 @@ alle Observer laufen), throwende DSL-Funktion im Scan (kein Abbruch, `evalErrors
 `update` ohne Wirkung), ungültiges `matches`-Pattern wirft am Query-Bau, `loadJson`/`fromJson`
 bleiben bei kaputtem Element unverändert, echte Fehler (Unique/Schema/fehlende Collection/
 falsches Passwort) werfen weiterhin, `Expression::evaluate` bleibt throwend.
+
+---
+
+## Message-Handler (Singleton, v0.36)
+
+Zusätzlich zum Abfangen meldet jede geschützte Stelle ihre Fehler an den zentralen
+**`memdb::MessageHandler`** (Singleton, thread-safe, `include/memdb/message_handler.hpp`).
+Eigene Handler (Logging, UI, Monitoring, Tests) meldet man per `subscribe()` an:
+
+```cpp
+memdb::MessageHandler::instance().subscribe([](const memdb::Message& m) {
+    std::cerr << "[" << (int)m.level << "] " << m.source << ": " << m.text << "
+";
+});
+// Level: Debug/Info/Warning/Error; filtern via setMinLevel(MessageLevel::Warning)
+// Zaehler: count(level), totalCount(), handlerErrors() (throwende Handler werden selbst abgefangen)
+```
+
+| `source` | Wann gemeldet |
+|---|---|
+| `query-eval` | Eval-Fehler pro Dokument im Scan (Level Error; + `metrics().evalErrors`) |
+| `observer` | throwende Observer-Callback (Level Error; + `metrics().eventErrors`) |
+| `load` | Bulk-JSON-Load mit kaputtem Element (Level Error; `JsonError` wird **zusätzlich weiterhin geworfen**) |
+| `import` | Import-Skips (Schema-Typ-Mismatch, Referenz-Duplikat; Level Warning) |
+| `regex` | `matches`-Eval: ungültiges/zu aufwändiges Pattern oder Match-Budget (Level Error; Dokument = Nicht-Treffer) |
+| `cli` | CLI-Tools melden Fehler über den Handler (die Tools abonnieren selbst einen stderr-Drucker ab Warning) |
+
+Ohne angemeldete Handler werden Meldungen nur gezählt. `publish()` ist thread-safe, Handler
+laufen außerhalb des Locks; eine throwende Handler-Callback stört weder andere Handler noch
+den Aufrufer (`handlerErrors()`).
+
+Tests: `tests/test_message_handler.cpp` (30 Checks: subscribe/unsubscribe, Level-Filter,
+MT-Publish 4×1000, throwende Handler, Integration an observer/query-eval/load).
