@@ -3,6 +3,7 @@
 #include "document.hpp"
 #include "query.hpp"
 
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -82,6 +83,8 @@ public:
     void unregisterFunction(const std::string& name);
     bool hasFunction(const std::string& name) const;
     std::vector<std::string> functionNames() const;
+    /// @brief Aendert sich bei jedem register/unregister (Cache-Invalidierung fuer parseQuery).
+    std::uint64_t version() const;
 
     /// @brief Funktion aufrufen; wirft QueryError bei unbekanntem Namen.
     Expression call(const std::string& name, Expression fieldExpr,
@@ -94,6 +97,7 @@ private:
 
     mutable std::mutex mutex_;
     std::map<std::string, QueryFunction> fns_; ///< name (lowercase) -> Funktion
+    std::uint64_t version_ = 0;                ///< zaehlt register/unregister mit
 };
 
 } // namespace memdb

@@ -7,6 +7,9 @@
 #include <charconv>
 #include <cstdint>
 #include <limits>
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
 namespace memdb {
 
@@ -503,9 +506,31 @@ struct SetParser {
 
 } // namespace
 
+namespace {
+// Cache fuer geparste DSL-Queries (ohne DB-Kontext): parseQuery(dsl) in Schleifen
+// parst sonst jedes Mal neu. Begrenzt (clear bei voll), thread-safe; Registry-Version
+// im Key, damit (de)registrierte eigene Operatoren gecachte Queries nicht ueberleben.
+std::mutex g_parseCacheMtx;
+std::unordered_map<std::string, Expression> g_parseCache;
+constexpr std::size_t kParseCacheMax = 128;
+} // namespace
+
 Expression parseQuery(std::string_view dsl) {
+    const std::string key = std::string(dsl) + '\x01' + std::to_string(QueryFunctionRegistry::instance().version());
+    {
+        std::lock_guard<std::mutex> lock(g_parseCacheMtx);
+        if (auto it = g_parseCache.find(key); it != g_parseCache.end())
+            return it->second;
+    }
     Parser p(dsl, nullptr, {});
-    return p.parse();
+    Expression parsed = p.parse();
+    {
+        std::lock_guard<std::mutex> lock(g_parseCacheMtx);
+        if (g_parseCache.size() >= kParseCacheMax)
+            g_parseCache.clear();
+        g_parseCache.emplace(key, parsed);
+    }
+    return parsed;
 }
 
 Expression parseQuery(std::string_view dsl, Database* db, std::string_view collection) {
@@ -552,11 +577,18 @@ void QueryFunctionRegistry::registerFunction(std::string name, QueryFunction fn)
         throw QueryError("QueryFunctionRegistry::registerFunction: Name/Funktion leer");
     std::lock_guard<std::mutex> lk(mutex_);
     fns_[name] = std::move(fn);
+    ++version_;
 }
 
 void QueryFunctionRegistry::unregisterFunction(const std::string& name) {
     std::lock_guard<std::mutex> lk(mutex_);
     fns_.erase(toLower(name));
+    ++version_;
+}
+
+std::uint64_t QueryFunctionRegistry::version() const {
+    std::lock_guard<std::mutex> lk(mutex_);
+    return version_;
 }
 
 bool QueryFunctionRegistry::hasFunction(const std::string& name) const {
