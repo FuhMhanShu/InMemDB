@@ -78,6 +78,31 @@ wenn die Quelle keine Deklaration liefert – aus den Werten inferiert
 - **BSON** (`BsonImportSource`): mongodump-Dateien; double/string/document/array/
   binary (ObjectId → 12-Byte-Binary)/bool/datetime/int32/int64/regex/Code u. a.
 
+## Fremdschlüssel-Import als Referenzen (FA-26, v0.28)
+
+Quellen mit FK-Metadaten liefern diese jetzt mit: `TableInfo::foreignKeys`
+(`ForeignKeyInfo{column, refTable, refColumn, name}`).
+
+- **SQLite**: `PRAGMA foreign_key_list(tabelle)` (`to` = NULL → PK der Zieltabelle)
+- **SQL-Dump**: spalten-level `col ... REFERENCES t(c)` sowie table-level
+  `FOREIGN KEY (c) REFERENCES t(c)` und `CONSTRAINT name FOREIGN KEY ...`
+
+Beim `Importer::import` (Default `ImportOptions::importForeignKeys = true`) werden die
+FKs nach dem Laden als **FA-18-Referenzen** angelegt: pro Quell-Zeile wird der Wert von
+`column` gegen das Zielfeld der Zieltabelle gematcht (`refColumn`, sonst das `pk`-Feld,
+sonst die PK-Spalte) und `ReferenceIndex::link(..., relation)` gerufen – Relation-Name
+ist der Constraint-Name bzw. `fk_<column>`. Danach sind die Beziehungen join-beschleunigt
+(`joinIds`/`join`, `@relation`-DSL) und snapshot-fähig. Unaufösbare Werte/Ziele zählen
+in `ImportStats::skippedForeignKeys`, angelegte Referenzen in `importedReferences`.
+Abschaltbar mit `importForeignKeys=false` bzw. CLI `--no-foreign-keys`.
+
+```cpp
+memdb::ImportStats st = memdb::Importer::import(db, "sqlite", "shop.db");
+// st.importedReferences == angelegte FA-18-Referenzen
+memdb::ReferenceIndex refs(db);
+auto hits = refs.joinIds("orders", "fk_user_id", "users", memdb::Field("name") == "Ada");
+```
+
 ## SQLite-Mapping (`SqliteImportSource`, nur mit `INMEMDB_WITH_SQLITE=ON`)
 
 | SQLite | InMemDB |

@@ -148,6 +148,23 @@ std::vector<TableInfo> SqliteImportSource::tables() const {
             }
         }
         sqlite3_finalize(ist);
+
+        // v0.28: PRAGMA foreign_key_list – Spalten: id(0) seq(1) table(2) from(3) to(4) ...
+        sqlite3_stmt* fst = nullptr;
+        std::string fsql = "PRAGMA foreign_key_list(" + quoteIdent(name) + ")";
+        if (sqlite3_prepare_v2(impl_->db, fsql.c_str(), -1, &fst, nullptr) == SQLITE_OK) {
+            while (sqlite3_step(fst) == SQLITE_ROW) {
+                ForeignKeyInfo fk;
+                const unsigned char* tbl = sqlite3_column_text(fst, 2);
+                const unsigned char* from = sqlite3_column_text(fst, 3);
+                const unsigned char* to = sqlite3_column_text(fst, 4);
+                fk.refTable = tbl ? reinterpret_cast<const char*>(tbl) : "";
+                fk.column = from ? reinterpret_cast<const char*>(from) : "";
+                fk.refColumn = to ? reinterpret_cast<const char*>(to) : ""; // NULL = PK der Zieltabelle
+                t.foreignKeys.push_back(std::move(fk));
+            }
+            sqlite3_finalize(fst);
+        }
         out.push_back(std::move(t));
     }
     return out;

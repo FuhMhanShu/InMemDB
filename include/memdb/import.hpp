@@ -32,11 +32,21 @@ struct IndexInfo {
     bool unique = false;
 };
 
+/// @brief Fremdschlüssel-Metadatum der Quelle (v0.28): Spalte `column` verweist
+/// auf `refTable.refColumn` (leer = Primärschlüssel der Zieltabelle).
+struct ForeignKeyInfo {
+    std::string column;    ///< Spalte in dieser Tabelle (Fremdschlüssel)
+    std::string refTable;  ///< referenzierte Tabelle
+    std::string refColumn; ///< referenzierte Spalte (leer = PK der Zieltabelle)
+    std::string name;      ///< Constraint-Name (leer = automatisch, z. B. `fk_<column>`)
+};
+
 /// @brief Metadaten einer Quell-"Tabelle" (wird zur Collection).
 struct TableInfo {
     std::string name;
     std::vector<ColumnInfo> columns;
     std::vector<IndexInfo> indexes;
+    std::vector<ForeignKeyInfo> foreignKeys; ///< v0.28: Fremdschlüssel (falls die Quelle sie liefert)
 };
 
 /// @brief Abstrakte externe Quelle für den Import (FA-21).
@@ -116,6 +126,9 @@ struct ImportOptions {
     bool generateSchema = true;          ///< FA-20-Schema aus Spaltentypen ableiten
     bool keepPrimaryKeyField = true;     ///< PK zusätzlich als Feld `pkFieldName` speichern
     std::string pkFieldName = "pk";      ///< Name des PK-Feldes (leer = nicht speichern)
+    /// v0.28: Fremdschlüssel der Quelle als FA-18-Referenzen importieren
+    /// (legt ggf. die Collection `__references` an und verknüpft über `pk`/refColumn).
+    bool importForeignKeys = true;
 };
 
 /// @brief Ergebnis/Statistik eines Imports.
@@ -124,6 +137,8 @@ struct ImportStats {
     std::size_t totalRows = 0;
     std::vector<std::string> skippedTables;  ///< bereits vorhandene Collections
     std::vector<std::string> skippedSchemas; ///< Tabellen ohne Schema (Typ-Mismatch/Unknown)
+    std::size_t importedReferences = 0;      ///< v0.28: angelegte FA-18-Referenzen aus Fremdschlüsseln
+    std::size_t skippedForeignKeys = 0;      ///< v0.28: FKs ohne importierte Zieltabelle/lösbares Ziel
 };
 
 /// @brief Orchestriert den Import einer `ImportSource` in eine `Database` (FA-21).

@@ -390,6 +390,29 @@ struct SqlDumpImportSource::Impl {
         Table t;
         t.info.name = name;
         t.columnsFixed = true;
+        // v0.28: parst ab nach "FOREIGN": KEY ( col ) REFERENCES table [ ( col ) ]
+        auto parseFk = [&](const std::string& fkName) {
+            p.skipWsComments();
+            if (p.peekWord() == "KEY")
+                p.readWord();
+            p.skipWsComments();
+            p.expect('(');
+            std::string col = p.readIdent();
+            p.skipToParenClose();
+            p.skipWsComments();
+            if (p.peekWord() == "REFERENCES")
+                p.readWord();
+            p.skipWsComments();
+            std::string rt = p.readIdent();
+            std::string rc;
+            p.skipWsComments();
+            if (p.peek() == '(') {
+                p.expect('(');
+                rc = p.readIdent();
+                p.skipToParenClose();
+            }
+            t.info.foreignKeys.push_back(ForeignKeyInfo{col, rt, rc, fkName});
+        };
         while (true) {
             p.skipWsComments();
             if (p.eof())
@@ -431,6 +454,18 @@ struct SqlDumpImportSource::Impl {
                     std::string col = p.readIdent(); // nur erste Spalte
                     t.info.indexes.push_back(IndexInfo{col, false});
                     p.skipToParenClose();
+                } else if (w == "FOREIGN") {
+                    parseFk(""); // FOREIGN KEY (col) REFERENCES t [(c)]
+                } else if (w == "CONSTRAINT") {
+                    p.skipWsComments();
+                    std::string cname = p.readIdent(); // Constraint-Name
+                    p.skipWsComments();
+                    if (p.peekWord() == "FOREIGN") {
+                        p.readWord();
+                        parseFk(cname); // CONSTRAINT name FOREIGN KEY ...
+                    } else {
+                        p.skipConstraint();
+                    }
                 } else {
                     p.skipConstraint();
                 }
@@ -500,6 +535,20 @@ struct SqlDumpImportSource::Impl {
                 if (kw == "UNIQUE") {
                     p.readWord();
                     t.info.indexes.push_back(IndexInfo{c.name, true});
+                    continue;
+                }
+                if (kw == "REFERENCES") { // v0.28: col ... REFERENCES t [(c)]
+                    p.readWord();
+                    p.skipWsComments();
+                    std::string rt = p.readIdent();
+                    std::string rc;
+                    p.skipWsComments();
+                    if (p.peek() == '(') {
+                        p.expect('(');
+                        rc = p.readIdent();
+                        p.skipToParenClose();
+                    }
+                    t.info.foreignKeys.push_back(ForeignKeyInfo{c.name, rt, rc, ""});
                     continue;
                 }
                 if (!kw.empty()) {
