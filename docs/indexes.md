@@ -57,3 +57,5 @@ der letzten `find`/`findOne`/`count`-Abfrage (Test/Performance-Nachweis).
 
 ## Ausblick (Kann)
 - Zusammengesetzte Indizes (mehrere Felder), Text-/Volltextindex.
+
+- **v0.27:** `Collection::distinctValues(feld, q)` nutzt bei leerer Query einen vorhandenen Index auf dem Feld direkt (**O(#distinct)** statt Vollscan; sichtbar in `metrics().indexQueries`).

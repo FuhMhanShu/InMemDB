@@ -32,3 +32,5 @@ Verfügbar auf `Collection` und innerhalb von `Transaction`.
   `count` = Dokumente pro Gruppe; `value` nur bei `op != Count` gesetzt.
 - Abfragen nutzen vorhandene Indizes (Kandidaten über `indexHint`), die volle
   Expression wird pro Kandidat geprüft.
+
+- **v0.27:** `AggOp::Distinct` – liefert als Aggregat ein **Array der distinct Werte** des Feldes (sortiert, fehlende/Null-Werte zählen nicht); bei `groupBy` steht es in `GroupAggregate::value`. Ideal für FD-Erkennung (Gruppe mit genau 1 distinct Wert = funktionale Abhängigkeit).

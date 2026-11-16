@@ -13,7 +13,8 @@ enum class AggOp {
     Max,   ///< Größter Wert (Zahlen und Strings)
     Sum,   ///< Summe (Int-Erhalt, Overflow → Double)
     Avg,   ///< Durchschnitt (immer Double)
-    Count  ///< Anzahl der Dokumente
+    Count, ///< Anzahl der Dokumente
+    Distinct ///< v0.27: Array der distinct Werte des Feldes (sortiert; leeres Feld/Null zaehlt nicht)
 };
 
 /// @brief Eine Gruppe des `groupBy`-Ergebnisses.

@@ -503,6 +503,22 @@ void Collection::setClockForTesting(std::function<std::int64_t()> fn) {
     impl_->clockFn = std::move(fn);
 }
 
+std::vector<Value> Collection::distinctValues(const std::string& fieldPath, const Expression& q) const {
+    sweepExpired(impl_);
+    std::shared_lock lock(impl_->mtx);
+    return impl_->doDistinctValues(fieldPath, q);
+}
+
+std::vector<Value> Collection::distinctValues(const std::string& fieldPath, std::string_view dsl) const {
+    return distinctValues(fieldPath, parseQuery(dsl));
+}
+
+std::vector<DocumentId> Collection::sample(std::size_t maxN, std::uint64_t seed) const {
+    sweepExpired(impl_);
+    std::shared_lock lock(impl_->mtx);
+    return impl_->doSample(maxN, seed);
+}
+
 std::uint64_t Collection::onChange(ChangeCallback cb) {
     std::unique_lock lock(impl_->mtx);
     std::uint64_t handle = impl_->nextObserverId++;

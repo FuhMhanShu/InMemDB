@@ -202,10 +202,27 @@ public:
     /// @brief Gruppierung nach Feldwert (FA-13); Ergebnis nach Schlüssel sortiert.
     /// @param keyPath Feldpfad des Gruppenschlüssels.
     /// @param q Optionale Query; leer = alle Dokumente.
-    /// @param op Aggregat für `aggPath` pro Gruppe (Count → nur count, value=nullopt).
+    /// @param op Aggregat für `aggPath` pro Gruppe (Count → nur count, value=nullopt;
+    ///           Distinct → value = Array der distinct Werte, sortiert).
     /// @param aggPath Feldpfad für das Aggregat (bei op != Count).
     std::vector<GroupAggregate> groupBy(const std::string& keyPath, const Expression& q = Expression{},
                                          AggOp op = AggOp::Count, const std::string& aggPath = "") const;
+
+    /// @brief Distinct-Werte eines Feldes, sortiert (Foundation v0.27, z. B. für
+    /// Relationship-Discovery). **Index-aware**: bei leerer Query und vorhandenem
+    /// Index auf dem Feld werden die Werte direkt aus dem Index gelesen
+    /// (O(#distinct) statt Vollscan; Metrik `indexQueries` steigt).
+    /// Fehlende Feldwerte werden nicht aufgenommen.
+    std::vector<Value> distinctValues(const std::string& fieldPath,
+                                       const Expression& q = Expression{}) const;
+    /// @brief Wie oben, mit String-DSL als Query.
+    std::vector<Value> distinctValues(const std::string& fieldPath, std::string_view dsl) const;
+
+    /// @brief Reproduzierbares Zufalls-Sample von Dokument-IDs (Foundation v0.27):
+    /// Reservoir-Sampling (Algorithm R) über RAM + Spill; gleicher `seed` → gleiches
+    /// Sample. `maxN >= size()` liefert alle IDs, `maxN == 0` ein leeres Sample.
+    std::vector<DocumentId> sample(std::size_t maxN,
+                                   std::uint64_t seed = 0x9E3779B97F4A7C15ULL) const;
 
     /// @brief TTL / Auto-Expiry (FA-25, v0.26), **opt-in – defaultmäßig AUS**:
     /// Dokumente ohne `expiresAt`-Feld verfallen nie. Abgelaufene Dokumente

@@ -23,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <random>
 #include <set>
 #include <shared_mutex>
 #include <string>
@@ -52,36 +53,7 @@ inline void truncateFileTo(const std::string& path, std::uint64_t bytes) {
 #endif
 }
 
-struct ValueLess {
-    static int rank(const Value& v) {
-        switch (v.type()) {
-            case Value::Type::Null: return 0;
-            case Value::Type::Bool: return 1;
-            case Value::Type::Int:
-            case Value::Type::Double: return 2;
-            case Value::Type::String: return 3;
-            case Value::Type::Binary: return 4;
-            case Value::Type::Document: return 5;
-            case Value::Type::Array: return 6;
-        }
-        return 7;
-    }
-    bool operator()(const Value& a, const Value& b) const {
-        int ra = rank(a);
-        int rb = rank(b);
-        if (ra != rb)
-            return ra < rb;
-        if (ra == 2 || ra == 3) {
-            auto c = compare(a, b);
-            return c && *c < 0;
-        }
-        if (ra == 1)
-            return a.asBool() < b.asBool();
-        if (ra == 0)
-            return false;
-        return toString(a) < toString(b);
-    }
-};
+using ValueLess = memdb::ValueLess; // oeffentliche Ordnung (value.hpp), v0.27
 
 struct FieldIndex {
     std::string path;
@@ -94,6 +66,7 @@ struct Accumulator {
     std::size_t count = 0;
     bool have = false;
     Value best;
+    std::set<Value, ValueLess> distinct; // nur AggOp::Distinct
     std::int64_t sumInt = 0;
     double sumD = 0.0;
     bool allInt = true;
@@ -108,6 +81,10 @@ struct Accumulator {
             return;
         if (!v || v->isNull())
             return;
+        if (op == AggOp::Distinct) {
+            distinct.insert(*v);
+            return;
+        }
         if (op == AggOp::Sum || op == AggOp::Avg) {
             if (!v->isNumber())
                 return;
@@ -141,6 +118,10 @@ struct Accumulator {
     std::optional<Value> result() const {
         if (op == AggOp::Count)
             return Value(static_cast<std::int64_t>(count));
+        if (op == AggOp::Distinct) {
+            std::vector<Value> out(distinct.begin(), distinct.end());
+            return Value(std::move(out));
+        }
         if (op == AggOp::Sum || op == AggOp::Avg) {
             if (numCount == 0)
                 return std::nullopt;
@@ -902,6 +883,77 @@ struct CollectionState {
         for (auto& [k, acc] : groups)
             out.push_back(GroupAggregate{k, acc.count, op == AggOp::Count ? std::nullopt : acc.result()});
         return out;
+    }
+
+    // Foundation v0.27: distinct Werte eines Feldes. Index-aware: bei match-all-Query
+    // und Index auf dem Feld direkt aus den Index-Entries (O(#distinct) statt O(n)).
+    std::vector<Value> doDistinctValues(const std::string& fieldPath, const Expression& q) const {
+        std::set<Value, ValueLess> uniq;
+        if (q.isMatchAll()) {
+            auto it = indexes.find(fieldPath);
+            if (it != indexes.end()) {
+                auto t0 = std::chrono::steady_clock::now();
+                std::size_t n = 0;
+                for (const auto& [v, ids] : it->second->entries) {
+                    uniq.insert(v);
+                    n += ids.size();
+                }
+                double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+                ++metrics.queries;
+                metrics.scannedDocs += n;
+                ++metrics.indexQueries;
+                metrics.lastUsedIndex = true;
+                metrics.lastQueryMs = ms;
+                metrics.totalQueryMs += ms;
+                lastCandidateCount = n;
+                return std::vector<Value>(uniq.begin(), uniq.end());
+            }
+        }
+        for (auto id : candidates(q)) {
+            if (!hasDoc(id))
+                continue;
+            Document d = loadDoc(id);
+            if (!q.evaluate(d))
+                continue;
+            if (const Value* v = d.findPath(fieldPath))
+                uniq.insert(*v);
+        }
+        return std::vector<Value>(uniq.begin(), uniq.end());
+    }
+
+    // Foundation v0.27: reproduzierbares Zufalls-Sample von IDs (Reservoir-Sampling,
+    // Algorithm R). Gleicher seed -> gleiches Sample. maxN >= size() -> alle IDs.
+    std::vector<DocumentId> doSample(std::size_t maxN, std::uint64_t seed) const {
+        auto t0 = std::chrono::steady_clock::now();
+        std::vector<DocumentId> all;
+        all.reserve(docs.size() + spillIndex.size());
+        for (const auto& [id, d] : docs)
+            all.push_back(id);
+        for (const auto& [id, off] : spillIndex)
+            all.push_back(id);
+        std::vector<DocumentId> res;
+        if (maxN == 0)
+            res = {};
+        else if (all.size() <= maxN)
+            res = std::move(all);
+        else {
+            std::mt19937_64 rng(seed);
+            res.assign(all.begin(), all.begin() + static_cast<std::ptrdiff_t>(maxN));
+            for (std::size_t i = maxN; i < all.size(); ++i) {
+                std::uniform_int_distribution<std::size_t> dist(0, i);
+                std::size_t j = dist(rng);
+                if (j < maxN)
+                    res[j] = all[i];
+            }
+        }
+        double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        ++metrics.queries;
+        metrics.scannedDocs += all.size();
+        metrics.lastUsedIndex = false;
+        metrics.lastQueryMs = ms;
+        metrics.totalQueryMs += ms;
+        lastCandidateCount = res.size();
+        return res;
     }
 
     void doClear() {

@@ -94,6 +94,13 @@ bool operator!=(const Value& a, const Value& b);
 /// @return `std::nullopt`, wenn die Typen nicht geordnet vergleichbar sind.
 std::optional<int> compare(const Value& a, const Value& b);
 
+/// @brief Strikte schwache Ordnung über `Value` (Typ-Rang, dann Wertvergleich) –
+/// für `std::map`/`std::set` mit `Value` als Schlüssel, z. B. `distinctValues` oder
+/// Mengenoperationen beim Relationship-Discovery (v0.27).
+struct ValueLess {
+    bool operator()(const Value& a, const Value& b) const;
+};
+
 /// @brief Debug-/JSON-nahe String-Darstellung.
 std::string toString(const Value& v);
 
