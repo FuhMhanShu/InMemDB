@@ -59,12 +59,27 @@ Eingebaut: `contains(v)` (Array-Element/String-Substring), `exists()`,
 `matches('regex')`, `in(v1, v2, ...)`.
 
 `matches` nutzt eine eingebaute Mini-RegEx (Thompson-NFA mit Visited-Set, kein Backtracking,
-kein Hang bei verschachtelten Schleifen wie `(a*)*`; Full-Match):
+kein Hang bei verschachtelten Schleifen wie `(a*)*`; Full-Match – das Pattern muss zum
+**gesamten** Feldwert passen, nicht nur zu einem Teilstring):
 Literale, `.`, Quantoren `*` `+` `?` `{n}` `{n,}` `{n,m}` (lazy `*?` etc. erlaubt, ohne Wirkung
 bei Full-Match), Klassen `[...]`/`[^...]` mit Bereichen `a-z` und Kurzschriften
 `\d \D \s \S \w \W`, `\x`-Escapes (`\n \r \t \f \v \a \0` + Literal), Anker `^` `$`,
 Alternativen `|`, Gruppen `(...)` und `(?:...)` (v0.20). Beispiele: `name.matches('^[A-Z][a-z]+$')`,
 `tel.matches('^\\d{3}-\\d{4}$')`.
+
+Byte-basiert: UTF-8 wird nicht als Zeichen
+behandelt (`.` und Klassen arbeiten auf Bytes; `.` matcht auch `\n`). Nicht unterstützt
+(NFA-Grenze): Backreferences, Lookaround, `\b`/`\B` (`\b` ist das Literal `b`).
+
+**Härtung v0.34** (pathologische Patterns dürfen nicht crashen/hängen – früher z. B.
+Segfault ab ~20000 verschachtelten Klammern, Hang bei `((a{100}){100}){100}`):
+Pattern max. 4096 Zeichen, Verschachtelung max. 256, NFA max. 50000 Anweisungen nach
+{n,m}-Expansion, Match max. 100 Mio. Schritte. Ungültige/zu komplexe Patterns werfen
+`std::invalid_argument` mit Position – `matches(...)` bzw. `Expression::matches(...)`
+wandeln das am Query-Bau in `QueryError` um; ein überschrittenes Match-Budget wirft
+`std::runtime_error` und wird bei der Auswertung als „kein Match“ behandelt (statt zu
+hängen). Außerdem kompiliert `MatchesNode` das Pattern seit v0.34 **einmalig pro Query**
+(`detail::Regex`), nicht mehr pro ausgewertetem Dokument.
 
 **Eigene Operatoren registrieren** (NFA-03 Open/Closed, thread-sicheres Singleton):
 

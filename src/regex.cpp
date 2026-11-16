@@ -13,6 +13,14 @@ namespace {
 // Maximale Expansion von {n,m} (Schutz gegen Pattern wie a{1000000000})
 constexpr int kMaxRepeat = 1000;
 
+// Harte Limits gegen pathologische Patterns (v0.34). Ohne diese wuerde z. B. tief verschachteltes
+// Pattern ("((((...))))") den rekursiven Parser-Stäck ueberlaufen (Segfault) und verschachtelte
+// {n,m} bzw. lange Alternationsketten endlos kompilieren (Hang/OOM).
+constexpr std::size_t kMaxPatternLen = 4096;  // Zeichen im Pattern
+constexpr int kMaxDepth = 256;                // Verschachtelung (Gruppen + Quantoren)
+constexpr std::size_t kMaxInsts = 50000;      // NFA-Anweisungen nach Expansion
+constexpr std::size_t kMaxMatchSteps = 100000000; // Closure-Schritte pro match() (Match-Budget)
+
 struct Ast {
     enum class T { Empty, Char, Any, Class, Concat, Alt, Star, Plus, Opt, Rep, Start, End } t;
     char c = 0;
@@ -44,6 +52,7 @@ void applyShorthand(char c, std::array<bool, 256>& cls) {
 struct Parser {
     std::string_view p;
     std::size_t i = 0;
+    int depth = 0; // aktuelle Verschachtelung (Gruppen + Quantoren), begrenzt Rekursion/AST-Tiefe
 
     explicit Parser(std::string_view pat) : p(pat) {}
 
@@ -53,6 +62,11 @@ struct Parser {
 
     [[noreturn]] void fail(const std::string& msg) {
         throw std::invalid_argument("RegEx an Position " + std::to_string(i) + ": " + msg);
+    }
+
+    void enter() { // eine Verschachtelungsebene tiefer (Gruppe oder Quantor)
+        if (++depth > kMaxDepth)
+            fail("Verschachtelung zu tief (max " + std::to_string(kMaxDepth) + ")");
     }
 
     char esc() { // p[i] == '\\'
@@ -157,6 +171,7 @@ struct Parser {
                 char q = p[i++];
                 if (peek() == '?')
                     ++i; // Lazy-Marker (bei Full-Match ohne Wirkung)
+                enter(); // Quantor wrappt das Atom -> eine AST-Ebene tiefer
                 Ast n;
                 n.t = q == '*' ? Ast::T::Star : (q == '+' ? Ast::T::Plus : Ast::T::Opt);
                 n.kids = {std::move(a)};
@@ -165,6 +180,7 @@ struct Parser {
             }
             Ast r;
             if (parseBrace(r)) {
+                enter(); // {n,m} wrappt das Atom -> eine AST-Ebene tiefer
                 r.kids = {std::move(a)};
                 a = std::move(r);
                 continue;
@@ -185,10 +201,12 @@ struct Parser {
                     fail("nur (?:...) wird unterstuetzt");
                 ++i;
             }
+            enter(); // rekursive Gruppe
             Ast g = parseAlt();
             if (eof() || peek() != ')')
                 fail("')' erwartet");
             ++i;
+            --depth;
             return g;
         }
         if (c == '[') {
@@ -302,6 +320,9 @@ struct Compiler {
     explicit Compiler(Prog& p) : prog(p) {}
 
     int emit(Inst in) {
+        if (prog.insts.size() >= kMaxInsts)
+            throw std::invalid_argument("RegEx: Pattern zu komplex (max " + std::to_string(kMaxInsts) +
+                                        " NFA-Anweisungen nach Expansion)");
         prog.insts.push_back(std::move(in));
         return static_cast<int>(prog.insts.size()) - 1;
     }
@@ -443,7 +464,12 @@ struct Compiler {
     }
 };
 
-bool regexMatchImpl(std::string_view pattern, std::string_view text) {
+// Pattern -> NFA-Programm kompilieren.
+// Wirft std::invalid_argument bei ungueltigem oder zu komplexem Pattern (Limits s. o.).
+Prog compilePattern(std::string_view pattern, int& startOut) {
+    if (pattern.size() > kMaxPatternLen)
+        throw std::invalid_argument("RegEx: Pattern zu lang (max " + std::to_string(kMaxPatternLen) +
+                                    " Zeichen)");
     Parser p(pattern);
     Ast ast = p.parseAlt();
     if (!p.eof())
@@ -453,18 +479,27 @@ bool regexMatchImpl(std::string_view pattern, std::string_view text) {
     Frag f = c.compile(ast);
     int match = c.emit(Inst{Inst::Match});
     c.patch(f.outs, match);
+    startOut = f.start;
+    return prog;
+}
 
+// NFA ausfuehren (Full-Match). Wirft std::runtime_error bei ueberschrittenem Match-Budget.
+bool matchProg(const Prog& prog, int start, std::string_view text) {
     // Epsilon-Closure inkl. Anker-Auswertung an Position tp.
     // Visited-Set pro Aufruf (stamp): verhindert Endlosschleifen bei Rueckkanten
     // (z. B. (a*)* oder ()*).
     std::vector<int> stamp(prog.insts.size(), 0);
     int stampCounter = 0;
+    std::size_t steps = 0;
     auto closure = [&](std::vector<int>& list, int pc, std::size_t tp) {
         ++stampCounter;
         std::vector<int> stack{pc};
         while (!stack.empty()) {
             int s = stack.back();
             stack.pop_back();
+            if (++steps > kMaxMatchSteps)
+                throw std::runtime_error("RegEx: Match zu aufwaendig (Budget von " +
+                                         std::to_string(kMaxMatchSteps) + " Schritten ueberschritten)");
             if (s < 0 || stamp[s] == stampCounter)
                 continue;
             stamp[s] = stampCounter;
@@ -493,7 +528,7 @@ bool regexMatchImpl(std::string_view pattern, std::string_view text) {
     };
 
     std::vector<int> cur;
-    closure(cur, f.start, 0);
+    closure(cur, start, 0);
     for (std::size_t tp = 0; tp <= text.size(); ++tp) {
         if (tp == text.size()) {
             for (int pc : cur)
@@ -522,8 +557,22 @@ bool regexMatchImpl(std::string_view pattern, std::string_view text) {
 
 } // namespace
 
+struct Regex::Impl {
+    Prog prog;
+    int start = 0;
+    std::string pattern;
+};
+
+Regex::Regex(std::string_view pattern) : impl_(std::make_shared<Impl>()) {
+    impl_->prog = compilePattern(pattern, impl_->start);
+    impl_->pattern = std::string(pattern);
+}
+Regex::~Regex() = default;
+bool Regex::match(std::string_view text) const { return matchProg(impl_->prog, impl_->start, text); }
+const std::string& Regex::pattern() const { return impl_->pattern; }
+
 bool regexMatch(std::string_view pattern, std::string_view text) {
-    return regexMatchImpl(pattern, text); // wirft std::invalid_argument bei ungueltigem Pattern
+    return Regex(pattern).match(text); // wirft std::invalid_argument bei ungueltigem Pattern
 }
 
 } // namespace memdb::detail

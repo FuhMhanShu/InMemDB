@@ -124,15 +124,16 @@ struct ExistsNode : ExprNode {
 struct MatchesNode : ExprNode {
     std::shared_ptr<ExprNode> lhs;
     std::string pattern;
-    MatchesNode(std::shared_ptr<ExprNode> l, std::string p) : lhs(std::move(l)), pattern(std::move(p)) {}
+    detail::Regex re; // v0.34: Pattern einmalig kompiliert (nicht pro Dokument neu parsen/kompilieren)
+    MatchesNode(std::shared_ptr<ExprNode> l, std::string p) : lhs(std::move(l)), pattern(std::move(p)), re(pattern) {}
     bool eval(const Document& doc) const override {
         auto l = lhs->resolve(doc);
         if (!l || !l->isString())
             return false;
         try {
-            return detail::regexMatch(pattern, l->asString());
-        } catch (const std::invalid_argument&) {
-            return false;
+            return re.match(l->asString());
+        } catch (const std::exception&) {
+            return false; // ungueltiges/zu aufwaendiges Pattern -> kein Match (nie crashen)
         }
     }
 };
@@ -233,11 +234,11 @@ Expression Expression::matches(Value pattern) const {
     if (!pattern.isString())
         throw QueryError("matches(): Pattern muss ein String sein");
     try {
-        detail::regexMatch(pattern.asString(), ""); // Pattern validieren
+        // v0.34: MatchesNode kompiliert das Pattern im Konstruktor (einmalig) und validiert es damit
+        return Expression(std::make_shared<MatchesNode>(root_, pattern.asString()));
     } catch (const std::invalid_argument& e) {
         throw QueryError(std::string("matches(): ungueltiges Pattern: ") + e.what());
     }
-    return Expression(std::make_shared<MatchesNode>(root_, pattern.asString()));
 }
 
 Expression Expression::in(std::vector<Value> values) const {

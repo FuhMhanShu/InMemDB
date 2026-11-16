@@ -3,6 +3,7 @@
 #include "../src/regex.hpp"
 
 #include <chrono>
+#include <random>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -191,6 +192,91 @@ int main() {
         CHECK_NOMATCH("(a+)+b$", longA); // NFA: O(n*m), schnell
         auto t1 = std::chrono::steady_clock::now();
         CHECK(std::chrono::duration<double>(t1 - t0).count() < 2.0);
+    }
+
+    // --- v0.34: Haertung gegen pathologische Patterns (frueher: Segfault/Hang) ---
+    {
+        using memdb::detail::Regex;
+        // 1) tiefe Verschachtelung: 100 OK, 300 -> invalid_argument (kein Stack-Overflow)
+        {
+            std::string p100(100, '('), p300(300, '(');
+            p100 += "a"; p100 += std::string(100, ')');
+            p300 += "a"; p300 += std::string(300, ')');
+            CHECK(Regex(p100).match("a"));
+            CHECK_INVALID(p300);
+        }
+        // 2) zu langes Pattern (> 4096 Zeichen) -> invalid_argument
+        CHECK_INVALID(std::string(5000, 'a'));
+        // 3) Quantoren-Kette zu tief: a + 300 '*' -> invalid_argument
+        CHECK_INVALID("a" + std::string(300, '*'));
+        // 4) verschachtelte {n,m} duerfen das NFA-Budget sprengen:
+        //    (a{100}){100} = 10k Anweisungen geht noch, ((a{100}){100}){100} = 1e6 -> Throw (schnell)
+        {
+            CHECK(Regex("(a{100}){100}").match(std::string(10000, 'a')));
+            auto t0 = std::chrono::steady_clock::now();
+            CHECK_INVALID("((a{100}){100}){100}");
+            auto t1 = std::chrono::steady_clock::now();
+            CHECK(std::chrono::duration<double>(t1 - t0).count() < 1.0); // Abbruch statt Hang
+        }
+        // 5) Regex-Handle: einmal kompilieren, viele match()-Aufrufe, deterministisch, thread-sicher
+        {
+            Regex re("^[A-Z][a-z]+$");
+            CHECK(re.match("Ada"));
+            CHECK(!re.match("ada"));
+            CHECK(re.match("Ada")); // wiederholbar
+            CHECK(re.pattern() == "^[A-Z][a-z]+$");
+            try {
+                Regex bad("(");
+                CHECK(false); // Konstruktor muss werfen
+            } catch (const std::invalid_argument&) {
+                CHECK(true);
+            }
+        }
+        // 6) Match-Budget: pathologisches Pattern auf langem Text -> runtime_error statt Hang
+        {
+            std::string p = "(";
+            for (int i = 0; i < 250; ++i) { if (i) p += '|'; p += 'a'; }
+            p += ")*";
+            Regex re(p);
+            std::string t(300000, 'a');
+            bool caught = false;
+            auto t0 = std::chrono::steady_clock::now();
+            try {
+                (void)re.match(t);
+            } catch (const std::runtime_error&) {
+                caught = true;
+            }
+            auto t1 = std::chrono::steady_clock::now();
+            CHECK(caught);
+            CHECK(std::chrono::duration<double>(t1 - t0).count() < 5.0);
+        }
+        // 7) Fuzz-lite (deterministischer Seed): Zufallspattern duerfen nie crashen/hangen,
+        //    nur invalid_argument werfen, und deterministisch sein
+        {
+            std::mt19937 rng(12345);
+            const std::string alpha = "ab()|*+?{}[].\\d-^$x";
+            const std::string texts[] = {"", "a", "ab", "aab", "x", "abc", "aaaa", "a-b", "^$", "x1"};
+            int ok = 0, invalid = 0;
+            for (int i = 0; i < 2000; ++i) {
+                int len = 1 + static_cast<int>(rng() % 14);
+                std::string p;
+                for (int k = 0; k < len; ++k)
+                    p += alpha[rng() % alpha.size()];
+                try {
+                    Regex rx(p);
+                    for (const auto& t : texts) {
+                        bool x = rx.match(t);
+                        CHECK(x == rx.match(t)); // Determinismus
+                    }
+                    ++ok;
+                } catch (const std::invalid_argument&) {
+                    ++invalid;
+                } catch (...) {
+                    CHECK(false); // keine andere Exception erlaubt
+                }
+            }
+            CHECK(ok > 0 && invalid > 0); // beides kam vor
+        }
     }
 
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
