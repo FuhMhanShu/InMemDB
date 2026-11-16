@@ -324,6 +324,19 @@ struct CollectionState {
         return *loadSpilled(id);
     }
 
+    /// Zeiger auf das Doc OHNE Kopie, wenn es im RAM liegt; Spill-Docs landen in `tmp`
+    /// (Lebensdauer beim Aufrufer). nullptr = Doc existiert nicht. Read-Hotpath (count/findIds/
+    /// aggregate/...): spart die Dokument-Kopie pro Kandidat.
+    const Document* docForEval(DocumentId id, Document& tmp) const {
+        auto it = docs.find(id);
+        if (it != docs.end())
+            return &it->second;
+        if (!spillIndex.count(id))
+            return nullptr;
+        tmp = *loadSpilled(id);
+        return &tmp;
+    }
+
     void spillAppend(DocumentId id, const Document& doc) {
         std::string json = detail::writeJsonDocument(doc);
         std::uint64_t off = spillBytes;
@@ -622,12 +635,11 @@ struct CollectionState {
     std::optional<Document> doFindOne(const Expression& q) const {
         auto ids = candidates(q);
         lastCandidateCount = ids.size();
+        Document tmp;
         for (auto id : ids) {
-            if (!hasDoc(id))
-                continue;
-            Document d = loadDoc(id);
-            if (q.evaluate(d))
-                return d;
+            const Document* d = docForEval(id, tmp);
+            if (d && q.evaluate(*d))
+                return *d;
         }
         return std::nullopt;
     }
@@ -636,11 +648,10 @@ struct CollectionState {
         auto ids = candidates(q);
         lastCandidateCount = ids.size();
         std::size_t n = 0;
+        Document tmp;
         for (auto id : ids) {
-            if (!hasDoc(id))
-                continue;
-            Document d = loadDoc(id);
-            if (q.evaluate(d))
+            const Document* d = docForEval(id, tmp);
+            if (d && q.evaluate(*d))
                 ++n;
         }
         return n;
@@ -651,11 +662,10 @@ struct CollectionState {
         lastCandidateCount = ids.size();
         std::vector<DocumentId> out;
         out.reserve(ids.size());
+        Document tmp;
         for (auto id : ids) {
-            if (!hasDoc(id))
-                continue;
-            Document d = loadDoc(id);
-            if (q.evaluate(d))
+            const Document* d = docForEval(id, tmp);
+            if (d && q.evaluate(*d))
                 out.push_back(id);
         }
         return out;
@@ -665,12 +675,11 @@ struct CollectionState {
         auto ids = candidates(q);
         lastCandidateCount = ids.size();
         std::size_t n = 0;
+        Document tmp;
         for (auto id : ids) {
-            if (!hasDoc(id))
-                continue;
-            Document d = loadDoc(id);
-            if (q.evaluate(d)) {
-                cb(d);
+            const Document* d = docForEval(id, tmp);
+            if (d && q.evaluate(*d)) {
+                cb(*d);
                 ++n;
             }
         }
@@ -811,11 +820,10 @@ struct CollectionState {
     std::size_t doRemove(const Expression& q) {
         auto ids = candidates(q, false);
         std::vector<DocumentId> toRemove;
+        Document tmp;
         for (auto id : ids) {
-            if (!hasDoc(id))
-                continue;
-            Document d = loadDoc(id);
-            if (q.evaluate(d))
+            const Document* d = docForEval(id, tmp);
+            if (d && q.evaluate(*d))
                 toRemove.push_back(id);
         }
         for (auto id : toRemove) {
@@ -863,14 +871,13 @@ struct CollectionState {
 
     std::optional<Value> doAggregate(AggOp op, const std::string& fieldPath, const Expression& q) const {
         Accumulator acc(op);
+        Document tmp;
         for (auto id : candidates(q)) {
-            if (!hasDoc(id))
-                continue;
-            Document d = loadDoc(id);
-            if (!q.evaluate(d))
+            const Document* d = docForEval(id, tmp);
+            if (!d || !q.evaluate(*d))
                 continue;
             acc.addDoc();
-            acc.addValue(d.findPath(fieldPath));
+            acc.addValue(d->findPath(fieldPath));
         }
         return acc.result();
     }
@@ -878,17 +885,16 @@ struct CollectionState {
     std::vector<GroupAggregate> doGroupBy(const std::string& keyPath, const Expression& q, AggOp op,
                                            const std::string& aggPath) const {
         std::map<Value, Accumulator, ValueLess> groups;
+        Document tmp;
         for (auto id : candidates(q)) {
-            if (!hasDoc(id))
+            const Document* d = docForEval(id, tmp);
+            if (!d || !q.evaluate(*d))
                 continue;
-            Document d = loadDoc(id);
-            if (!q.evaluate(d))
-                continue;
-            const Value* k = d.findPath(keyPath);
+            const Value* k = d->findPath(keyPath);
             Value key = k ? *k : Value(nullptr);
             auto& acc = groups.try_emplace(key, op).first->second;
             acc.addDoc();
-            acc.addValue(d.findPath(aggPath));
+            acc.addValue(d->findPath(aggPath));
         }
         std::vector<GroupAggregate> out;
         out.reserve(groups.size());
@@ -921,13 +927,12 @@ struct CollectionState {
                 return std::vector<Value>(uniq.begin(), uniq.end());
             }
         }
+        Document tmp;
         for (auto id : candidates(q)) {
-            if (!hasDoc(id))
+            const Document* d = docForEval(id, tmp);
+            if (!d || !q.evaluate(*d))
                 continue;
-            Document d = loadDoc(id);
-            if (!q.evaluate(d))
-                continue;
-            if (const Value* v = d.findPath(fieldPath))
+            if (const Value* v = d->findPath(fieldPath))
                 uniq.insert(*v);
         }
         return std::vector<Value>(uniq.begin(), uniq.end());
