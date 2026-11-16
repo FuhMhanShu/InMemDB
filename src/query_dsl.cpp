@@ -15,6 +15,9 @@ namespace memdb {
 
 namespace {
 
+// v0.38: harte Verschachtelungsgrenze fuer den DSL-Parser (rekursiv bei '(' und '!')
+constexpr int kMaxDslDepth = 256;
+
 std::string toLower(std::string s) {
     for (auto& c : s)
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -139,25 +142,46 @@ Value numTokenToValue(const std::string& s) {
                     s.find('E') != std::string::npos;
     if (s.size() > 1 && s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
         std::int64_t v = 0;
-        std::from_chars(s.data() + 2, s.data() + s.size(), v, 16);
+        auto r = std::from_chars(s.data() + 2, s.data() + s.size(), v, 16);
+        // v0.38: Parse-Fehler nicht mehr stillschweigend als 0 melden
+        if (r.ec != std::errc() || r.ptr != s.data() + s.size())
+            throw QueryError("DSL: ungueltige Hex-Zahl '" + s + "'");
         return Value(v);
     }
     if (isDouble) {
         double d = 0.0;
-        std::from_chars(s.data(), s.data() + s.size(), d);
-        return Value(d);
+        auto r = std::from_chars(s.data(), s.data() + s.size(), d);
+        if (r.ec == std::errc() && r.ptr == s.data() + s.size())
+            return Value(d);
+        throw QueryError("DSL: ungueltige Zahl '" + s + "'"); // z. B. "1.2.3" oder "1e"
     }
     std::int64_t v = 0;
-    std::from_chars(s.data(), s.data() + s.size(), v);
-    return Value(v);
+    auto r = std::from_chars(s.data(), s.data() + s.size(), v);
+    if (r.ec == std::errc() && r.ptr == s.data() + s.size())
+        return Value(v);
+    if (r.ec == std::errc::result_out_of_range) {
+        // v0.38: int64-Ueberlauf -> als double (statt stillschweigend 0)
+        double d = 0.0;
+        auto r2 = std::from_chars(s.data(), s.data() + s.size(), d);
+        if (r2.ec == std::errc() && r2.ptr == s.data() + s.size())
+            return Value(d);
+    }
+    throw QueryError("DSL: ungueltige Zahl '" + s + "'");
 }
 
 struct Parser {
     std::string_view dsl;
     std::vector<Tok> toks;
     std::size_t i = 0;
+    int depth = 0; // v0.38: Verschachtelung ('(' und '!') gegen Stack-Overflow
     Database* db = nullptr;
     std::string collection;
+
+    void enter() {
+        if (++depth > kMaxDslDepth)
+            fail(dsl, peek().pos, "Verschachtelung zu tief (max " + std::to_string(kMaxDslDepth) + ")");
+    }
+    void leave() { --depth; }
 
     explicit Parser(std::string_view d, Database* dbr, std::string_view coll)
         : dsl(d), toks(tokenize(d)), db(dbr), collection(coll) {}
@@ -258,7 +282,10 @@ struct Parser {
     Expression parseUnary() {
         if (peekSym("!") || peekIdentWord("not")) {
             next();
-            return !parseUnary();
+            enter();
+            Expression e = !parseUnary();
+            leave();
+            return e;
         }
         return parsePrimary();
     }
@@ -266,7 +293,9 @@ struct Parser {
     Expression parsePrimary() {
         if (peekSym("(")) {
             next();
+            enter();
             Expression e = parseOr();
+            leave();
             expectSym(")");
             return e;
         }

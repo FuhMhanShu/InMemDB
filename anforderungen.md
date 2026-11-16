@@ -5,7 +5,7 @@
 | Feld | Wert |
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
-| Version | 0.37 |
+| Version | 0.38 |
 | Status | fortgeschrieben; FA-01…FA-27 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
@@ -235,6 +235,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | v0.35 | Exception-Policy (`docs/error-handling.md`): Query-Scan fängt Eval-Fehler pro Dokument ab (`metrics().evalErrors`, Dokument = Nicht-Treffer), Observer-Exceptions werden pro Callback abgefangen (`metrics().eventErrors`, Schreib-OP und restliche Observer laufen weiter), `loadJson`/`fromJson` validieren vor Mutation (bei kaputtem Element bleibt alles unverändert, kein Partial State), alle CLI-Tools fangen `std::exception` inkl. Options-Parsing (sauberer Exit-Code statt terminate); echte Fehler (Unique/Schema/Crypto/Datei) werfen weiterhin; Tests `tests/test_error_handling.cpp` (32 Checks) |
 | v0.36 | **MessageHandler-Singleton** (`include/memdb/message_handler.hpp` + `src/message_handler.cpp`): eigene Handler via `subscribe()`/`unsubscribe()`, Level-Filter (`setMinLevel`), thread-sicheres `publish()` (throwende Handler werden abgefangen, `handlerErrors()`), Zähler `count()/totalCount()`; die Abfang-Stellen der Exception-Policy v0.35 melden dorthin (`query-eval`, `observer`, `load`, `import`, `regex`, `cli`); CLI-Tools melden Fehler über den Handler (stderr-Abonnement); Tests `tests/test_message_handler.cpp` (30 Checks); Doku `docs/error-handling.md` |
 | v0.37 | JSON-Parser/Writer gehärtet: Verschachtelungs-Limit 1000 (Parser + Writer + Schema; vorher Segfault ab ~50000 `[[[...` bzw. bei zyklischen Value-Bäumen), `{"$binary":...}` wird nur bei gueltigem Hex zu `Binary` (sonst normales Dokument, kein Parse-Abbruch mehr), Hex-Float-Fallback nur mit `0x`-Präfix (sonst `"1e"` fälschlich 30.0); locale-unabhängige Zahlen bleiben; Tests `tests/test_json_hardening.cpp` (43 Checks inkl. Fuzz-lite); Doku `docs/snapshot-json.md`, `docs/type-mapping.md` |
+| v0.38 | Framework-Härtung Teil 2 (`docs/hardening.md`): DSL-Parser mit Verschachtelungs-Limit 256 (`(`/`!`, vorher Segfault ab ~50000 Klammern) + strikte Zahlen (int64-Überlauf → double, „1.2.3“/„1e“ → `QueryError` statt stillschweigend 0); BSON-Parser mit Tiefenlimit 1000 (vorher Segfault ab ~20000 Verschachtelung); zentrale Härtungs-Doku mit allen Limits (RegEx/JSON/DSL/BSON/Spill/Krypto) und Test-Strategie (Probes, Fuzz-lite, ASan, Fault-Injection); Tests `tests/test_hardening.cpp` (13 Checks); ctest 40/40 |
 
 ---
 
