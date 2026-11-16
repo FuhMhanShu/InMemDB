@@ -7,7 +7,7 @@ from conan.tools.files import copy
 
 class InMemDBConan(ConanFile):
     name = "inmemdb"
-    version = "0.33"
+    version = "1.0.0"
     license = "MIT"
     url = "https://github.com/FuhMhanShu/InMemDB"
     description = (

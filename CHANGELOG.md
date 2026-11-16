@@ -1,18 +1,26 @@
 # Changelog
 
 Alle nennenswerten Änderungen an InMemDB. Format an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/)
-angelehnt; Versionen folgen dem Schema `0.x` (bis v1.0 kann sich die API noch ändern).
+angelehnt; Versionierung nach **SemVer** – ab v1.0.0 ist die öffentliche API stabil.
 Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern sind angegeben.
 
 ## [Unreleased]
 
+## [1.0.0] – 2026-11-16
+
+**Erstes offizielles Release** (Git-Tag `v1.0.0`). Ab dieser Version gilt SemVer: Die öffentliche
+API (`include/memdb/`) ist stabil; Änderungen daran erfolgen nur noch abwärtskompatibel bzw.
+in einem Major-Release.
+
 ### Changed
-- Dokumentation komplett umstrukturiert (Stil populärer Repositories): `docs/` mit eigenem
-  [Index](docs/README.md), neuem [Getting Started](docs/getting-started.md) (Build, Einbindung,
-  CLI-Tools, Beispiele – aus der README verschoben), Guides unter `docs/guides/` und Internes
-  (Architektur/ADRs, Fehlerbehandlung, Härtung, Performance) unter `docs/internals/`;
-  die README ist jetzt eine schlanke Landing-Page und verweist auf die Doku
-- `CHANGELOG.md` neu angelegt (dieses Dokument)
+- Versionsnummer auf **1.0.0** gehoben: CMake `project(InMemDB VERSION 1.0.0)` (Paket-Config
+  übernimmt `${PROJECT_VERSION}`), `vcpkg.json`, `conanfile.py`, README/anforderungen;
+  Doku-Beispiele: `find_package(InMemDB 1.0 REQUIRED)` / FetchContent `GIT_TAG v1.0.0`
+- Dokumentation komplett umstrukturiert (Stil populärer Repositories, PR #51): `docs/` mit
+  eigenem [Index](docs/README.md), neuem [Getting Started](docs/getting-started.md) (Build,
+  Einbindung, CLI-Tools, Beispiele – aus der README verschoben), Guides unter `docs/guides/`,
+  Internes (Architektur/ADRs, Fehlerbehandlung, Härtung, Performance) unter `docs/internals/`;
+  README als schlanke Landing-Page; `CHANGELOG.md` neu angelegt
 
 ## [0.40] – 2026-11-16
 

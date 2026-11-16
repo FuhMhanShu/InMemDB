@@ -28,7 +28,7 @@ cmake --install build --prefix /pfad/zur/installation
 ```
 
 ```cmake
-find_package(InMemDB 0.33 REQUIRED)
+find_package(InMemDB 1.0 REQUIRED)
 target_link_libraries(mein_programm PRIVATE memdb::memdb)
 ```
 
@@ -38,7 +38,7 @@ Oder ohne Installation direkt per FetchContent:
 include(FetchContent)
 FetchContent_Declare(InMemDB
     GIT_REPOSITORY https://github.com/FuhMhanShu/InMemDB.git
-    GIT_TAG v0.40)
+    GIT_TAG v1.0.0)
 FetchContent_MakeAvailable(InMemDB)
 target_link_libraries(mein_programm PRIVATE memdb::memdb)
 ```
