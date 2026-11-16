@@ -18,6 +18,9 @@ Abgefragt wird auf zwei Arten, die zur selben Query werden: als **typsicher C++-
 > Sichern geht jederzeit als JSON-Snapshot (`saveToFile`) oder verschlüsselt
 > (`saveToFileEncrypted(path, passwort)`).
 
+> **Aktueller Release: v1.0.0** (2026-11-16, Git-Tag `v1.0.0`) – erstes offizielles Release,
+> ab jetzt SemVer (API stabil). Historie: [CHANGELOG.md](CHANGELOG.md).
+
 ## Quickstart
 
 ```cpp
@@ -31,7 +34,7 @@ for (const auto& p : products.find("preis < 20 && tags.contains('neu')"))
 db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsselter Snapshot
 ```
 
-## Was kann InMemDB? (Features, v0.40)
+## Was kann InMemDB? (Features, v1.0)
 
 **Daten & Abfragen**
 - Schema-lose Dokumente mit dynamisch erweiterbaren Feldern (auch verschachtelt, Punktnotation `"adresse.plz"`)

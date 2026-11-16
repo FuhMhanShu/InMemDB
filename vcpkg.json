@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "inmemdb",
-  "version": "0.33",
+  "version": "1.0.0",
   "description": "In-Memory Document Store als eingebettete C++17-Bibliothek: schema-lose Dokumente, typsichere Queries + String-DSL, Indizes, Transaktionen, Referenzen/Joins, verschluesselte Snapshots - ohne externe Pflichtabhaengigkeiten.",
   "homepage": "https://github.com/FuhMhanShu/InMemDB",
   "documentation": "https://github.com/FuhMhanShu/InMemDB#readme",

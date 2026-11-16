@@ -5,7 +5,7 @@
 | Feld | Wert |
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
-| Version | 0.40 |
+| Version | 1.0.0 |
 | Status | fortgeschrieben; FA-01…FA-28 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
@@ -243,6 +243,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | v0.38 | Framework-Härtung Teil 2 (`docs/internals/hardening.md`): DSL-Parser mit Verschachtelungs-Limit 256 (`(`/`!`, vorher Segfault ab ~50000 Klammern) + strikte Zahlen (int64-Überlauf → double, „1.2.3“/„1e“ → `QueryError` statt stillschweigend 0); BSON-Parser mit Tiefenlimit 1000 (vorher Segfault ab ~20000 Verschachtelung); zentrale Härtungs-Doku mit allen Limits (RegEx/JSON/DSL/BSON/Spill/Krypto) und Test-Strategie (Probes, Fuzz-lite, ASan, Fault-Injection); Tests `tests/test_hardening.cpp` (13 Checks); ctest 40/40 |
 | v0.39 | Optionale Collection-Limits (FA-28, `docs/guides/limits.md`): `Collection::setLimits`/`limits()`, `LimitError`, Metrik `limitViolations`; Durchsetzung in allen do*-Pfaden (insert/bulk/load/update/replace/upsert/index, Tx + Spill); Tests `tests/test_limits.cpp` (34 Checks); ctest 41/41 |
 | v0.40 | Discovery: **Ausreißer-Erkennung** `discoverOutliers(coll | vector<Collection>, opts)` – z-Score (`outlierZ`, Default 3.0) + IQR/Tukey-Fence (`outlierIqrK`, Default 1.5) pro numerischem Feld, `minOutlierSamples` (Default 8), Sampling respektiert, `FieldOutliers` mit Quantilen (Q1/Median/Q3/IQR), Mean/Stddev, Outlier-Rate, Methode + bis zu 100 Beispielwerten; Integration in `analyze()`: `AnalysisReport::outliers` + Health-Score als 5. Faktor (Gewichte neu 0.30/0.15/0.20/0.20/0.15, ohne numerische Werte neutral 1.0); alle 4 Präsentationen (JSON `"outliers"`, Markdown-Sektion „Ausreißer", `printSummary` `Outliers: N`, Empfehlung); CLI `inmemdb_discover --outliers`; Tests `tests/test_discovery6.cpp` (26 Checks); ctest 42/42; Doku `docs/guides/discovery.md` §v0.40, `docs/guides/discovery-guide.md` §4.14/§4.16 |
+| v1.0.0 | **Erstes offizielles Release**: Version auf 1.0.0 gehoben (CMake `project(VERSION 1.0.0)`, vcpkg.json/conanfile.py, Doku), ab jetzt SemVer – die öffentliche API ist stabil; Git-Tag `v1.0.0`; enthält zusätzlich die Doku-Umstrukturierung aus PR #51 (`docs/README.md` Index, `docs/getting-started.md`, `docs/guides/`, `docs/internals/`, `CHANGELOG.md`); ctest 42/42 |
 
 ---
 
