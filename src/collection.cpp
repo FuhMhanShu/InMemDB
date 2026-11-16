@@ -36,9 +36,20 @@ void fireEvents(const std::shared_ptr<detail::CollectionState>& state, const std
         for (const auto& [id, cb] : state->observers)
             cbs.push_back(cb);
     }
+    // v0.35: eine throwende Observer-Callback darf die Schreiboperation nicht abbrechen
+    // (die Daten sind zu diesem Zeitpunkt bereits geschrieben) und auch nicht die
+    // restlichen Observer auslassen -> Fehler werden gezaehlt (metrics.eventErrors).
+    std::size_t errors = 0;
     for (const auto& e : events)
-        for (const auto& cb : cbs)
-            cb(e);
+        for (const auto& cb : cbs) {
+            try {
+                cb(e);
+            } catch (...) {
+                ++errors;
+            }
+        }
+    if (errors)
+        state->metrics.eventErrors += errors;
 }
 
 } // namespace
@@ -356,6 +367,8 @@ CollectionMetrics Collection::metrics() const {
     m.txCommits = s.txCommits.load();
     m.txRollbacks = s.txRollbacks.load();
     m.expiredDocs = s.expiredDocs.load();
+    m.evalErrors = s.evalErrors.load();
+    m.eventErrors = s.eventErrors.load();
     m.docs = impl_->doSize();
     m.indexCount = impl_->indexes.size();
     m.lastCandidateCount = impl_->lastCandidateCount;
@@ -380,6 +393,8 @@ void Collection::resetMetrics() {
     s.txCommits = 0;
     s.txRollbacks = 0;
     s.expiredDocs = 0;
+    s.evalErrors = 0;
+    s.eventErrors = 0;
     s.lastQueryMs = 0.0;
     s.totalQueryMs = 0.0;
     s.lastUsedIndex = false;

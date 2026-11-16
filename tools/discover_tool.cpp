@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-int main(int argc, char** argv) {
+static int run(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X] "
                      "[--min-confidence X] [--min-correlation X] [--min-similarity X] [--sample N] [--seed N] "
@@ -159,4 +159,18 @@ int main(int argc, char** argv) {
         std::cerr << "apply: " << total << " Referenzen angelegt und Dateien zurückgeschrieben\n";
     }
     return 0;
+}
+
+int main(int argc, char** argv) {
+    // v0.35: CLI immer sauber beenden – auch bei Nicht-memdb-Exceptions (z. B. std::stod auf
+    // ungueltiger Option, std::bad_alloc): Fehlermeldung + Exit-Code statt terminate/crash.
+    try {
+        return run(argc, argv);
+    } catch (const memdb::Error& e) {
+        std::cerr << "Fehler: " << e.what() << "\n";
+        return 1;
+    } catch (const std::exception& e) {
+        std::cerr << "Fehler: " << e.what() << "\n";
+        return 1;
+    }
 }

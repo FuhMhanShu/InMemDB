@@ -5,7 +5,7 @@
 | Feld | Wert |
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
-| Version | 0.33 |
+| Version | 0.35 |
 | Status | fortgeschrieben; FA-01…FA-27 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
@@ -106,6 +106,8 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | NFA-03 | **Erweiterbarkeit**: neue Werttypen durch Ableitung von einer `Value`-Basisklasse registrierbar; neue Query-Operatoren erweiterbar (v0.14: String-DSL `find("age >= 18 && ...")` via `parseQuery`, `QueryFunctionRegistry` für eigene Function-Operatoren wie `matches`/`in`, `Expression::predicate`, `@relation.path`-Joins über FA-18); keine Änderung am Kern für Erweiterungen nötig (Open/Closed). Siehe `docs/query-dsl.md`. Foundations v0.27 (allgemein nützlich, z. B. für Relationship-Discovery): `memdb::ValueLess`, `Collection::distinctValues` (index-aware), `Collection::sample` (reproduzierbares Sampling), `AggOp::Distinct`, `Expression::isMatchAll`. | M |
 | NFA-04 | **API-Ergonomie**: intuitive, moderne C++-Syntax (z. B. Initializer-Listen für Dokumente, `std::string_view`, `std::optional`); sprechende Methodennamen. | M |
 | NFA-05 | **Zuverlässigkeit/Speicher**: keine Lecks (RAII, Smart Pointer), starke Exception-Garantie bei fehlgeschlagenen Updates; ungültige Zugriffe werfen typisierte Exceptions. | M |
+
+**Exception-Policy (v0.35, `docs/error-handling.md`):** Exceptions bleiben für echte Fehler (Constraints, I/O, API-Missbrauch) sichtbar; abgefangen wird nur dort, wo sonst mitten in einer Operation abgebrochen würde – Query-Scan pro Dokument (`evalErrors`), Observer-Callbacks (`eventErrors`), Bulk-JSON-Load validiert vor Mutation (atomar), CLI-Tools melden sauber mit Exit-Code.
 | NFA-06 | **Portabilität & Build**: plattformunabhängiger Code, Build über CMake; Kern ohne externe Pflichtabhängigkeiten. Auslieferung als **statische Library mit Pimpl** (ABI-stabile öffentliche Header, geringe Compile-Zeiten der Konsumenten) – Details siehe `docs/architecture.md`. **Interne Eigenimplementierungen** (JSON-Parser `src/json.*`, Krypto PBKDF2/ChaCha20/HMAC-SHA256 `src/crypto.*`, Mini-RegEx `src/regex.*`) bleiben Default – externe Pendants (z. B. OpenSSL, PCRE2, nlohmann/json) sind höchstens als **Opt-in** hinter eigener CMake-Option + Präprozessor-Macro erlaubt (Vorbild: `INMEMDB_WITH_SQLITE`, ADR-02), niemals als Pflichtabhängigkeit; Shared-Lib-Deployment (DLL/SO neben der App) betrifft nur den Opt-in-Fall und liegt beim Anwender. | M |
 | NFA-07 | **Testbarkeit**: Unit-Tests für alle Kernpfade (Empfehlung: Catch2 oder GoogleTest als Dev-Dependency); Abdeckung der CRUD-, Query- und Nebenläufigkeitsfälle. | S |
 | NFA-08 | **Dokumentation**: Doxygen-kommentierte öffentliche API, README mit Quickstart, mindestens ein lauffähiges Beispiel. | S |
@@ -230,6 +232,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | v0.32 | Discovery: Cross-DB-Diff (`diffCollections`/`diffDatabases`/`toJson(DatabaseDiff)`) + Merge-Vorschläge (`suggestMerges`, Jaccard + Werte-Overlap, cross-database, passend zu FA-24), CLI `--diff`/`--suggest-merges` |
 | v0.33 | Discovery: automatische Gesamtanalyse (`analyze()` → `AnalysisReport`: Profile + Relationen + Orphans + Merge-Vorschläge + Pfade) mit **Health-Score 0–100 (Ampel 🟢🟡🔴)** und vier Präsentationen (`toMarkdown`/`toJson`/`toMermaid`/`printSummary`), cross-database; CLI `inmemdb_discover --report <prefix>` schreibt `.report.md`/`.relations.json`/`.graph.mmd`; Doku: ausführlicher Guide `docs/discovery-guide.md` + Beispiel-Graphen (`docs/images/*.svg`) |
 | v0.34 | Mini-RegEx gehärtet: harte Limits (Pattern ≤ 4096 Zeichen, Verschachtelung ≤ 256, NFA ≤ 50000 Anweisungen, Match-Budget 100 Mio. Schritte) — pathologische Patterns werfen `std::invalid_argument`/`std::runtime_error` statt Segfault/Hang; `detail::Regex` (kompiliertes Pattern, thread-sicher) wird von `matches` einmalig pro Query genutzt; Fuzz-Test; `docs/query-dsl.md` dokumentiert Syntax, Full-Match-Semantik, Byte/UTF-8-Verhalten und Grenzen (keine Backrefs/Lookaround/`\b`) |
+| v0.35 | Exception-Policy (`docs/error-handling.md`): Query-Scan fängt Eval-Fehler pro Dokument ab (`metrics().evalErrors`, Dokument = Nicht-Treffer), Observer-Exceptions werden pro Callback abgefangen (`metrics().eventErrors`, Schreib-OP und restliche Observer laufen weiter), `loadJson`/`fromJson` validieren vor Mutation (bei kaputtem Element bleibt alles unverändert, kein Partial State), alle CLI-Tools fangen `std::exception` inkl. Options-Parsing (sauberer Exit-Code statt terminate); echte Fehler (Unique/Schema/Crypto/Datei) werfen weiterhin; Tests `tests/test_error_handling.cpp` (32 Checks) |
 
 ---
 

@@ -23,6 +23,8 @@ struct CollectionMetrics {
     std::uint64_t txCommits = 0;      ///< abgeschlossene Transaktionen (Commit)
     std::uint64_t txRollbacks = 0;    ///< zurückgerollte Transaktionen (explizit oder per Destruktor)
     std::uint64_t expiredDocs = 0;    ///< TTL/Auto-Expiry (FA-25): abgelaufene und entfernte Dokumente
+    std::uint64_t evalErrors = 0;     ///< v0.35: abgefangene Query-Eval-Fehler im Scan (Dokument zaehlte als Nicht-Treffer)
+    std::uint64_t eventErrors = 0;    ///< v0.35: abgefangene Observer-Exceptions (Schreib-OP lief weiter)
     std::size_t docs = 0;             ///< aktuelle Dokumentanzahl (RAM + Spill)
     std::size_t indexCount = 0;       ///< Anzahl aktiver Indizes
     std::size_t lastCandidateCount = 0; ///< Kandidaten der letzten Query

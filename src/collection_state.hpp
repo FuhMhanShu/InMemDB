@@ -12,6 +12,7 @@
 #include "json.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -150,6 +151,8 @@ struct Metrics {
     std::atomic<std::uint64_t> txCommits{0};
     std::atomic<std::uint64_t> txRollbacks{0};
     std::atomic<std::uint64_t> expiredDocs{0};
+    std::atomic<std::uint64_t> evalErrors{0};   ///< v0.35: abgefangene Eval-Fehler im Query-Scan (Dokument = Nicht-Treffer)
+    std::atomic<std::uint64_t> eventErrors{0};  ///< v0.35: abgefangene Observer-Exceptions (Schreib-OP lief weiter)
     double lastQueryMs = 0.0;
     double totalQueryMs = 0.0;
     bool lastUsedIndex = false;
@@ -618,6 +621,19 @@ struct CollectionState {
         return out;
     }
 
+    // v0.35: Eval-Fehler pro Dokument (z. B. throwende eigene DSL-Funktion via Registry,
+    // Regex-Match-Budget) duerfen einen Scan/Update nicht abbrechen -> Dokument zaehlt als
+    // Nicht-Treffer, der Fehler wird in metrics.evalErrors gezaehlt. Aufruf an expliziten
+    // Einzelstellen (Expression::evaluate) bleibt dagegen throwend.
+    bool safeEval(const Expression& q, const Document& d) const {
+        try {
+            return q.evaluate(d);
+        } catch (...) {
+            ++metrics.evalErrors;
+            return false;
+        }
+    }
+
     Cursor doFind(const Expression& q) const {
         auto ids = candidates(q);
         lastCandidateCount = ids.size();
@@ -626,7 +642,7 @@ struct CollectionState {
             if (!hasDoc(id))
                 continue;
             Document d = loadDoc(id);
-            if (q.evaluate(d))
+            if (safeEval(q, d))
                 result.push_back(std::move(d));
         }
         return Cursor(std::move(result));
@@ -638,7 +654,7 @@ struct CollectionState {
         Document tmp;
         for (auto id : ids) {
             const Document* d = docForEval(id, tmp);
-            if (d && q.evaluate(*d))
+            if (d && safeEval(q, *d))
                 return *d;
         }
         return std::nullopt;
@@ -651,7 +667,7 @@ struct CollectionState {
         Document tmp;
         for (auto id : ids) {
             const Document* d = docForEval(id, tmp);
-            if (d && q.evaluate(*d))
+            if (d && safeEval(q, *d))
                 ++n;
         }
         return n;
@@ -665,7 +681,7 @@ struct CollectionState {
         Document tmp;
         for (auto id : ids) {
             const Document* d = docForEval(id, tmp);
-            if (d && q.evaluate(*d))
+            if (d && safeEval(q, *d))
                 out.push_back(id);
         }
         return out;
@@ -678,7 +694,7 @@ struct CollectionState {
         Document tmp;
         for (auto id : ids) {
             const Document* d = docForEval(id, tmp);
-            if (d && q.evaluate(*d)) {
+            if (d && safeEval(q, *d)) {
                 cb(*d);
                 ++n;
             }
@@ -693,7 +709,7 @@ struct CollectionState {
             if (!hasDoc(id))
                 continue;
             Document updated = loadDoc(id);
-            if (!q.evaluate(updated))
+            if (!safeEval(q, updated))
                 continue;
             mutator(updated);
             updated.setId(id);
@@ -811,7 +827,7 @@ struct CollectionState {
         auto ids = candidates(q, false);
         for (auto id : ids) {
             auto it = docs.find(id);
-            if (it != docs.end() && q.evaluate(it->second))
+            if (it != docs.end() && safeEval(q, it->second))
                 return doUpsertById(id, std::move(doc));
         }
         return doInsert(std::move(doc));
@@ -823,7 +839,7 @@ struct CollectionState {
         Document tmp;
         for (auto id : ids) {
             const Document* d = docForEval(id, tmp);
-            if (d && q.evaluate(*d))
+            if (d && safeEval(q, *d))
                 toRemove.push_back(id);
         }
         for (auto id : toRemove) {
@@ -874,7 +890,7 @@ struct CollectionState {
         Document tmp;
         for (auto id : candidates(q)) {
             const Document* d = docForEval(id, tmp);
-            if (!d || !q.evaluate(*d))
+            if (!d || !safeEval(q, *d))
                 continue;
             acc.addDoc();
             acc.addValue(d->findPath(fieldPath));
@@ -888,7 +904,7 @@ struct CollectionState {
         Document tmp;
         for (auto id : candidates(q)) {
             const Document* d = docForEval(id, tmp);
-            if (!d || !q.evaluate(*d))
+            if (!d || !safeEval(q, *d))
                 continue;
             const Value* k = d->findPath(keyPath);
             Value key = k ? *k : Value(nullptr);
@@ -930,7 +946,7 @@ struct CollectionState {
         Document tmp;
         for (auto id : candidates(q)) {
             const Document* d = docForEval(id, tmp);
-            if (!d || !q.evaluate(*d))
+            if (!d || !safeEval(q, *d))
                 continue;
             if (const Value* v = d->findPath(fieldPath))
                 uniq.insert(*v);
@@ -1001,6 +1017,12 @@ struct CollectionState {
         if (!arrayValue.isArray())
             throw JsonError("Collection-JSON muss ein Array von Objekten sein");
         auto& items = arrayValue.asArray();
+        // v0.35: erst vollstaendig validieren, dann mutieren -> bei kaputtem Element bleibt
+        // die Collection unveraendert (kein geleerter/halbgeladener Zustand), der Aufrufer
+        // kann den Fehler behandeln und den Flow fortsetzen.
+        for (const auto& item : items)
+            if (!item.isDocument())
+                throw JsonError("Collection-JSON: Element ist kein Objekt");
         noteUndoClear();
         docs.clear();
         docs.reserve(items.size());
@@ -1021,8 +1043,8 @@ struct CollectionState {
         }
         emit(ChangeType::Clear, DocumentId(0), Document{});
         for (auto& item : items) {
-            if (!item.isDocument())
-                throw JsonError("Collection-JSON: Element ist kein Objekt");
+            // isDocument() wurde oben bereits fuer alle Elemente geprueft
+            assert(item.isDocument());
             Document doc = std::move(*item.asDocument());
             DocumentId id(nextId++);
             doc.setId(id);

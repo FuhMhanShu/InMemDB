@@ -70,6 +70,8 @@ DatabaseMetrics Database::metrics() const {
         out.sum.txCommits += m.txCommits;
         out.sum.txRollbacks += m.txRollbacks;
         out.sum.expiredDocs += m.expiredDocs;
+        out.sum.evalErrors += m.evalErrors;
+        out.sum.eventErrors += m.eventErrors;
         out.sum.totalQueryMs += m.totalQueryMs;
     }
     return out;
@@ -326,6 +328,11 @@ void Database::fromJson(std::string_view json) {
         } else {
             throw JsonError("Collection '" + name + "' muss Array oder Objekt sein");
         }
+        // v0.35: Dokument-Elemente vorab validieren -> bei kaputtem Element bleibt die
+        // Database unveraendert (keine halb angelegten Collections), Fehler ist behandelbar.
+        for (const auto& el : item.documents.asArray())
+            if (!el.isDocument())
+                throw JsonError("Collection '" + name + "': 'documents'-Element ist kein Objekt");
         items.push_back(std::move(item));
     }
 
