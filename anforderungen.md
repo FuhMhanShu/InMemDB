@@ -6,7 +6,7 @@
 |---|---|
 | Projekttitel | InMemDB – In-Memory Document Store |
 | Version | 1.0.0 |
-| Status | fortgeschrieben; FA-01…FA-30 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
+| Status | fortgeschrieben; FA-01…FA-31 und NFA-01…NFA-09 umgesetzt bzw. beschlossen |
 | Sprache | Deutsch |
 | Technologie | C++ (mindestens C++17, C++20 wünschenswert), CMake |
 | Bereitstellungsform | Eingebettete Bibliothek als **kompilierte statische Library mit Pimpl-Idiom** (öffentliche Header unter `include/memdb/`, Implementierung gekapselt in `src/`); kein Server, kein Netzwerk. Header-only wurde verworfen – siehe `docs/de/internals/architecture.md`. |
@@ -91,6 +91,7 @@ Prioritäten: **M** = Muss, **S** = Soll, **K** = Kann.
 | FA-28 | **Optionale Collection-Limits** (opt-in, Default unbegrenzt): `Collection::setLimits(CollectionLimits{maxDocuments, maxDocumentBytes, maxFieldsPerDocument, maxIndexes})` – Verstoß wirft `LimitError` **vor der Mutation** (insert/insertBulk/loadJson/update/replace/upsert/createIndex, Bulk atomar); Zähler `CollectionMetrics::limitViolations`; wirkt in Tx und inkl. Spill; Faustregeln siehe `docs/de/guides/limits.md`. | K |
 | FA-29 | **Datencharakter-Kategorisierung** (ohne externe Abhängigkeiten): `assessCharacter(coll | vector | Database, DiscoveryOptions)` stuft jede Collection grob in eine von drei Daten-Kategorien ein – `DataCategory::Numeric` (Kategorie 1, >= 80 % numerische Felder), `Mixed` (Kategorie 2, Mischung Zahlen/Strings/Booleans) oder `Complex` (Kategorie 3, Arrays/Dokumente/Binär oder Typ-Drift >= 40 %) – inkl. `confidence`, Klartext-Begründung, Feld-Charakteristik (dominanter Typ, Typ-Reinheit, Drift) und Reports `toJson`/`toMarkdown`; als Vorab-Dispatcher für die passenden Analyse-Pipelines. Siehe `docs/de/guides/character.md`. | K |
 | FA-30 | **Numerische Metadaten-Analyse** (ohne externe Abhängigkeiten), Kategorie-1-Pipeline zu FA-29: `analyzeNumeric(coll | vector | Database, NumericAnalysisOptions)` interpretiert numerische Felder statistisch – Lage/Streuungsmaße, Quantile, Schiefe/Exzess-Kurtosis, Ganzzahl-Anteil und Diskretheit, Rundungs-Raster-Erkennung (Preis-/Cent-Raster), Sequenz-Charakter in Einfügereihenfolge (monoton, lückenlose ID-Sequenzen, mediane Schrittweite, Lücken), Benford-Analyse der ersten signifikanten Ziffer (MAD nach Nigrini) und paarweise Pearson-Korrelationen – plus Reports `toJson`/`toMarkdown`; interpretierende `note`-Hinweise pro Feld. Siehe `docs/de/guides/numeric-analysis.md`. | K |
+| FA-31 | **Einfluss-Analyse** (ohne externe Abhängigkeiten), Vertiefung von FA-30: `analyzeInfluence(coll | vector | Database, InfluenceOptions)` deutet die statistischen Werte weiter und bestimmt dominante Felder – Hub über Pearson-Korrelationen (Summe/Mittel der |r|, starke Zusammenhänge ab 0.8), multiples R² je Feld gegen die übrigen (Complete-Cases-Regression, Ridge-Term gegen Kollinearität) und funktionale Abhängigkeiten (Evidenz aus wiederholten Quell-Werten, Coverage >= 0.99) – daraus Rollen `driver`/`dependent`/`mediator`/`independent`, `influenceScore`, `topDriver`, Klartext-Begründungen und Reports `toJson`/`toMarkdown`; Korrelation belegt keine Kausalität. Siehe `docs/de/guides/influence.md`. | K |
 
 > **Verbindliche Ausprägung von FA-05 (Query-API):** typsicher Ausdruckbaum mit
 > Operator-Overloading, z. B. `(Field("age") >= 18) && Field("tags").contains("cpp")`.
@@ -145,6 +146,7 @@ Namespace `memdb`. Wesentliche Klassen:
 | Discovery (FA-27) | `discovery.hpp` | `discoverForeignKeys`/`discoverRelations`/`applyDiscovered`, Orphans, Pfade, Profil, Candidate Keys, Diff, Merge-Vorschläge, `analyze()` + Health-Score + Reports (v0.29–v0.33); Guide: `docs/de/guides/discovery-guide.md` |
 | Datencharakter (FA-29) | `character.hpp` | `assessCharacter`: grobe Kategorisierung `Numeric`/`Mixed`/`Complex` inkl. confidence, Feld-Charakteristik, `toJson`/`toMarkdown`; Guide: `docs/de/guides/character.md` |
 | Numerik-Analyse (FA-30) | `numeric_analysis.hpp` | `analyzeNumeric`: Kennzahlen/Quantile/Skew/Kurtosis, Diskretheit, Raster, Sequenz (ID-artig), Benford, Pearson-Paare, `toJson`/`toMarkdown`; Guide: `docs/de/guides/numeric-analysis.md` |
+| Einfluss-Analyse (FA-31) | `influence.hpp` | `analyzeInfluence`: dominante Felder via Hub/R²/funktionale Abhängigkeiten, Rollen driver/dependent/mediator/independent, `topDriver`, `toJson`/`toMarkdown`; Guide: `docs/de/guides/influence.md` |
 | Metriken (v0.22) | `metrics.hpp` | `Collection::metrics()` / `Database::metrics()` |
 | Qt-Adapter (FA-23) | `qt/memdb_qt_model.hpp` | `memdb::qt::MemDbTableModel` (nur QtCore, nur bei `INMEMDB_WITH_QT`) |
 | String-DSL (NFA-03) | `query_dsl.hpp` | `parseQuery`, `QueryFunctionRegistry`, `matches`/`in`, `@relation.path` |
