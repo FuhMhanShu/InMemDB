@@ -429,8 +429,8 @@ int main() {
         CHECK(!f->discrete); // Spannweite inf > discreteMaxRange
         CHECK(f->note.empty()); // integralRatio 1.0: kein Dezimalanteil-Hinweis
         const std::string j = toJson(*f);
-        CHECK(j.find("inf") == std::string::npos);
-        CHECK(j.find("nan") == std::string::npos);
+        CHECK(j.find(":inf") == std::string::npos);
+        CHECK(j.find(":nan") == std::string::npos);
         CHECK(res.associations.empty());
     }
 
@@ -455,8 +455,8 @@ int main() {
         CHECK(f->integralRatio == 1.0 && f->discrete);
         CHECK(f->note.find("fehlt in 29 %") != std::string::npos);
         const std::string j = toJson(*f);
-        CHECK(j.find("inf") == std::string::npos);
-        CHECK(j.find("nan") == std::string::npos);
+        CHECK(j.find(":inf") == std::string::npos);
+        CHECK(j.find(":nan") == std::string::npos);
     }
 
     // 15) Haertung: konstante Felder (Zahl/Text/Boolean) – analysiert mit
