@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="sans-serif">
+<rect width="760" height="300" fill="#ffffff" rx="10"/>
+<text x="185" y="22" font-size="13" fill="#1a202c" text-anchor="middle" font-weight="bold">Pfad-Bildung: rekursives Profil</text>
+<rect x="40" y="38" width="300" height="46" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="190" y="55" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">Dokument-Feld</text>
+<text x="190" y="70" font-size="10" fill="#4a5568" text-anchor="middle">Skalar -&gt; Pfad; Zahl vereint Int/Double; null zaehlt</text>
+<line x1="100" y1="84" x2="100" y2="106" stroke="#3182ce" stroke-width="1.2" marker-end="none"/>
+<polygon points="95,104 105,104 100,114" fill="#3182ce"/>
+<line x1="280" y1="84" x2="280" y2="106" stroke="#3182ce" stroke-width="1.2" marker-end="none"/>
+<polygon points="275,104 285,104 280,114" fill="#3182ce"/>
+<rect x="40" y="116" width="130" height="46" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="105" y="133" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">Document</text>
+<text x="105" y="148" font-size="10" fill="#4a5568" text-anchor="middle">Punktnotation</text>
+<text x="105" y="159" font-size="9.5" fill="#718096" text-anchor="middle">adresse.plz</text>
+<rect x="210" y="116" width="130" height="46" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="275" y="133" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">Array</text>
+<text x="275" y="148" font-size="10" fill="#4a5568" text-anchor="middle">Container + "[]"-Elemente</text>
+<text x="275" y="159" font-size="9.5" fill="#718096" text-anchor="middle">tags[] | items[].preis</text>
+<line x1="105" y1="162" x2="105" y2="178" stroke="#3182ce" stroke-width="1.2" stroke-dasharray="4 3"/>
+<polygon points="100,176 110,176 105,186" fill="#3182ce"/>
+<rect x="40" y="188" width="300" height="48" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="190" y="205" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">je Pfad: Typ-Sichtungen</text>
+<text x="190" y="220" font-size="10" fill="#4a5568" text-anchor="middle">dominantKind + dominantShare | typeDrift bei mehreren Typen</text>
+<text x="190" y="231" font-size="9.5" fill="#718096" text-anchor="middle">distinct (Skalare) | missing/missingRatio | scalarShare | note</text>
+<text x="190" y="260" font-size="10.5" fill="#718096" text-anchor="middle">Guards: maxDepth (8) | maxPathsPerCollection (128) | minSightingsPerPath</text>
+<text x="190" y="283" font-size="10.5" fill="#4a5568" text-anchor="middle">Tiefe: Feld = 1, "tags[]" = 2, "items[].preis" = 3</text>
+<text x="575" y="22" font-size="13" fill="#1a202c" text-anchor="middle" font-weight="bold">Schema-Varianten (Fingerprint)</text>
+<rect x="420" y="38" width="310" height="50" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="575" y="55" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">Fingerprint je Dokument</text>
+<text x="575" y="70" font-size="10" fill="#4a5568" text-anchor="middle">sortierte Pfadmenge, "|"-separiert</text>
+<text x="575" y="81" font-size="9.5" fill="#718096" text-anchor="middle">identischer Fingerprint = eine Variante</text>
+<line x1="575" y1="88" x2="575" y2="104" stroke="#3182ce" stroke-width="1.2" marker-end="none"/>
+<polygon points="570,102 580,102 575,112" fill="#3182ce"/>
+<rect x="420" y="112" width="150" height="52" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="495" y="130" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">variantCount</text>
+<text x="495" y="145" font-size="10" fill="#4a5568" text-anchor="middle">alle Varianten</text>
+<text x="495" y="157" font-size="9.5" fill="#718096" text-anchor="middle">Cap: maxSchemaVariants (16)</text>
+<rect x="580" y="112" width="150" height="52" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="655" y="130" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">schemaConsistency</text>
+<text x="655" y="145" font-size="10" fill="#4a5568" text-anchor="middle">Anteil groesster Variante</text>
+<text x="655" y="157" font-size="9.5" fill="#718096" text-anchor="middle">1.0 = einheitliches Schema</text>
+<text x="575" y="188" font-size="10.5" fill="#718096" text-anchor="middle">Sortierung: docCount absteigend, dann Fingerprint; share je Variante</text>
+<text x="575" y="208" font-size="10.5" fill="#4a5568" text-anchor="middle">Notes: Schema-Konsistenz | Pfad-Cap | Tiefen-Guard</text>
+<text x="575" y="232" font-size="10" fill="#718096" text-anchor="middle">Sampling reproduktiv (seed); __references wird ignoriert</text>
+<text x="575" y="262" font-size="10.5" fill="#4a5568" text-anchor="middle">Kategorie 3 zu FA-29: Arrays, Dokumente, Binaer, Typ-Drift</text>
+</svg>
