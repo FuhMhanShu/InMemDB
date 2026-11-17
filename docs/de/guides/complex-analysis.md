@@ -91,9 +91,16 @@ Gruppierung, Konsistenz-Anteil und Cap.
   Dokumentmenge.
 - Reports enthalten ausschließlich Zähler und Quotienten – per Konstruktion kein
   `inf`/`nan` im JSON.
-- Tests: `tests/test_complex_analysis.cpp` (175 Checks): u. a. verschachtelte
+- Härtung: die Rekursion endet unabhängig von `maxDepth` bei einer harten
+  Tiefen-Obergrenze von 64 – bei großzügigen Optionen würde die Analyse tief
+  verschachtelter Strukturen sonst den Stack überlaufen lassen (Begrenzung wird
+  als Note transparent gemacht); distinct-Deckel transparent im Pfad-`note`;
+  Dokumente ohne Pfade erhalten einen leeren Fingerprint ohne leere
+  Feld-Einträge.
+- Tests: `tests/test_complex_analysis.cpp` (197 Checks): u. a. verschachtelte
   Dokumente, Arrays und Arrays aus Dokumenten, Typ-Drift, Schema-Varianten,
-  Binär und null, Sampling, alle Guards, Reports und leere Collections.
+  Binär und null, Sampling, alle Guards, Reports, leere Collections sowie
+  Tiefen-, Deckel- und Fingerprint-Härtungsszenarien.
 
 Siehe auch: [character.md](character.md) für die Vorab-Kategorisierung,
 [numeric-analysis.md](numeric-analysis.md) für die Kategorie-1-Pipeline und

@@ -56,6 +56,11 @@ struct Walker {
     std::vector<std::string> docPaths; ///< Pfade des aktuellen Dokuments (Fingerprint)
     bool capped = false;
     bool depthLimited = false;
+    /// Härtung: harte Tiefen-Obergrenze – unabhängig von opts.maxDepth, sonst
+    /// Stack-Overflow der Analyse-Rekursion bei großzügigen Optionen
+    /// (maxDepth bis 1e6) auf tief verschachtelten Strukturen.
+    static constexpr std::size_t kHardDepthLimit = 64;
+    std::size_t depthGuard = kHardDepthLimit;
 
     bool record(const std::string& path, PathKind k, std::size_t depth, bool elem,
                 const Value* scalar, DocumentId id) {
@@ -89,7 +94,7 @@ struct Walker {
                   DocumentId id) {
         if (v.isDocument()) {
             record(path, PathKind::Document, depth, false, nullptr, id);
-            if (depth >= opts.maxDepth) { // Härtung: Tiefen-Guard
+            if (depth >= depthGuard) { // Härtung: Tiefen-Guard (zyklensicher)
                 depthLimited = true;
                 return;
             }
@@ -101,7 +106,7 @@ struct Walker {
         }
         if (v.isArray()) {
             record(path, PathKind::Array, depth, false, nullptr, id);
-            if (depth >= opts.maxDepth) {
+            if (depth >= depthGuard) {
                 depthLimited = true;
                 return;
             }
@@ -171,6 +176,7 @@ ComplexCollectionAnalysis analyzeComplex(const Collection& c,
     std::set<std::string> topFields;
     std::map<std::string, std::size_t> variantCounts; // Fingerprint -> Dokumente
     Walker walker{opts, paths, {}, false, false};
+    walker.depthGuard = std::min(opts.maxDepth, Walker::kHardDepthLimit);
 
     auto collect = [&](const Document& d) {
         walker.docPaths.clear();
@@ -250,6 +256,11 @@ ComplexCollectionAnalysis analyzeComplex(const Collection& c,
         } else if (a.isElementPath && a.dominantKind == PathKind::Document) {
             a.note = "Array aus Dokumenten (" + std::to_string(a.count) + " Elemente)";
         }
+        if (st.distinctCapped) { // Härtung: transparent machen, dass distinct gedeckelt ist
+            const std::string capNote =
+                "distinct gedeckelt bei " + std::to_string(opts.maxDistinctPerPath);
+            a.note = a.note.empty() ? capNote : a.note + "; " + capNote;
+        }
         res.maxDepth = std::max(res.maxDepth, a.depth);
         res.paths.push_back(std::move(a));
     }
@@ -271,6 +282,8 @@ ComplexCollectionAnalysis analyzeComplex(const Collection& c,
                       : 0.0;
         std::string fp = v.fingerprint;
         std::size_t start = 0;
+        if (fp.empty())
+            start = fp.size() + 1; // Härtung: leerer Fingerprint (Dokument ohne Pfade) => keine Felder
         while (start <= fp.size()) {
             const std::size_t bar = fp.find('|', start);
             v.fields.push_back(fp.substr(start, (bar == std::string::npos ? fp.size() : bar) - start));
@@ -294,8 +307,11 @@ ComplexCollectionAnalysis analyzeComplex(const Collection& c,
         res.notes.push_back("Pfad-Cap erreicht (" + std::to_string(opts.maxPathsPerCollection) +
                            "): weitere Pfade ignoriert");
     if (walker.depthLimited)
-        res.notes.push_back("Tiefen-Guard aktiv (" + std::to_string(opts.maxDepth) +
+        res.notes.push_back("Tiefen-Guard aktiv (" + std::to_string(walker.depthGuard) +
                             "): tiefere Pfade ignoriert");
+    if (opts.maxDepth > Walker::kHardDepthLimit) // Härtung: Begrenzung transparent machen
+        res.notes.push_back("Tiefen-Guard auf " + std::to_string(Walker::kHardDepthLimit) +
+                           " begrenzt (harte Obergrenze)");
     return res;
 }
 

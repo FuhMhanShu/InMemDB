@@ -89,9 +89,15 @@ sorted paths, grouping, consistency share, and cap.
   `share`, and `schemaConsistency` always refer to the sampled document set.
 - Reports contain only counters and quotients – no `inf`/`nan` in the JSON by
   construction.
-- Tests: `tests/test_complex_analysis.cpp` (175 checks): nested documents,
+- Hardening: recursion stops at a hard depth cap of 64 independently of
+  `maxDepth` – with generous options the analysis of deeply nested structures
+  would otherwise overflow the stack (the cap is reported transparently as a
+  note); the distinct cap is transparent in the path `note`; documents without
+  paths get an empty fingerprint without empty field entries.
+- Tests: `tests/test_complex_analysis.cpp` (197 checks): nested documents,
   arrays and arrays of documents, type drift, schema variants, binary and
-  null, sampling, all guards, reports, and empty collections.
+  null, sampling, all guards, reports, empty collections, plus depth, cap,
+  and fingerprint hardening scenarios.
 
 See also: [character.md](character.md) for the upfront categorization,
 [numeric-analysis.md](numeric-analysis.md) for the category-1 pipeline, and

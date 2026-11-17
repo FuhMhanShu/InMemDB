@@ -45,7 +45,7 @@ Verstoß → `LimitError` **vor der Mutation** (Bulk atomar), Zähler `metrics()
 Faustregeln: `maxDocuments` ≈ RAM/ØDocgröße, `maxDocumentBytes` 1–16 MiB, Felder ~1000, Indizes ~32–64.
 RAM-Schutz für „größer als RAM“ bleibt der Spill-Modus (v0.18).
 
-## 6. Analyse-Pipeline (FA-29 bis FA-33)
+## 6. Analyse-Pipeline (FA-29 bis FA-34)
 
 Die Analyse-Module sind bewusst **rechnerisch gehärtet** statt mit Exceptions – Analyseauf
 pathologischen Daten muss ein Ergebnis liefern, kein Crash und kein `inf`/`nan` im Report:
@@ -61,8 +61,10 @@ pathologischen Daten muss ein Ergebnis liefern, kein Crash und kein `inf`/`nan` 
 | Join-Quellen (FA-32) | hängende Kanten (gelöschte Dokumente) zählen nicht in `rows`/`matchedA`/Join-Abdeckung; `__references`-Einträge mit negativen, nicht ganzzahligen oder NaN-IDs werden ignoriert |
 | Feld-Filter (FA-30) | Felder ohne numerische Werte werden auch bei `minValuesPerField = 0` übersprungen (kein Zugriff auf leere Vektoren) |
 | Quantil/Median (FA-33) | Interpolation in `long double` mit Finite-Check beim Zurückschreiben – `xs[lo+1] − xs[lo]` läuft bei gegenläufigen Extremwerten (±1e308) in `double` nach unendlich über und machte den Median `inf` (ungültiges JSON) |
+| Tiefe (FA-34) | harte Tiefen-Obergrenze 64 unabhängig von `maxDepth` – die Analyse-Rekursion würde bei großzügigen Optionen (`maxDepth` bis 1e6) auf tief verschachtelten Strukturen sonst den Stack überlaufen lassen; Begrenzung transparent als Note; distinct-Deckel transparent im Pfad-`note`; leerer Fingerprint (Dokument ohne Pfade) ohne leere Feld-Einträge |
 | Momente/Text-Statistik (FA-33) | Zahl-Kennzahlen in `long double` mit Finite-Checks; Text-Klassen mit Guards (`maxCategoryDistinct`, `identifierUniqueness`, `freeTextMinLength`); Pearson wie FA-30 zweistufig zentriert, eta²/Cramérs V auf [0, 1] geklemmt; Assoziations-Guards (`minPairsForAssociation`, `maxDistinctForAssociation`, konstante Felder ausgeschlossen) |
 
 Regressionstests: `test_numeric_analysis.cpp` (136 Checks), `test_influence.cpp` (130 Checks),
 `test_cross_influence.cpp` (193 Checks), `test_character.cpp` (62 Checks),
-`test_mixed_analysis.cpp` (184 Checks) – jeweils mit Extremwert-, Offset- und Guardszenarien.
+`test_mixed_analysis.cpp` (184 Checks), `test_complex_analysis.cpp` (197 Checks) –
+jeweils mit Extremwert-, Offset- und Guardszenarien.

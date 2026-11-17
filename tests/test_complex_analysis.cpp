@@ -418,6 +418,78 @@ int main() {
         CHECK(pathKindName(PathKind::Binary) == "binary");
     }
 
+    // 14) Haertung: harte Tiefen-Obergrenze 64 unabhaengig von maxDepth
+    //     (kein Stack-Overflow bei grosszuegigen Optionen auf tief
+    //     verschachtelten Strukturen), distinct-Cap-Hinweis, leerer Fingerprint
+    {
+        Database db("c14");
+        auto c = db.createCollection("tief");
+        // 70-fach verschachteltes Dokument: root.n.n...n.x (Tiefe 72)
+        auto deep = std::make_shared<Document>();
+        deep->set("x", 1);
+        for (int i = 0; i < 70; ++i) {
+            auto outer = std::make_shared<Document>();
+            outer->set("n", Value(deep));
+            deep = outer;
+        }
+        c.insert({{"root", Value(deep)}});
+
+        // Default-Optionen: Rekursion endet beim Tiefen-Guard (8)
+        auto res = analyzeComplex(c);
+        CHECK(res.maxDepth == 8);
+        CHECK(res.pathCount == 8); // root + root.n ... root.n^7
+        bool depthNote = false;
+        for (const auto& n : res.notes)
+            if (n.find("Tiefen-Guard aktiv (8)") != std::string::npos)
+                depthNote = true;
+        CHECK(depthNote);
+        CHECK(res.notes.size() == 1); // kein Clamp (8 <= 64)
+
+        // Grosszuegige Optionen: harte Obergrenze 64 verhindert den Stack-Overflow
+        ComplexAnalysisOptions big;
+        big.maxDepth = 1000000;
+        auto res2 = analyzeComplex(c, big);
+        CHECK(res2.maxDepth == 64);
+        CHECK(res2.pathCount == 64); // root + root.n ... root.n^63
+        bool clampNote = false;
+        for (const auto& n : res2.notes)
+            if (n.find("auf 64 begrenzt") != std::string::npos)
+                clampNote = true;
+        CHECK(clampNote);
+        CHECK(res2.notes.size() == 2); // Guard aktiv + Begrenzung
+        const std::string j = toJson(res2);
+        CHECK(j.find(":inf") == std::string::npos);
+        CHECK(j.find(":nan") == std::string::npos);
+
+        // distinct-Cap: transparenter Hinweis im Pfad-Note
+        auto c2 = db.createCollection("viele2");
+        c2.insert({{"xs", std::vector<Value>{1, 2, 3, 4, 5}}});
+        ComplexAnalysisOptions dc;
+        dc.maxDistinctPerPath = 3;
+        auto res3 = analyzeComplex(c2, dc);
+        const auto* xs = findPath(res3.paths, "xs[]");
+        CHECK(xs != nullptr);
+        CHECK(xs != nullptr && xs->distinct == 3);
+        CHECK(xs != nullptr &&
+              xs->note.find("distinct gedeckelt bei 3") != std::string::npos);
+
+        // leeres Dokument: Fingerprint leer, Varianten-Felder leer (kein ""-Eintrag)
+        auto c3 = db.createCollection("leerDocs");
+        c3.insert(Document{});
+        auto res4 = analyzeComplex(c3);
+        CHECK(res4.docCount == 1);
+        CHECK(res4.pathCount == 0);
+        CHECK(res4.variantCount == 1);
+        CHECK(res4.variants.size() == 1);
+        CHECK(res4.variants[0].fingerprint.empty());
+        CHECK(res4.variants[0].fields.empty());
+        CHECK(near(res4.variants[0].share, 1.0));
+        const std::string j4 = toJson(res4);
+        CHECK(j4.find("\"fields\":[]") != std::string::npos);
+        const std::string md4 = toMarkdown(res4);
+        CHECK(md4.find("Keine Pfade gefunden") != std::string::npos);
+    }
+
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     return g_failures == 0 ? 0 : 1;
 }
