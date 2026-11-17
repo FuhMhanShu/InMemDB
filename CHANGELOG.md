@@ -16,7 +16,9 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   akkumuliert, Finite-Checks beim Zurückschreiben; Histogramm bei unendlicher Spannweite
   (alle Werte in Bin 0) – Reports bleiben gültiges JSON (kein `inf`/`nan`)
 - **R²-Regression (FA-31/32):** Gauss-Solver prüft die Lösung auf Endlichkeit (Extremwerte →
-  `rSquaredComputed = false` statt NaN); `influenceScore` per Finite-Guard – NaN hätte die
+  `rSquaredComputed = false` statt NaN); Normalgleichungen jetzt **mittelwertzentriert**
+  ohne Intercept-Spalte – bei großen Offsets (z. B. 1e12) ertränkte die Intercept-Spalte die
+  kleine Restvarianz im Rundungsrauschen; `influenceScore` per Finite-Guard – NaN hätte die
   Sortierung (strict weak ordering) gebrochen
 - **Cross-Collection (FA-32):** hängende Kanten (gelöschte Dokumente) zählen nicht mehr in
   `rows`/`matchedA`/Join-Abdeckung; ungültige `__references`-Einträge (negative, nicht

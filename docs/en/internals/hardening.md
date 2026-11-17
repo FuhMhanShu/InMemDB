@@ -55,7 +55,7 @@ on pathological data must produce a result, not a crash and no `inf`/`nan` in th
 | Pearson correlation (FA-30/31/32) | two-pass **centered** computation in `long double`; the textbook formula (`n·Sxy − Sx·Sy`) loses massive precision for large values with a small variation range (catastrophic cancellation); value slots assigned consistently to the sorted field pair (per-document field order may vary); result clamped to [−1, 1] |
 | Moments (mean/stddev/skewness/kurtosis, FA-30) | accumulated in `long double` (no overflow on extreme values), finiteness check on write-back – reports stay valid JSON |
 | Histogram (FA-30) | non-finite range (±DBL_MAX) → all values in bin 0 instead of a `static_cast` of NaN |
-| R² regression (FA-31/32) | Gauss solver with partial pivoting + **finiteness check** of the solution; `mean`/`SST` checks; `R²` either finite or `rSquaredComputed = false` |
+| R² regression (FA-31/32) | Gauss solver with partial pivoting + **finiteness check** of the solution; **mean-centred** normal equations without an intercept column – large offsets (e.g. 1e12) would otherwise drown the tiny residual variance in rounding noise; `SST` checks; `R²` either finite or `rSquaredComputed = false` |
 | Influence score (FA-31/32) | `influenceScore` guarded to 0 if non-finite – NaN would otherwise break the `std::sort` ordering (strict weak ordering) |
 | Join sources (FA-32) | dangling edges (deleted documents) no longer count toward `rows`/`matchedA`/join coverage; `__references` entries with negative, non-integral, or NaN IDs are ignored |
 | Field filter (FA-30) | fields without numeric values are skipped even with `minValuesPerField = 0` (no access to empty vectors) |

@@ -398,45 +398,54 @@ CrossPairAnalysis analyzeJoinedPair(const std::string& origin, const std::string
         const std::size_t k = preds.size();
         if (yv.size() < std::max(inf.minRegressionRows, k + 2))
             return false;
-        double mean = 0.0;
-        for (double v : yv)
-            mean += v;
-        mean /= static_cast<double>(yv.size());
+        // Härtung: mittelwertzentrierte Regression (siehe influence.cpp) – bei
+        // großen Offsets bleibt die Kondition der Normalgleichungen beherrschbar.
+        const double rn = static_cast<double>(yv.size());
+        std::vector<double> mx(k, 0.0);
+        double my = 0.0;
+        for (std::size_t r = 0; r < X.size(); ++r) {
+            for (std::size_t i = 0; i < k; ++i)
+                mx[i] += X[r][i];
+            my += yv[r];
+        }
+        for (std::size_t i = 0; i < k; ++i)
+            mx[i] /= rn;
+        my /= rn;
+        if (!std::isfinite(my))
+            return false;
+        for (std::size_t i = 0; i < k; ++i)
+            if (!std::isfinite(mx[i]))
+                return false; // Härtung: Extremwerte, Arithmetik übergelaufen
         double sst = 0.0;
         for (double v : yv)
-            sst += (v - mean) * (v - mean);
-        if (!std::isfinite(mean) || !std::isfinite(sst))
+            sst += (v - my) * (v - my);
+        if (!std::isfinite(sst))
             return false; // Härtung: Extremwerte, Arithmetik übergelaufen
         if (!(sst > 0.0))
             return false;
-        const std::size_t m = k + 1;
-        std::vector<std::vector<double>> A(m, std::vector<double>(m, 0.0));
-        std::vector<double> b(m, 0.0);
+        std::vector<std::vector<double>> A(k, std::vector<double>(k, 0.0));
+        std::vector<double> b(k, 0.0);
         for (std::size_t r = 0; r < X.size(); ++r) {
-            A[0][0] += 1.0;
             for (std::size_t i = 0; i < k; ++i) {
-                A[0][i + 1] += X[r][i];
-                A[i + 1][0] += X[r][i];
-                b[i + 1] += X[r][i] * yv[r];
+                const double xi = X[r][i] - mx[i];
+                b[i] += xi * (yv[r] - my);
                 for (std::size_t j = 0; j < k; ++j)
-                    A[i + 1][j + 1] += X[r][i] * X[r][j];
+                    A[i][j] += xi * (X[r][j] - mx[j]);
             }
-            b[0] += yv[r];
         }
         double diag = 0.0;
-        for (std::size_t i = 0; i < m; ++i)
+        for (std::size_t i = 0; i < k; ++i)
             diag += std::fabs(A[i][i]);
-        const double lambda = 1e-9 * std::max(1.0, diag / static_cast<double>(m));
-        for (std::size_t i = 0; i < m; ++i)
+        const double lambda = 1e-9 * std::max(1.0, diag / static_cast<double>(k));
+        for (std::size_t i = 0; i < k; ++i)
             A[i][i] += lambda;
         if (!ciSolveLinearSystem(A, b))
             return false;
         double sse = 0.0;
         for (std::size_t r = 0; r < X.size(); ++r) {
-            double pred = b[0];
+            double e = yv[r] - my;
             for (std::size_t i = 0; i < k; ++i)
-                pred += b[i + 1] * X[r][i];
-            const double e = yv[r] - pred;
+                e -= b[i] * (X[r][i] - mx[i]);
             sse += e * e;
         }
         r2Out = 1.0 - sse / sst;
