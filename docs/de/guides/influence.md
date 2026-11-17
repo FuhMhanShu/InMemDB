@@ -96,10 +96,12 @@ berechnet.
 
 ## Tests
 
-`tests/test_influence.cpp` (103 Checks): Treiber/abhängig/unabhängig-Trennung,
+`tests/test_influence.cpp` (130 Checks): Treiber/abhängig/unabhängig-Trennung,
 funktional nicht invertierbare Abhängigkeit, exakte Linearität (R² = 1),
 Mediatoren in Ableitungsketten, Einzelfeld ohne Zusammenhänge, Sampling,
-Database-/Vector-Überladungen, JSON-/Markdown-Reports, Rollennamen.
+Database-/Vector-Überladungen, JSON-/Markdown-Reports, Rollennamen; Härtung:
+große Offsets (zentrierter Pearson), konstante Felder, Extremwerte ohne
+`inf`/`nan` in den Reports.
 
 ## Siehe auch
 

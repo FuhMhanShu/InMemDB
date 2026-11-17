@@ -258,6 +258,63 @@ int main() {
         CHECK(md.find("menge") != std::string::npos);
     }
 
+    // 7) Haertung: grosse Offsets (zentrierter Pearson), konstantes Ziel,
+    //    Extremwerte – endliche Scores, kein NaN/Inf in den Reports
+    {
+        Database db("i7");
+        auto c = db.createCollection("offsets");
+        for (int i = 0; i < 20; ++i)
+            c.insert({{"x", 1e12 + 1.0 * i}, {"y", 1e12 + 3.0 * i}});
+        InfluenceAnalysis a = analyzeInfluence(c);
+        CHECK(a.fields.size() == 2);
+        const FieldInfluence* xi = findInfluence(a, "x");
+        const FieldInfluence* yi = findInfluence(a, "y");
+        CHECK(xi != nullptr);
+        CHECK(yi != nullptr);
+        CHECK(xi != nullptr && near(xi->maxAbsPearson, 1.0, 1e-9));
+        CHECK(yi != nullptr && near(yi->maxAbsPearson, 1.0, 1e-9));
+        CHECK(xi != nullptr && xi->rSquaredComputed);
+        CHECK(xi != nullptr && near(xi->rSquared, 1.0, 1e-6));
+        CHECK(yi != nullptr && yi->rSquaredComputed);
+        CHECK(std::isfinite(a.fields[0].influenceScore));
+        CHECK(std::isfinite(a.fields[1].influenceScore));
+
+        // konstantes Feld: keine Korrelation (Varianz 0), R2 unbestimmbar
+        Database db2("i8");
+        auto c2 = db2.createCollection("konst");
+        for (int i = 0; i < 12; ++i)
+            c2.insert({{"k", 7.0}, {"v", 1.0 * i}});
+        InfluenceAnalysis a2 = analyzeInfluence(c2);
+        CHECK(a2.fields.size() == 2);
+        const FieldInfluence* ki = findInfluence(a2, "k");
+        const FieldInfluence* vi = findInfluence(a2, "v");
+        CHECK(ki != nullptr);
+        CHECK(vi != nullptr);
+        CHECK(ki != nullptr && !ki->rSquaredComputed);
+        CHECK(vi != nullptr && vi->partners == 0);
+        CHECK(ki != nullptr && std::isfinite(ki->influenceScore));
+        CHECK(vi != nullptr && std::isfinite(vi->influenceScore));
+        CHECK(a2.topDriver.empty());
+
+        // Extremwerte: R2-Rueckfall (false) statt NaN, Scores endlich
+        Database db3("i9");
+        auto c3 = db3.createCollection("extrem");
+        for (int i = 0; i < 10; ++i) {
+            const double sgn = (i % 2 == 0) ? 1.0 : -1.0;
+            c3.insert({{"a", sgn * 1.7e308}, {"b", sgn * 5.0e307}});
+        }
+        InfluenceAnalysis a3 = analyzeInfluence(c3);
+        CHECK(a3.fields.size() == 2);
+        for (const auto& f : a3.fields) {
+            CHECK(std::isfinite(f.influenceScore));
+            CHECK(std::isfinite(f.hubRatio));
+            CHECK(f.influenceScore >= 0.0 && f.influenceScore <= 1.0);
+        }
+        const std::string js3 = toJson(a3);
+        CHECK(js3.find(":inf") == std::string::npos);
+        CHECK(js3.find(":nan") == std::string::npos);
+    }
+
     std::cout << "influence: " << g_checks << " Checks, " << g_failures << " Fehler\n";
     return g_failures == 0 ? 0 : 1;
 }

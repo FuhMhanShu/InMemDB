@@ -44,3 +44,22 @@ Opt-in via `Collection::setLimits(CollectionLimits)` – Default unbegrenzt (0):
 Verstoß → `LimitError` **vor der Mutation** (Bulk atomar), Zähler `metrics().limitViolations`.
 Faustregeln: `maxDocuments` ≈ RAM/ØDocgröße, `maxDocumentBytes` 1–16 MiB, Felder ~1000, Indizes ~32–64.
 RAM-Schutz für „größer als RAM“ bleibt der Spill-Modus (v0.18).
+
+## 6. Analyse-Pipeline (FA-29 bis FA-32)
+
+Die Analyse-Module sind bewusst **rechnerisch gehärtet** statt mit Exceptions – Analyseauf
+pathologischen Daten muss ein Ergebnis liefern, kein Crash und kein `inf`/`nan` im Report:
+
+| Baustein | Härtung |
+|---|---|
+| Pearson-Korrelation (FA-30/31/32) | zweistufig **zentriert** und in `long double`; die Summenformel (`n·Sxy − Sx·Sy`) verliert bei großen Werten mit kleinem Variationsbereich durch Auslöschung massiv an Genauigkeit; Wert-Slots konsistent zum sortierten Feldpaar (wechselnde Feldreihenfolge je Dokument); Ergebnis auf [−1, 1] geklemmt |
+| Momente (Mittel/Stdabw./Schiefe/Kurtosis, FA-30) | Akkumulation in `long double` (kein Überlauf bei Extremwerten), Finite-Check beim Zurückschreiben – Reports bleiben gültiges JSON |
+| Histogramm (FA-30) | nicht endliche Spannweite (±DBL_MAX) → alle Werte in Bin 0 statt `static_cast` von NaN |
+| R²-Regression (FA-31/32) | Gauss-Solver mit Teilpivotisierung + **Finite-Check** der Lösung; `mean`/`SST`-Checks; `R²` nur endlich oder `rSquaredComputed = false` |
+| Einfluss-Score (FA-31/32) | `influenceScore` per Finite-Guard auf 0 – NaN würde sonst die `std::sort`-Ordnung (strict weak ordering) brechen |
+| Join-Quellen (FA-32) | hängende Kanten (gelöschte Dokumente) zählen nicht in `rows`/`matchedA`/Join-Abdeckung; `__references`-Einträge mit negativen, nicht ganzzahligen oder NaN-IDs werden ignoriert |
+| Feld-Filter (FA-30) | Felder ohne numerische Werte werden auch bei `minValuesPerField = 0` übersprungen (kein Zugriff auf leere Vektoren) |
+
+Regressionstests: `test_numeric_analysis.cpp` (112 Checks), `test_influence.cpp` (130 Checks),
+`test_cross_influence.cpp` (193 Checks), `test_character.cpp` (62 Checks) – jeweils mit
+Extremwert-, Offset- und Guardszenarien.

@@ -44,3 +44,22 @@ Opt-in via `Collection::setLimits(CollectionLimits)` – default unlimited (0):
 Violation → `LimitError` **before the mutation** (bulk atomic), counter `metrics().limitViolations`.
 Rules of thumb: `maxDocuments` ≈ RAM/avg doc size, `maxDocumentBytes` 1–16 MiB, fields ~1000, indexes ~32–64.
 RAM protection for "larger than RAM" remains the spill mode (v0.18).
+
+## 6. Analysis pipeline (FA-29 to FA-32)
+
+The analysis modules are deliberately **computationally hardened** instead of throwing – analysis
+on pathological data must produce a result, not a crash and no `inf`/`nan` in the report:
+
+| Component | Hardening |
+|---|---|
+| Pearson correlation (FA-30/31/32) | two-pass **centered** computation in `long double`; the textbook formula (`n·Sxy − Sx·Sy`) loses massive precision for large values with a small variation range (catastrophic cancellation); value slots assigned consistently to the sorted field pair (per-document field order may vary); result clamped to [−1, 1] |
+| Moments (mean/stddev/skewness/kurtosis, FA-30) | accumulated in `long double` (no overflow on extreme values), finiteness check on write-back – reports stay valid JSON |
+| Histogram (FA-30) | non-finite range (±DBL_MAX) → all values in bin 0 instead of a `static_cast` of NaN |
+| R² regression (FA-31/32) | Gauss solver with partial pivoting + **finiteness check** of the solution; `mean`/`SST` checks; `R²` either finite or `rSquaredComputed = false` |
+| Influence score (FA-31/32) | `influenceScore` guarded to 0 if non-finite – NaN would otherwise break the `std::sort` ordering (strict weak ordering) |
+| Join sources (FA-32) | dangling edges (deleted documents) no longer count toward `rows`/`matchedA`/join coverage; `__references` entries with negative, non-integral, or NaN IDs are ignored |
+| Field filter (FA-30) | fields without numeric values are skipped even with `minValuesPerField = 0` (no access to empty vectors) |
+
+Regression tests: `test_numeric_analysis.cpp` (112 checks), `test_influence.cpp` (130 checks),
+`test_cross_influence.cpp` (193 checks), `test_character.cpp` (62 checks) – each covering
+extreme-value, offset, and guard scenarios.

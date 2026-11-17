@@ -107,8 +107,9 @@ den verknüpften Teil der Daten. Kein Sampling: die Zeilenzahl wird über
 
 ## Tests
 
-`tests/test_cross_influence.cpp` (180 Checks): deklarierte und entdeckte
+`tests/test_cross_influence.cpp` (193 Checks): deklarierte und entdeckte
 Joins, Rollen/Treiber auf der Join-Menge, Trivial-Suppression, Kardinalität
 1:n, Guards (`minJoinPairs`, `minJoinCoverage`), Selbst-Referenz-Skip,
 Konfidenz-Schwelle, Mischbetrieb beider Quellen, leere Datenbank sowie
-JSON-/Markdown-Reports.
+JSON-/Markdown-Reports; Härtung: hängende Kanten (gelöschte Dokumente zählen
+nicht in rows/Abdeckung), ungültige `__references`-IDs werden ignoriert.

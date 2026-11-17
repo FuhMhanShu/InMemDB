@@ -53,13 +53,22 @@ bool solveLinearSystem(std::vector<std::vector<double>>& A, std::vector<double>&
             s -= A[i][j] * b[j];
         b[i] = s / A[i][i];
     }
+    // Härtung: bei Extremwerten können Zwischenergebnisse unendlich werden –
+    // dann lieber "nicht lösbar" melden, als NaN in die Statistik zu schreiben.
+    for (std::size_t i = 0; i < m; ++i)
+        if (!std::isfinite(b[i]))
+            return false;
     return true;
 }
 
-/// Quadratsummen pro Zeile: sx, sy, sxy, sx2, sy2 (Pearson wie in FA-30).
+/// Härtung: Pearson über zentrierte zweistufige Summen in long double – die
+/// Summenformel (n*Sxy - Sx*Sy) verliert bei großen Werten mit kleinem
+/// Variationsbereich massiv an Genauigkeit (katastrophale Auslöschung).
 struct PairAcc {
     std::size_t n = 0;
-    double sx = 0.0, sy = 0.0, sxy = 0.0, sx2 = 0.0, sy2 = 0.0;
+    long double sx = 0.0L, sy = 0.0L;
+    long double mx = 0.0L, my = 0.0L;
+    long double cxy = 0.0L, cxx = 0.0L, cyy = 0.0L;
 };
 
 } // namespace
@@ -142,43 +151,65 @@ InfluenceAnalysis analyzeInfluence(const Collection& c, const InfluenceOptions& 
 
     // 1) Paarweise Pearson-Korrelationen (nur Felder mit >= 3 gemeinsamen Dokumenten)
     std::map<std::pair<std::size_t, std::size_t>, PairAcc> pairAcc;
-    for (const auto& row : rows) {
-        if (row.vals.size() < 2)
-            continue;
-        for (std::size_t a = 0; a < row.vals.size(); ++a) {
-            if (row.vals[a].first >= cap)
+    auto eachPair = [&](auto&& cb) {
+        for (const auto& row : rows) {
+            if (row.vals.size() < 2)
                 continue;
-            for (std::size_t b = a + 1; b < row.vals.size(); ++b) {
-                if (row.vals[b].first >= cap)
+            for (std::size_t a = 0; a < row.vals.size(); ++a) {
+                if (row.vals[a].first >= cap)
                     continue;
-                std::pair<std::size_t, std::size_t> key(row.vals[a].first, row.vals[b].first);
-                if (key.first > key.second)
-                    std::swap(key.first, key.second);
-                PairAcc& p = pairAcc[key];
-                ++p.n;
-                const double xv = row.vals[a].second.asDouble();
-                const double yv = row.vals[b].second.asDouble();
-                p.sx += xv;
-                p.sy += yv;
-                p.sxy += xv * yv;
-                p.sx2 += xv * xv;
-                p.sy2 += yv * yv;
+                for (std::size_t b = a + 1; b < row.vals.size(); ++b) {
+                    if (row.vals[b].first >= cap)
+                        continue;
+                    std::pair<std::size_t, std::size_t> key(row.vals[a].first, row.vals[b].first);
+                    if (key.first > key.second)
+                        std::swap(key.first, key.second);
+                    // Werte-Slots konsistent zum sortierten Schlüssel zuordnen
+                    // (Feldreihenfolge kann je Dokument wechseln)
+                    double xv = row.vals[a].second.asDouble();
+                    double yv = row.vals[b].second.asDouble();
+                    if (key.first != row.vals[a].first)
+                        std::swap(xv, yv);
+                    cb(key, xv, yv);
+                }
             }
         }
+    };
+    eachPair([&](std::pair<std::size_t, std::size_t> key, double xv, double yv) {
+        PairAcc& p = pairAcc[key];
+        ++p.n;
+        p.sx += static_cast<long double>(xv);
+        p.sy += static_cast<long double>(yv);
+    });
+    for (auto& kv : pairAcc) {
+        PairAcc& p = kv.second;
+        p.mx = p.sx / static_cast<long double>(p.n);
+        p.my = p.sy / static_cast<long double>(p.n);
     }
+    eachPair([&](std::pair<std::size_t, std::size_t> key, double xv, double yv) {
+        PairAcc& p = pairAcc[key];
+        const long double dx = static_cast<long double>(xv) - p.mx;
+        const long double dy = static_cast<long double>(yv) - p.my;
+        p.cxy += dx * dy;
+        p.cxx += dx * dx;
+        p.cyy += dy * dy;
+    });
     std::map<std::pair<std::size_t, std::size_t>, double> pearson; // geordnete Indexpaare
     for (const auto& kv : pairAcc) {
         const PairAcc& p = kv.second;
         if (p.n < 3)
             continue;
-        const double cov = static_cast<double>(p.n) * p.sxy - p.sx * p.sy;
-        const double varx = static_cast<double>(p.n) * p.sx2 - p.sx * p.sx;
-        const double vary = static_cast<double>(p.n) * p.sy2 - p.sy * p.sy;
-        if (varx <= 0.0 || vary <= 0.0)
+        if (!(p.cxx > 0.0L) || !(p.cyy > 0.0L))
+            continue; // konstantes Feld: Korrelation bedeutungslos
+        long double lr = p.cxy / std::sqrt(p.cxx * p.cyy);
+        double r = static_cast<double>(lr);
+        if (!std::isfinite(r))
             continue;
-        const double r = cov / std::sqrt(varx * vary);
-        if (std::isfinite(r))
-            pearson[kv.first] = r;
+        if (r > 1.0)
+            r = 1.0;
+        if (r < -1.0)
+            r = -1.0;
+        pearson[kv.first] = r;
     }
 
     // 2) Funktionale Abhaengigkeiten: gleiche source-Werte => eindeutiger target-Wert?
@@ -314,6 +345,8 @@ InfluenceAnalysis analyzeInfluence(const Collection& c, const InfluenceOptions& 
         double sst = 0.0;
         for (double v : yv)
             sst += (v - mean) * (v - mean);
+        if (!std::isfinite(mean) || !std::isfinite(sst))
+            return false; // Härtung: Extremwerte, Arithmetik übergelaufen
         if (!(sst > 0.0))
             return false; // konstantes Ziel: R^2 bedeutungslos
         // Normalgleichungen (X'X + lambda*I) beta = X'y, Intercept-Spalte
@@ -348,6 +381,8 @@ InfluenceAnalysis analyzeInfluence(const Collection& c, const InfluenceOptions& 
             sse += e * e;
         }
         r2Out = 1.0 - sse / sst;
+        if (!std::isfinite(r2Out))
+            return false; // Härtung: kein NaN/Inf in Score/Sortierung sickern lassen
         if (r2Out < 0.0)
             r2Out = 0.0;
         if (r2Out > 1.0)
@@ -431,6 +466,8 @@ InfluenceAnalysis analyzeInfluence(const Collection& c, const InfluenceOptions& 
                             : 0.0;
         const double r2Part = inf.rSquaredComputed ? (1.0 - inf.rSquared) : 0.5;
         inf.influenceScore = 0.5 * inf.hubRatio + 0.3 * fdRatio + 0.2 * r2Part;
+        if (!std::isfinite(inf.influenceScore))
+            inf.influenceScore = 0.0; // Härtung: NaN bricht die Sortierung (strict weak ordering)
 
         // Begruendung (Deutsch)
         if (inf.determines > 0) {

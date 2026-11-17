@@ -95,10 +95,12 @@ only computed from `minRegressionRows` complete cases upwards.
 
 ## Tests
 
-`tests/test_influence.cpp` (103 checks): driver/dependent/independent
+`tests/test_influence.cpp` (130 checks): driver/dependent/independent
 separation, non-invertible functional dependency, exact linearity (R² = 1),
 mediators in derivation chains, a single field without relationships, sampling,
-database/vector overloads, JSON/Markdown reports, role names.
+database/vector overloads, JSON/Markdown reports, role names; hardening:
+large offsets (centered Pearson), constant fields, extreme values without
+`inf`/`nan` in the reports.
 
 ## See also
 
