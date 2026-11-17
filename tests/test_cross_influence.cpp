@@ -546,7 +546,8 @@ int main() {
         ReferenceIndex ri(db); // legt __references an
         for (int i = 0; i < 4; ++i)
             ri.link("l", aid[i], "r", bid[i % 2], "ok");
-        auto& refs = db.collection("__references");
+        // Collection-Handle ist ein Wertobjekt (teilt den Zustand mit der DB)
+        auto refs = db.collection("__references");
         refs.insert({{"from_coll", std::string("l")},
                      {"from_id", -3},
                      {"to_coll", std::string("r")},

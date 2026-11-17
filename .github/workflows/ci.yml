@@ -34,20 +34,10 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: |
-          set +e
-          cmake --build build --config Release -j 2>&1 | tee /tmp/build.log
-          code=${PIPESTATUS[0]}
-          grep -E "error:|Error " /tmp/build.log | head -30 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
-          exit $code
+        run: cmake --build build --config Release -j
 
       - name: Test
-        run: |
-          set +e
-          ctest --test-dir build --output-on-failure -C Release 2>&1 | tee /tmp/ctest.log
-          code=${PIPESTATUS[0]}
-          { cat /tmp/ctest.log | head -3; tail -45 /tmp/ctest.log | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done; }
-          exit $code
+        run: ctest --test-dir build --output-on-failure -C Release
 
   sqlite-import:
     name: Import (sqlite, INMEMDB_WITH_SQLITE=ON)
@@ -63,20 +53,10 @@ jobs:
         run: cmake -S . -B build -DINMEMDB_WITH_SQLITE=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: |
-          set +e
-          cmake --build build -j 2>&1 | tee /tmp/build.log
-          code=${PIPESTATUS[0]}
-          grep -E "error:|Error " /tmp/build.log | head -30 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
-          exit $code
+        run: cmake --build build -j
 
       - name: Test (inkl. Import-Tests)
-        run: |
-          set +e
-          ctest --test-dir build --output-on-failure -C Release 2>&1 | tee /tmp/ctest.log
-          code=${PIPESTATUS[0]}
-          { cat /tmp/ctest.log | head -3; tail -45 /tmp/ctest.log | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done; }
-          exit $code
+        run: ctest --test-dir build --output-on-failure -C Release
 
   qmake-qt:
     name: qmake/Qt-Einbindung (FA-23)
