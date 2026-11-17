@@ -1,0 +1,109 @@
+Test project /home/runner/work/InMemDB/InMemDB/build
+      Start  1: memdb_tests
+ 1/48 Test  #1: memdb_tests ......................   Passed    1.46 sec
+      Start  2: memdb_tests_db_graph
+ 2/48 Test  #2: memdb_tests_db_graph .............   Passed    0.00 sec
+      Start  3: memdb_tests_ref_join
+ 3/48 Test  #3: memdb_tests_ref_join .............   Passed    0.00 sec
+      Start  4: memdb_tests_hybrid
+ 4/48 Test  #4: memdb_tests_hybrid ...............   Passed    0.00 sec
+      Start  5: memdb_tests_tx_cow
+ 5/48 Test  #5: memdb_tests_tx_cow ...............   Passed    0.00 sec
+      Start  6: memdb_tests_regex
+ 6/48 Test  #6: memdb_tests_regex ................   Passed    0.75 sec
+      Start  7: memdb_tests_error_handling
+ 7/48 Test  #7: memdb_tests_error_handling .......   Passed    0.73 sec
+      Start  8: memdb_tests_message_handler
+ 8/48 Test  #8: memdb_tests_message_handler ......   Passed    0.00 sec
+      Start  9: memdb_tests_json_hardening
+ 9/48 Test  #9: memdb_tests_json_hardening .......   Passed    0.03 sec
+      Start 10: memdb_tests_hardening
+10/48 Test #10: memdb_tests_hardening ............   Passed    0.03 sec
+      Start 11: memdb_tests_limits
+11/48 Test #11: memdb_tests_limits ...............   Passed    0.00 sec
+      Start 12: memdb_tests_discovery6
+12/48 Test #12: memdb_tests_discovery6 ...........   Passed    0.00 sec
+      Start 13: memdb_tests_discovery7
+13/48 Test #13: memdb_tests_discovery7 ...........   Passed    0.00 sec
+      Start 14: memdb_tests_dsl_update
+14/48 Test #14: memdb_tests_dsl_update ...........   Passed    0.00 sec
+      Start 15: memdb_tests_metrics
+15/48 Test #15: memdb_tests_metrics ..............   Passed    0.00 sec
+      Start 16: memdb_tests_import_csv
+16/48 Test #16: memdb_tests_import_csv ...........   Passed    0.00 sec
+      Start 17: memdb_tests_import_formats
+17/48 Test #17: memdb_tests_import_formats .......   Passed    0.00 sec
+      Start 18: memdb_tests_query_dsl
+18/48 Test #18: memdb_tests_query_dsl ............   Passed    0.00 sec
+      Start 19: memdb_tests_locale
+19/48 Test #19: memdb_tests_locale ...............   Passed    0.73 sec
+      Start 20: memdb_tests_merge
+20/48 Test #20: memdb_tests_merge ................   Passed    0.00 sec
+      Start 21: memdb_tests_ttl
+21/48 Test #21: memdb_tests_ttl ..................   Passed    0.00 sec
+      Start 22: memdb_tests_foundations
+22/48 Test #22: memdb_tests_foundations ..........   Passed    0.00 sec
+      Start 23: memdb_tests_character
+23/48 Test #23: memdb_tests_character ............   Passed    0.00 sec
+      Start 24: memdb_tests_numeric_analysis
+24/48 Test #24: memdb_tests_numeric_analysis .....   Passed    0.01 sec
+      Start 25: memdb_tests_mixed_analysis
+25/48 Test #25: memdb_tests_mixed_analysis .......***Failed    0.00 sec
+FAIL /home/runner/work/InMemDB/InMemDB/tests/test_mixed_analysis.cpp:433: CHECK(j.find("nan") == std::string::npos)
+FAIL /home/runner/work/InMemDB/InMemDB/tests/test_mixed_analysis.cpp:459: CHECK(j.find("nan") == std::string::npos)
+test_mixed_analysis: 184 Checks, 2 Fehlgeschlagen
+
+      Start 26: memdb_tests_influence
+26/48 Test #26: memdb_tests_influence ............   Passed    0.00 sec
+      Start 27: memdb_tests_cross_influence
+27/48 Test #27: memdb_tests_cross_influence ......   Passed    0.00 sec
+      Start 28: memdb_tests_import_fk
+28/48 Test #28: memdb_tests_import_fk ............   Passed    0.00 sec
+      Start 29: memdb_tests_discovery
+29/48 Test #29: memdb_tests_discovery ............   Passed    0.00 sec
+      Start 30: memdb_tests_discovery2
+30/48 Test #30: memdb_tests_discovery2 ...........   Passed    0.00 sec
+      Start 31: memdb_tests_discovery3
+31/48 Test #31: memdb_tests_discovery3 ...........   Passed    0.00 sec
+      Start 32: memdb_tests_discovery4
+32/48 Test #32: memdb_tests_discovery4 ...........   Passed    0.00 sec
+      Start 33: memdb_tests_discovery5
+33/48 Test #33: memdb_tests_discovery5 ...........   Passed    0.00 sec
+      Start 34: 01_hello_database
+34/48 Test #34: 01_hello_database ................   Passed    0.00 sec
+      Start 35: 02_dynamic_fields
+35/48 Test #35: 02_dynamic_fields ................   Passed    0.00 sec
+      Start 36: 03_queries
+36/48 Test #36: 03_queries .......................   Passed    0.00 sec
+      Start 37: 04_crud
+37/48 Test #37: 04_crud ..........................   Passed    0.00 sec
+      Start 38: 05_indexes
+38/48 Test #38: 05_indexes .......................   Passed    0.00 sec
+      Start 39: 06_transactions
+39/48 Test #39: 06_transactions ..................   Passed    0.00 sec
+      Start 40: 07_snapshot_json
+40/48 Test #40: 07_snapshot_json .................   Passed    0.00 sec
+      Start 41: 08_upsert
+41/48 Test #41: 08_upsert ........................   Passed    0.00 sec
+      Start 42: 09_aggregations
+42/48 Test #42: 09_aggregations ..................   Passed    0.00 sec
+      Start 43: 10_observer
+43/48 Test #43: 10_observer ......................   Passed    0.00 sec
+      Start 44: 11_references
+44/48 Test #44: 11_references ....................   Passed    0.00 sec
+      Start 45: 12_encrypted_snapshot
+45/48 Test #45: 12_encrypted_snapshot ............   Passed    1.09 sec
+      Start 46: 13_schema
+46/48 Test #46: 13_schema ........................   Passed    0.00 sec
+      Start 47: 14_query_dsl
+47/48 Test #47: 14_query_dsl .....................   Passed    0.00 sec
+      Start 48: 15_db_graph
+48/48 Test #48: 15_db_graph ......................   Passed    0.00 sec
+
+98% tests passed, 1 tests failed out of 48
+
+Total Test time (real) =   4.99 sec
+
+The following tests FAILED:
+	 25 - memdb_tests_mixed_analysis (Failed)
+Errors while running CTest
