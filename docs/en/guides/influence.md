@@ -91,3 +91,10 @@ only computed from `minRegressionRows` complete cases upwards.
 separation, non-invertible functional dependency, exact linearity (R² = 1),
 mediators in derivation chains, a single field without relationships, sampling,
 database/vector overloads, JSON/Markdown reports, role names.
+
+## See also
+
+- Continuation across collection boundaries: **cross-collection influence
+  analysis (FA-32)** joins two collections (declared references and discovered
+  foreign keys) and applies this machinery to the joined set –
+  [docs/en/guides/cross-influence.md](cross-influence.md)

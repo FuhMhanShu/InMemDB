@@ -92,3 +92,10 @@ berechnet.
 funktional nicht invertierbare Abhängigkeit, exakte Linearität (R² = 1),
 Mediatoren in Ableitungsketten, Einzelfeld ohne Zusammenhänge, Sampling,
 Database-/Vector-Überladungen, JSON-/Markdown-Reports, Rollennamen.
+
+## Siehe auch
+
+- Fortsetzung über Collection-Grenzen: **Cross-Collection-Einfluss-Analyse
+  (FA-32)** verbindet zwei Collections per Join (deklarierte Referenzen und
+  entdeckte Fremdschlüssel) und wendet diese Maschinerie auf die verknüpfte
+  Menge an – [docs/de/guides/cross-influence.md](cross-influence.md)
