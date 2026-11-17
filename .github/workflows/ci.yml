@@ -59,14 +59,14 @@ jobs:
           git config user.name "ci-debug"
           git config user.email "ci-debug@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-          git fetch origin ${{ github.ref_name }}
-          git checkout ${{ github.ref_name }}
+          git fetch origin ${{ github.head_ref || github.ref_name }}
+          git checkout ${{ github.head_ref || github.ref_name }}
           mkdir -p .ci-debug
           cp build.log .ci-debug/build.log 2>/dev/null || true
           cp ctest.log .ci-debug/ctest.log 2>/dev/null || true
           git add .ci-debug || true
           git commit -m "CI-Debug-Logs [skip ci]" || true
-          git push origin HEAD:${{ github.ref_name }} || true
+          git push origin HEAD:${{ github.head_ref || github.ref_name }} || true
 
   sqlite-import:
     name: Import (sqlite, INMEMDB_WITH_SQLITE=ON)
