@@ -104,8 +104,9 @@ sampling: the row count is bounded via `minJoinPairs` and field capping.
 
 ## Tests
 
-`tests/test_cross_influence.cpp` (180 checks): declared and discovered joins,
+`tests/test_cross_influence.cpp` (193 checks): declared and discovered joins,
 roles/top driver on the joined set, trivial suppression, 1:n cardinality,
 guards (`minJoinPairs`, `minJoinCoverage`), self-reference skip, confidence
 threshold, mixed operation of both sources, empty database, and JSON/Markdown
-reports.
+reports; hardening: dangling edges (deleted documents do not count toward
+rows/coverage), invalid `__references` IDs are ignored.
