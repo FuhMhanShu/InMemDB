@@ -210,3 +210,12 @@ cross-database `analyze`, health score (clean DB without orphans scores higher t
 Tests: `tests/test_discovery6.cpp` (26 checks): detection of a clear outlier,
 clean field, configurable thresholds, minOutlierSamples, cross-database,
 `analyze()` integration (health score drops, all four presentations).
+
+## See also
+
+- **Cross-collection influence analysis (FA-32):** foreign keys discovered with
+  `discoverForeignKeys` serve there as a join source to compute dependencies
+  between fields of different collections –
+  [docs/en/guides/cross-influence.md](cross-influence.md)
+- Influence analysis within a single collection (FA-31):
+  [docs/en/guides/influence.md](influence.md)
