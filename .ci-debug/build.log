@@ -1,29 +1,29 @@
 [  1%] Building CXX object CMakeFiles/memdb.dir/src/value.cpp.o
 [  2%] Building CXX object CMakeFiles/memdb.dir/src/document_id.cpp.o
-[  2%] Building CXX object CMakeFiles/memdb.dir/src/document.cpp.o
 [  3%] Building CXX object CMakeFiles/memdb.dir/src/query.cpp.o
+[  3%] Building CXX object CMakeFiles/memdb.dir/src/document.cpp.o
 [  4%] Building CXX object CMakeFiles/memdb.dir/src/json.cpp.o
-[  5%] Building CXX object CMakeFiles/memdb.dir/src/crypto.cpp.o
 [  5%] Building CXX object CMakeFiles/memdb.dir/src/schema.cpp.o
-[  6%] Building CXX object CMakeFiles/memdb.dir/src/import_bson.cpp.o
-[  7%] Building CXX object CMakeFiles/memdb.dir/src/import_snapshot.cpp.o
-[  8%] Building CXX object CMakeFiles/memdb.dir/src/import_sqldump.cpp.o
-[  9%] Building CXX object CMakeFiles/memdb.dir/src/import_csv.cpp.o
-[ 10%] Building CXX object CMakeFiles/memdb.dir/src/import.cpp.o
+[  6%] Building CXX object CMakeFiles/memdb.dir/src/import.cpp.o
+[  5%] Building CXX object CMakeFiles/memdb.dir/src/crypto.cpp.o
+[  7%] Building CXX object CMakeFiles/memdb.dir/src/import_bson.cpp.o
+[  8%] Building CXX object CMakeFiles/memdb.dir/src/import_csv.cpp.o
+[ 10%] Building CXX object CMakeFiles/memdb.dir/src/import_snapshot.cpp.o
 [ 10%] Building CXX object CMakeFiles/memdb.dir/src/import_json.cpp.o
-[ 10%] Building CXX object CMakeFiles/memdb.dir/src/regex.cpp.o
+[ 11%] Building CXX object CMakeFiles/memdb.dir/src/query_dsl.cpp.o
+[ 11%] Building CXX object CMakeFiles/memdb.dir/src/import_sqldump.cpp.o
+[ 11%] Building CXX object CMakeFiles/memdb.dir/src/regex.cpp.o
 [ 12%] Building CXX object CMakeFiles/memdb.dir/src/db_graph.cpp.o
-[ 13%] Building CXX object CMakeFiles/memdb.dir/src/query_dsl.cpp.o
+[ 13%] Building CXX object CMakeFiles/memdb.dir/src/discovery.cpp.o
 [ 13%] Building CXX object CMakeFiles/memdb.dir/src/numeric_analysis.cpp.o
-[ 14%] Building CXX object CMakeFiles/memdb.dir/src/discovery.cpp.o
 [ 14%] Building CXX object CMakeFiles/memdb.dir/src/character.cpp.o
-[ 15%] Building CXX object CMakeFiles/memdb.dir/src/mixed_analysis.cpp.o
-[ 16%] Building CXX object CMakeFiles/memdb.dir/src/complex_analysis.cpp.o
-[ 17%] Building CXX object CMakeFiles/memdb.dir/src/collection.cpp.o
-[ 18%] Building CXX object CMakeFiles/memdb.dir/src/transaction.cpp.o
-[ 18%] Building CXX object CMakeFiles/memdb.dir/src/influence.cpp.o
-[ 18%] Building CXX object CMakeFiles/memdb.dir/src/database.cpp.o
-[ 19%] Building CXX object CMakeFiles/memdb.dir/src/cross_influence.cpp.o
+[ 15%] Building CXX object CMakeFiles/memdb.dir/src/complex_analysis.cpp.o
+[ 15%] Building CXX object CMakeFiles/memdb.dir/src/influence.cpp.o
+[ 16%] Building CXX object CMakeFiles/memdb.dir/src/mixed_analysis.cpp.o
+[ 17%] Building CXX object CMakeFiles/memdb.dir/src/cross_influence.cpp.o
+[ 18%] Building CXX object CMakeFiles/memdb.dir/src/collection.cpp.o
+[ 19%] Building CXX object CMakeFiles/memdb.dir/src/transaction.cpp.o
+[ 19%] Building CXX object CMakeFiles/memdb.dir/src/database.cpp.o
 [ 20%] Building CXX object CMakeFiles/memdb.dir/src/references.cpp.o
 [ 21%] Building CXX object CMakeFiles/memdb.dir/src/message_handler.cpp.o
 /home/runner/work/InMemDB/InMemDB/src/discovery.cpp: In lambda function:
@@ -37,170 +37,170 @@ In file included from /home/runner/work/InMemDB/InMemDB/src/transaction.cpp:5:
       |         ~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 [ 22%] Linking CXX static library libmemdb.a
 [ 22%] Built target memdb
+[ 22%] Building CXX object CMakeFiles/memdb_bench.dir/bench/bench.cpp.o
 [ 23%] Building CXX object CMakeFiles/memdb_tests.dir/tests/main.cpp.o
-[ 23%] Building CXX object CMakeFiles/memdb_bench.dir/bench/bench.cpp.o
 [ 23%] Building CXX object CMakeFiles/inmemdb_import.dir/tools/import_tool.cpp.o
+[ 23%] Building CXX object CMakeFiles/inmemdb_discover.dir/tools/discover_tool.cpp.o
 [ 24%] Building CXX object CMakeFiles/inmemdb_graph.dir/tools/db_graph.cpp.o
-[ 24%] Building CXX object CMakeFiles/inmemdb_discover.dir/tools/discover_tool.cpp.o
-[ 24%] Building CXX object CMakeFiles/memdb_tests_ref_join.dir/tests/test_ref_join.cpp.o
-[ 25%] Building CXX object CMakeFiles/memdb_tests_regex.dir/tests/test_regex.cpp.o
-[ 26%] Building CXX object CMakeFiles/memdb_tests_db_graph.dir/tests/test_db_graph.cpp.o
+[ 25%] Building CXX object CMakeFiles/memdb_tests_db_graph.dir/tests/test_db_graph.cpp.o
+[ 25%] Building CXX object CMakeFiles/memdb_tests_ref_join.dir/tests/test_ref_join.cpp.o
+[ 26%] Building CXX object CMakeFiles/memdb_tests_regex.dir/tests/test_regex.cpp.o
 [ 27%] Building CXX object CMakeFiles/memdb_tests_hybrid.dir/tests/test_hybrid.cpp.o
 [ 28%] Building CXX object CMakeFiles/memdb_tests_tx_cow.dir/tests/test_tx_cow.cpp.o
-[ 29%] Building CXX object CMakeFiles/memdb_tests_json_hardening.dir/tests/test_json_hardening.cpp.o
-[ 30%] Building CXX object CMakeFiles/memdb_tests_error_handling.dir/tests/test_error_handling.cpp.o
-[ 30%] Building CXX object CMakeFiles/memdb_tests_limits.dir/tests/test_limits.cpp.o
-[ 31%] Building CXX object CMakeFiles/memdb_tests_hardening.dir/tests/test_hardening.cpp.o
-[ 32%] Building CXX object CMakeFiles/memdb_tests_discovery6.dir/tests/test_discovery6.cpp.o
-[ 33%] Building CXX object CMakeFiles/memdb_tests_message_handler.dir/tests/test_message_handler.cpp.o
-[ 34%] Building CXX object CMakeFiles/memdb_tests_discovery7.dir/tests/test_discovery7.cpp.o
-[ 35%] Building CXX object CMakeFiles/memdb_tests_dsl_update.dir/tests/test_dsl_update.cpp.o
-[ 35%] Building CXX object CMakeFiles/memdb_tests_metrics.dir/tests/test_metrics.cpp.o
-[ 36%] Building CXX object CMakeFiles/memdb_tests_import_csv.dir/tests/test_import_csv.cpp.o
-[ 37%] Building CXX object CMakeFiles/memdb_tests_import_formats.dir/tests/test_import_formats.cpp.o
-[ 37%] Building CXX object CMakeFiles/memdb_tests_ttl.dir/tests/test_ttl.cpp.o
-[ 38%] Building CXX object CMakeFiles/memdb_tests_foundations.dir/tests/test_foundations.cpp.o
-[ 39%] Building CXX object CMakeFiles/memdb_tests_query_dsl.dir/tests/test_query_dsl.cpp.o
-[ 40%] Building CXX object CMakeFiles/memdb_tests_locale.dir/tests/test_locale.cpp.o
-[ 40%] Building CXX object CMakeFiles/memdb_tests_merge.dir/tests/test_merge.cpp.o
-[ 40%] Building CXX object CMakeFiles/memdb_tests_character.dir/tests/test_character.cpp.o
+[ 28%] Building CXX object CMakeFiles/memdb_tests_limits.dir/tests/test_limits.cpp.o
+[ 30%] Building CXX object CMakeFiles/memdb_tests_message_handler.dir/tests/test_message_handler.cpp.o
+[ 30%] Building CXX object CMakeFiles/memdb_tests_hardening.dir/tests/test_hardening.cpp.o
+[ 31%] Building CXX object CMakeFiles/memdb_tests_error_handling.dir/tests/test_error_handling.cpp.o
+[ 32%] Building CXX object CMakeFiles/memdb_tests_import_csv.dir/tests/test_import_csv.cpp.o
+[ 33%] Building CXX object CMakeFiles/memdb_tests_dsl_update.dir/tests/test_dsl_update.cpp.o
+[ 35%] Building CXX object CMakeFiles/memdb_tests_discovery7.dir/tests/test_discovery7.cpp.o
+[ 35%] Building CXX object CMakeFiles/memdb_tests_discovery6.dir/tests/test_discovery6.cpp.o
+[ 36%] Building CXX object CMakeFiles/memdb_tests_json_hardening.dir/tests/test_json_hardening.cpp.o
+[ 36%] Building CXX object CMakeFiles/memdb_tests_metrics.dir/tests/test_metrics.cpp.o
+[ 37%] Building CXX object CMakeFiles/memdb_tests_query_dsl.dir/tests/test_query_dsl.cpp.o
+[ 38%] Building CXX object CMakeFiles/memdb_tests_locale.dir/tests/test_locale.cpp.o
+[ 39%] Building CXX object CMakeFiles/memdb_tests_merge.dir/tests/test_merge.cpp.o
+[ 40%] Building CXX object CMakeFiles/memdb_tests_foundations.dir/tests/test_foundations.cpp.o
+[ 40%] Building CXX object CMakeFiles/memdb_tests_import_formats.dir/tests/test_import_formats.cpp.o
 [ 40%] Building CXX object CMakeFiles/memdb_tests_numeric_analysis.dir/tests/test_numeric_analysis.cpp.o
-[ 41%] Building CXX object CMakeFiles/memdb_tests_mixed_analysis.dir/tests/test_mixed_analysis.cpp.o
-[ 42%] Building CXX object CMakeFiles/memdb_tests_complex_analysis.dir/tests/test_complex_analysis.cpp.o
-[ 43%] Building CXX object CMakeFiles/memdb_tests_import_fk.dir/tests/test_import_fk.cpp.o
-[ 43%] Building CXX object CMakeFiles/01_hello_database.dir/examples/01_hello_database.cpp.o
-[ 44%] Building CXX object CMakeFiles/memdb_tests_influence.dir/tests/test_influence.cpp.o
+[ 40%] Building CXX object CMakeFiles/memdb_tests_ttl.dir/tests/test_ttl.cpp.o
+[ 41%] Building CXX object CMakeFiles/memdb_tests_influence.dir/tests/test_influence.cpp.o
+[ 41%] Building CXX object CMakeFiles/memdb_tests_cross_influence.dir/tests/test_cross_influence.cpp.o
+[ 41%] Building CXX object CMakeFiles/memdb_tests_character.dir/tests/test_character.cpp.o
+[ 42%] Building CXX object CMakeFiles/memdb_tests_mixed_analysis.dir/tests/test_mixed_analysis.cpp.o
+[ 43%] Building CXX object CMakeFiles/memdb_tests_complex_analysis.dir/tests/test_complex_analysis.cpp.o
+[ 44%] Building CXX object CMakeFiles/memdb_tests_import_fk.dir/tests/test_import_fk.cpp.o
+[ 44%] Building CXX object CMakeFiles/memdb_tests_discovery.dir/tests/test_discovery.cpp.o
 [ 45%] Building CXX object CMakeFiles/memdb_tests_discovery4.dir/tests/test_discovery4.cpp.o
 [ 46%] Building CXX object CMakeFiles/memdb_tests_discovery2.dir/tests/test_discovery2.cpp.o
-[ 46%] Building CXX object CMakeFiles/memdb_tests_cross_influence.dir/tests/test_cross_influence.cpp.o
-[ 46%] Building CXX object CMakeFiles/memdb_tests_discovery3.dir/tests/test_discovery3.cpp.o
 [ 47%] Building CXX object CMakeFiles/02_dynamic_fields.dir/examples/02_dynamic_fields.cpp.o
-[ 48%] Building CXX object CMakeFiles/04_crud.dir/examples/04_crud.cpp.o
-[ 49%] Building CXX object CMakeFiles/03_queries.dir/examples/03_queries.cpp.o
-[ 49%] Building CXX object CMakeFiles/memdb_tests_discovery.dir/tests/test_discovery.cpp.o
-[ 50%] Building CXX object CMakeFiles/05_indexes.dir/examples/05_indexes.cpp.o
-[ 52%] Building CXX object CMakeFiles/memdb_tests_discovery5.dir/tests/test_discovery5.cpp.o
-[ 53%] Building CXX object CMakeFiles/11_references.dir/examples/11_references.cpp.o
-[ 54%] Building CXX object CMakeFiles/09_aggregations.dir/examples/09_aggregations.cpp.o
-[ 55%] Building CXX object CMakeFiles/08_upsert.dir/examples/08_upsert.cpp.o
-[ 56%] Building CXX object CMakeFiles/12_encrypted_snapshot.dir/examples/12_encrypted_snapshot.cpp.o
-[ 57%] Building CXX object CMakeFiles/06_transactions.dir/examples/06_transactions.cpp.o
-[ 58%] Building CXX object CMakeFiles/10_observer.dir/examples/10_observer.cpp.o
-[ 58%] Building CXX object CMakeFiles/07_snapshot_json.dir/examples/07_snapshot_json.cpp.o
-[ 59%] Building CXX object CMakeFiles/13_schema.dir/examples/13_schema.cpp.o
-[ 60%] Building CXX object CMakeFiles/14_query_dsl.dir/examples/14_query_dsl.cpp.o
-[ 61%] Building CXX object CMakeFiles/15_db_graph.dir/examples/15_db_graph.cpp.o
-[ 61%] Linking CXX executable 08_upsert
-[ 62%] Linking CXX executable inmemdb_graph
-[ 63%] Linking CXX executable 01_hello_database
-[ 64%] Linking CXX executable 09_aggregations
-[ 65%] Linking CXX executable 13_schema
-[ 65%] Linking CXX executable 10_observer
-[ 65%] Built target inmemdb_graph
-[ 65%] Built target 08_upsert
-[ 65%] Linking CXX executable 12_encrypted_snapshot
-[ 65%] Built target 01_hello_database
-[ 65%] Linking CXX executable 06_transactions
-[ 66%] Linking CXX executable inmemdb_import
-[ 65%] Built target 09_aggregations
-[ 66%] Built target 10_observer
-[ 67%] Linking CXX executable 05_indexes
-[ 67%] Built target 13_schema
-[ 68%] Linking CXX executable 15_db_graph
-[ 68%] Linking CXX executable 02_dynamic_fields
-[ 68%] Built target 12_encrypted_snapshot
+[ 47%] Building CXX object CMakeFiles/01_hello_database.dir/examples/01_hello_database.cpp.o
+[ 48%] Building CXX object CMakeFiles/03_queries.dir/examples/03_queries.cpp.o
+[ 49%] Building CXX object CMakeFiles/memdb_tests_discovery5.dir/tests/test_discovery5.cpp.o
+[ 50%] Building CXX object CMakeFiles/08_upsert.dir/examples/08_upsert.cpp.o
+[ 51%] Building CXX object CMakeFiles/06_transactions.dir/examples/06_transactions.cpp.o
+[ 52%] Building CXX object CMakeFiles/05_indexes.dir/examples/05_indexes.cpp.o
+[ 52%] Building CXX object CMakeFiles/memdb_tests_discovery3.dir/tests/test_discovery3.cpp.o
+[ 53%] Building CXX object CMakeFiles/04_crud.dir/examples/04_crud.cpp.o
+[ 54%] Building CXX object CMakeFiles/10_observer.dir/examples/10_observer.cpp.o
+[ 56%] Building CXX object CMakeFiles/07_snapshot_json.dir/examples/07_snapshot_json.cpp.o
+[ 57%] Building CXX object CMakeFiles/14_query_dsl.dir/examples/14_query_dsl.cpp.o
+[ 57%] Building CXX object CMakeFiles/09_aggregations.dir/examples/09_aggregations.cpp.o
+[ 58%] Building CXX object CMakeFiles/13_schema.dir/examples/13_schema.cpp.o
+[ 59%] Building CXX object CMakeFiles/11_references.dir/examples/11_references.cpp.o
+[ 60%] Building CXX object CMakeFiles/15_db_graph.dir/examples/15_db_graph.cpp.o
+[ 61%] Building CXX object CMakeFiles/12_encrypted_snapshot.dir/examples/12_encrypted_snapshot.cpp.o
+[ 62%] Linking CXX executable 01_hello_database
+[ 62%] Linking CXX executable 12_encrypted_snapshot
+[ 62%] Linking CXX executable 10_observer
+[ 63%] Linking CXX executable inmemdb_graph
+[ 63%] Linking CXX executable 08_upsert
+[ 63%] Linking CXX executable 02_dynamic_fields
+[ 63%] Built target 10_observer
+[ 63%] Built target 01_hello_database
+[ 64%] Linking CXX executable 15_db_graph
+[ 64%] Built target 12_encrypted_snapshot
+[ 64%] Linking CXX executable 06_transactions
+[ 64%] Built target inmemdb_graph
+[ 65%] Linking CXX executable 05_indexes
+[ 66%] Linking CXX executable 13_schema
+[ 67%] Linking CXX executable 09_aggregations
+[ 67%] Built target 08_upsert
+[ 67%] Linking CXX executable 04_crud
+[ 67%] Built target 15_db_graph
+[ 68%] Linking CXX executable inmemdb_import
+[ 68%] Built target 02_dynamic_fields
+[ 68%] Linking CXX executable memdb_tests_import_fk
 [ 68%] Built target 06_transactions
-[ 69%] Linking CXX executable memdb_tests_ref_join
-[ 70%] Linking CXX executable 11_references
-[ 70%] Built target inmemdb_import
-[ 70%] Linking CXX executable 04_crud
-[ 70%] Linking CXX executable memdb_tests_import_fk
-[ 70%] Built target 05_indexes
-[ 71%] Linking CXX executable memdb_tests_metrics
-[ 72%] Linking CXX executable 07_snapshot_json
-[ 72%] Built target 15_db_graph
 /usr/bin/x86_64-linux-gnu-ld.bfd: CMakeFiles/memdb_tests_import_fk.dir/tests/test_import_fk.cpp.o: in function `main':
 test_import_fk.cpp:(.text.startup+0x34): warning: the use of `tmpnam' is dangerous, better use `mkstemp'
+[ 68%] Built target 05_indexes
+[ 69%] Linking CXX executable 11_references
+[ 69%] Built target 13_schema
+[ 69%] Built target 04_crud
+[ 69%] Built target 09_aggregations
+[ 70%] Linking CXX executable 07_snapshot_json
+[ 71%] Linking CXX executable memdb_tests_metrics
+[ 71%] Built target inmemdb_import
+[ 72%] Linking CXX executable memdb_tests_ref_join
 [ 72%] Linking CXX executable memdb_tests_hybrid
-[ 72%] Linking CXX executable 14_query_dsl
-[ 72%] Built target 02_dynamic_fields
-[ 73%] Linking CXX executable 03_queries
+[ 72%] Built target memdb_tests_import_fk
+[ 72%] Built target 11_references
+[ 72%] Built target 07_snapshot_json
+[ 73%] Linking CXX executable memdb_tests_db_graph
+[ 73%] Built target memdb_tests_metrics
 [ 73%] Built target memdb_tests_ref_join
-[ 73%] Built target 11_references
-[ 73%] Built target 04_crud
-[ 74%] Linking CXX executable memdb_tests_locale
-[ 74%] Built target memdb_tests_metrics
-[ 75%] Linking CXX executable memdb_tests_error_handling
-[ 75%] Built target 07_snapshot_json
-[ 75%] Built target memdb_tests_import_fk
-[ 75%] Built target 14_query_dsl
-[ 75%] Built target memdb_tests_hybrid
+[ 74%] Linking CXX executable memdb_tests_limits
+[ 74%] Built target memdb_tests_hybrid
+[ 75%] Linking CXX executable memdb_tests_hardening
+[ 76%] Linking CXX executable memdb_tests_locale
+[ 77%] Linking CXX executable memdb_tests_error_handling
+[ 77%] Built target memdb_tests_db_graph
+[ 78%] Linking CXX executable 03_queries
+[ 78%] Linking CXX executable 14_query_dsl
 /usr/bin/x86_64-linux-gnu-ld.bfd: CMakeFiles/memdb_tests_locale.dir/tests/test_locale.cpp.o: in function `main':
 test_locale.cpp:(.text.startup+0x1246): warning: the use of `tmpnam' is dangerous, better use `mkstemp'
-[ 75%] Built target 03_queries
-[ 76%] Linking CXX executable memdb_tests_db_graph
-[ 76%] Built target memdb_tests_locale
-[ 76%] Built target memdb_tests_error_handling
-[ 77%] Linking CXX executable memdb_tests_hardening
-[ 78%] Linking CXX executable memdb_tests_limits
-[ 78%] Built target memdb_tests_db_graph
-[ 79%] Linking CXX executable memdb_tests_regex
-[ 80%] Linking CXX executable memdb_bench
-[ 81%] Linking CXX executable memdb_tests_discovery3
-[ 82%] Linking CXX executable memdb_tests_message_handler
-[ 83%] Linking CXX executable memdb_tests_ttl
-[ 84%] Linking CXX executable memdb_tests_discovery5
-[ 84%] Built target memdb_tests_hardening
-[ 84%] Built target memdb_tests_regex
-[ 84%] Built target memdb_tests_limits
+[ 78%] Built target memdb_tests_limits
+[ 79%] Linking CXX executable memdb_bench
+[ 79%] Built target memdb_tests_locale
+[ 79%] Built target memdb_tests_error_handling
+[ 79%] Built target 03_queries
+[ 79%] Built target memdb_tests_hardening
+[ 80%] Linking CXX executable memdb_tests_ttl
+[ 81%] Linking CXX executable memdb_tests_message_handler
+[ 81%] Built target 14_query_dsl
 /usr/bin/x86_64-linux-gnu-ld.bfd: CMakeFiles/memdb_tests_ttl.dir/tests/test_ttl.cpp.o: in function `main':
 test_ttl.cpp:(.text.startup+0x1e11): warning: the use of `tmpnam' is dangerous, better use `mkstemp'
-[ 84%] Linking CXX executable memdb_tests_discovery6
-[ 84%] Built target memdb_tests_discovery3
-[ 84%] Built target memdb_bench
-[ 84%] Linking CXX executable memdb_tests_discovery4
-[ 84%] Built target memdb_tests_ttl
-[ 84%] Built target memdb_tests_discovery5
-[ 84%] Built target memdb_tests_message_handler
-[ 84%] Built target memdb_tests_discovery6
+[ 81%] Built target memdb_bench
+[ 81%] Linking CXX executable memdb_tests_discovery4
+[ 82%] Linking CXX executable memdb_tests_regex
+[ 82%] Built target memdb_tests_message_handler
+[ 82%] Built target memdb_tests_ttl
+[ 83%] Linking CXX executable memdb_tests_discovery5
+[ 83%] Linking CXX executable memdb_tests_discovery6
+[ 84%] Linking CXX executable memdb_tests_discovery3
+[ 84%] Built target memdb_tests_regex
 [ 84%] Built target memdb_tests_discovery4
 [ 85%] Linking CXX executable memdb_tests_json_hardening
+[ 85%] Built target memdb_tests_discovery5
+[ 85%] Built target memdb_tests_discovery6
+[ 85%] Built target memdb_tests_discovery3
 [ 86%] Linking CXX executable memdb_tests_discovery2
-[ 87%] Linking CXX executable memdb_tests_discovery7
-[ 87%] Built target memdb_tests_json_hardening
-[ 87%] Linking CXX executable memdb_tests_foundations
-[ 87%] Built target memdb_tests_discovery2
-[ 87%] Built target memdb_tests_discovery7
+[ 86%] Built target memdb_tests_json_hardening
+[ 86%] Built target memdb_tests_discovery2
+[ 86%] Linking CXX executable memdb_tests_dsl_update
+[ 86%] Linking CXX executable memdb_tests_foundations
+[ 87%] Linking CXX executable memdb_tests_import_csv
 [ 88%] Linking CXX executable memdb_tests_tx_cow
-[ 89%] Linking CXX executable memdb_tests_import_csv
-[ 89%] Built target memdb_tests_foundations
-[ 89%] Linking CXX executable memdb_tests_dsl_update
+[ 89%] Linking CXX executable memdb_tests_discovery7
 [ 90%] Linking CXX executable memdb_tests_query_dsl
-[ 90%] Built target memdb_tests_tx_cow
+[ 90%] Built target memdb_tests_foundations
 [ 90%] Built target memdb_tests_import_csv
+[ 90%] Built target memdb_tests_tx_cow
 [ 90%] Built target memdb_tests_dsl_update
+[ 90%] Built target memdb_tests_discovery7
 [ 90%] Built target memdb_tests_query_dsl
+[ 90%] Linking CXX executable memdb_tests_influence
 [ 91%] Linking CXX executable inmemdb_discover
 [ 92%] Linking CXX executable memdb_tests_discovery
+[ 92%] Built target memdb_tests_influence
+[ 92%] Built target inmemdb_discover
+[ 92%] Built target memdb_tests_discovery
 [ 93%] Linking CXX executable memdb_tests_character
-[ 93%] Built target inmemdb_discover
-[ 93%] Built target memdb_tests_discovery
-[ 93%] Linking CXX executable memdb_tests_influence
-[ 93%] Built target memdb_tests_character
-[ 93%] Built target memdb_tests_influence
 [ 94%] Linking CXX executable memdb_tests_merge
+[ 95%] Linking CXX executable memdb_tests_import_formats
 /usr/bin/x86_64-linux-gnu-ld.bfd: CMakeFiles/memdb_tests_merge.dir/tests/test_merge.cpp.o: in function `main':
 test_merge.cpp:(.text.startup+0x3521): warning: the use of `tmpnam' is dangerous, better use `mkstemp'
-[ 95%] Linking CXX executable memdb_tests_import_formats
+[ 95%] Built target memdb_tests_character
 [ 95%] Built target memdb_tests_merge
 [ 95%] Built target memdb_tests_import_formats
 [ 96%] Linking CXX executable memdb_tests_numeric_analysis
 [ 96%] Built target memdb_tests_numeric_analysis
-[ 97%] Linking CXX executable memdb_tests_cross_influence
-[ 97%] Built target memdb_tests_cross_influence
-[ 98%] Linking CXX executable memdb_tests_mixed_analysis
+[ 97%] Linking CXX executable memdb_tests_mixed_analysis
+[ 97%] Built target memdb_tests_mixed_analysis
+[ 98%] Linking CXX executable memdb_tests_cross_influence
+[ 98%] Built target memdb_tests_cross_influence
 [ 99%] Linking CXX executable memdb_tests_complex_analysis
-[ 99%] Built target memdb_tests_mixed_analysis
 [ 99%] Built target memdb_tests_complex_analysis
 [100%] Linking CXX executable memdb_tests
 [100%] Built target memdb_tests
