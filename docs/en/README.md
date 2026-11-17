@@ -38,6 +38,7 @@ Task-oriented guides – one per feature:
 | [character.md](guides/character.md) | Data character categorization: rough distinction numeric / mixed / complex (FA-29) |
 | [numeric-analysis.md](guides/numeric-analysis.md) | Numeric metadata analysis: statistics, grids, sequences, Benford, correlations (FA-30) |
 | [influence.md](guides/influence.md) | Influence analysis: dominant fields, R², functional dependencies, roles (FA-31) |
+| [cross-influence.md](guides/cross-influence.md) | Cross-collection influence: join from references/FKs, roles per collection pair (FA-32) |
 | [qt-qmake.md](guides/qt-qmake.md) | Qt/qmake integration + `QAbstractTableModel` adapter, no hard Qt dependency (FA-23, v0.16/v0.23) |
 | [type-mapping.md](guides/type-mapping.md) | Type mapping InMemDB ↔ SQL / MongoDB(BSON) / JSON |
 
