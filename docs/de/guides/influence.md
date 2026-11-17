@@ -42,6 +42,14 @@ Einfluss-Score (0..1): `0.5 * hubRatio + 0.3 * (determines / Partner) + 0.2 * (1
 `topDriver` ist das Feld mit dem höchsten Score, sofern ein Dominanz-Signal
 vorliegt (funktionale Bestimmung, starke Korrelation oder hubRatio >= 0.8).
 
+<img src="../../images/influence-evidence.svg" alt="Evidenzarten Korrelation und funktionale Abhängigkeit, Rollen-Paneele und Einfluss-Score-Formel" width="760">
+
+Der Weg von der Evidenz zur Rolle: Pearson-Korrelation und funktionale
+Abhängigkeiten (mit regressionsgestütztem R²) bilden zusammen die Evidenzbasis,
+daraus ergeben sich die vier Rollen, und der gewichtete Score
+`0.5 * hubRatio + 0.3 * (determines / Partner) + 0.2 * (1 - R²)` kürt den
+`topDriver`.
+
 ## Funktionen
 
 ```cpp

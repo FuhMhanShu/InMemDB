@@ -55,7 +55,8 @@ Hintergründe und Entscheidungen für Mitwirkende:
 
 ## Bilder
 
-[images/](../images/) – Beispiel-Graphen (SVG) aus dem Discovery-Guide.
+[images/](../images/) – Beispiel-Graphen (SVG) aus dem Discovery- und den Analyse-Guides
+(Pipeline-Dispatcher, Histogramm/Benford, Evidenz/Rollen, Cross-Collection-Join).
 
 ---
 

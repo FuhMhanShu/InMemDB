@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="sans-serif">
+<rect width="760" height="300" fill="#ffffff" rx="10"/>
+<text x="195" y="22" font-size="13" fill="#1a202c" text-anchor="middle" font-weight="bold">aequidistantes Histogramm mit Quantilen</text>
+<line x1="45" y1="240" x2="360" y2="240" stroke="#718096" stroke-width="1.5"/>
+<rect x="46.5" y="218.9" width="19.5" height="21.1" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="69.0" y="208.3" width="19.5" height="31.7" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="91.5" y="187.2" width="19.5" height="52.8" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="114.0" y="155.6" width="19.5" height="84.4" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="136.5" y="113.3" width="19.5" height="126.7" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="159.0" y="81.7" width="19.5" height="158.3" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="181.5" y="50.0" width="19.5" height="190.0" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="204.0" y="71.1" width="19.5" height="168.9" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="226.5" y="113.3" width="19.5" height="126.7" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="249.0" y="145.0" width="19.5" height="95.0" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="271.5" y="176.7" width="19.5" height="63.3" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="294.0" y="197.8" width="19.5" height="42.2" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="316.5" y="218.9" width="19.5" height="21.1" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<rect x="339.0" y="229.4" width="19.5" height="10.6" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<line x1="130" y1="36" x2="130" y2="240" stroke="#d69e2e" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="130" y="32" font-size="11" fill="#d69e2e" text-anchor="middle" font-weight="bold">Q1</text>
+<line x1="205" y1="36" x2="205" y2="240" stroke="#3182ce" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="205" y="32" font-size="11" fill="#3182ce" text-anchor="middle" font-weight="bold">Median</text>
+<line x1="280" y1="36" x2="280" y2="240" stroke="#38a169" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="280" y="32" font-size="11" fill="#38a169" text-anchor="middle" font-weight="bold">Q3</text>
+<text x="202.5" y="258" font-size="10.5" fill="#718096" text-anchor="middle">Wert-Bins (min bis max); Q1/Median/Q3 per linearer Interpolation</text>
+<text x="202.5" y="285" font-size="10.5" fill="#4a5568" text-anchor="middle">Kennzahlen: mean, stddev, Schiefe, Exzess | Raster | Sequenz (ID-artig) | Diskretheit</text>
+<text x="555" y="22" font-size="13" fill="#1a202c" text-anchor="middle" font-weight="bold">Benford-Analyse der ersten signifikanten Ziffer</text>
+<line x1="420" y1="240" x2="730" y2="240" stroke="#718096" stroke-width="1.5"/>
+<rect x="423.0" y="91.7" width="28.4" height="148.3" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="437.2" cy="78.3" r="3.2" fill="#e53e3e"/>
+<text x="437.22222222222223" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">1</text>
+<rect x="457.4" y="138.5" width="28.4" height="101.5" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="471.7" cy="145.4" r="3.2" fill="#e53e3e"/>
+<text x="471.6666666666667" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">2</text>
+<rect x="491.9" y="171.2" width="28.4" height="68.8" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="506.1" cy="172.9" r="3.2" fill="#e53e3e"/>
+<text x="506.11111111111114" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">3</text>
+<rect x="526.3" y="190.6" width="28.4" height="49.4" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="540.6" cy="187.9" r="3.2" fill="#e53e3e"/>
+<text x="540.5555555555555" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">4</text>
+<rect x="560.8" y="193.8" width="28.4" height="46.2" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="575.0" cy="197.5" r="3.2" fill="#e53e3e"/>
+<text x="575.0" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">5</text>
+<rect x="595.2" y="202.4" width="28.4" height="37.6" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="609.4" cy="204.0" r="3.2" fill="#e53e3e"/>
+<text x="609.4444444444443" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">6</text>
+<rect x="629.7" y="207.8" width="28.4" height="32.2" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="643.9" cy="208.9" r="3.2" fill="#e53e3e"/>
+<text x="643.8888888888888" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">7</text>
+<rect x="664.1" y="211.5" width="28.4" height="28.5" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="678.3" cy="212.5" r="3.2" fill="#e53e3e"/>
+<text x="678.3333333333333" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">8</text>
+<rect x="698.6" y="215.3" width="28.4" height="24.7" fill="#90cdf4" stroke="#3182ce" stroke-width="1"/>
+<circle cx="712.8" cy="215.4" r="3.2" fill="#e53e3e"/>
+<text x="712.7777777777777" y="253" font-size="10.5" fill="#4a5568" text-anchor="middle">9</text>
+<line x1="437.22222222222223" y1="78.30388804334726" x2="471.6666666666667" y2="145.41383799294837" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="471.6666666666667" y1="145.41383799294837" x2="506.11111111111114" y2="172.89005005039888" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="506.11111111111114" y1="172.89005005039888" x2="540.5555555555555" y2="187.94547872710112" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="540.5555555555555" y1="187.94547872710112" x2="575.0" y2="197.46835926584725" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="575.0" y1="197.46835926584725" x2="609.4444444444443" y2="204.0400101412706" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="609.4444444444443" y1="204.0400101412706" x2="643.8888888888888" y2="208.85003990912827" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="643.8888888888888" y1="208.85003990912827" x2="678.3333333333333" y2="212.5237879425495" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="678.3333333333333" y1="212.5237879425495" x2="712.7777777777777" y2="215.42169078455163" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<rect x="420" y="30" width="11" height="11" fill="#90cdf4" stroke="#3182ce"/>
+<text x="436" y="39" font-size="10.5" fill="#4a5568" text-anchor="start">beobachtet (%)</text>
+<circle cx="570" cy="35.5" r="3.2" fill="#e53e3e"/>
+<line x1="558" y1="35.5" x2="582" y2="35.5" stroke="#e53e3e" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="587" y="39" font-size="10.5" fill="#4a5568" text-anchor="start">Erwartung log10(1+1/d)</text>
+<text x="575.0" y="258" font-size="10.5" fill="#718096" text-anchor="middle">MAD gegen die Erwartung; Schwelle 0.015 (Nigrini) ⇒ benfordSuspicious</text>
+<text x="575.0" y="285" font-size="10.5" fill="#4a5568" text-anchor="middle">typischer Qualitaets-/Faelschungsindikator bei Betragsfeldern</text>
+</svg>

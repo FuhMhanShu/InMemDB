@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="370" viewBox="0 0 760 370" font-family="sans-serif">
+<rect width="760" height="370" fill="#ffffff" rx="10"/>
+<rect x="20" y="45" width="195" height="105" rx="8" fill="#ffffff" stroke="#3182ce" stroke-width="1.5"/>
+<text x="117" y="65" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">Collection A: orders</text>
+<text x="117" y="85" font-size="10.5" fill="#4a5568" text-anchor="middle">kat | menge | wert</text>
+<text x="117" y="101" font-size="10.5" fill="#4a5568" text-anchor="middle">12 Dokumente</text>
+<text x="117" y="117" font-size="10.5" fill="#4a5568" text-anchor="middle">docsA = 12</text>
+<rect x="20" y="235" width="195" height="105" rx="8" fill="#ffffff" stroke="#805ad5" stroke-width="1.5"/>
+<text x="117" y="255" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">Collection B: kategorien</text>
+<text x="117" y="275" font-size="10.5" fill="#4a5568" text-anchor="middle">kat | rabatt</text>
+<text x="117" y="291" font-size="10.5" fill="#4a5568" text-anchor="middle">4 Dokumente</text>
+<text x="117" y="307" font-size="10.5" fill="#4a5568" text-anchor="middle">Partner von B je A-Dokument</text>
+<rect x="280" y="110" width="200" height="165" rx="8" fill="#f7fafc" stroke="#38a169" stroke-width="2"/>
+<text x="380" y="132" font-size="13" fill="#1a202c" text-anchor="middle" font-weight="bold">Join</text>
+<text x="380" y="152" font-size="10.5" fill="#4a5568" text-anchor="middle">verknuepfte Zeilenmenge:</text>
+<text x="380" y="168" font-size="10.5" fill="#4a5568" text-anchor="middle">12 Zeilen (A x B)</text>
+<text x="380" y="200" font-size="10.5" fill="#4a5568" text-anchor="middle">Join-Abdeckung 12/12 = 1.0</text>
+<text x="380" y="216" font-size="10.5" fill="#4a5568" text-anchor="middle">Kardinalitaet n:1 (A-Sicht)</text>
+<line x1="215" y1="97" x2="280" y2="150" stroke="#718096" stroke-width="1.6"/>
+<polygon points="280,150 271.3,147.7 276.0,142.0" fill="#718096"/>
+<line x1="215" y1="287" x2="280" y2="235" stroke="#718096" stroke-width="1.6"/>
+<polygon points="280,235 275.9,243.0 271.3,237.3" fill="#718096"/>
+<rect x="280" y="42" width="200" height="52" rx="8" fill="#feebc8" stroke="#d69e2e" stroke-width="1.5"/>
+<text x="380" y="58" font-size="10.5" fill="#4a5568" text-anchor="middle">Quellen: __references (declared)</text>
+<text x="380" y="73" font-size="10.5" fill="#4a5568" text-anchor="middle">oder entdeckte FKs (discovered,</text>
+<text x="380" y="88" font-size="10.5" fill="#4a5568" text-anchor="middle">confidence &gt;= 0.9)</text>
+<line x1="380" y1="94" x2="380" y2="110" stroke="#d69e2e" stroke-width="1.6"/>
+<polygon points="380,110 376.3,101.8 383.7,101.8" fill="#d69e2e"/>
+<line x1="480" y1="190" x2="515" y2="190" stroke="#718096" stroke-width="1.6"/>
+<polygon points="515,190 506.8,193.7 506.8,186.3" fill="#718096"/>
+<rect x="515" y="45" width="225" height="125" rx="8" fill="#ffffff" stroke="#3182ce" stroke-width="1.5"/>
+<text x="627" y="65" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">FA-31-Maschinerie</text>
+<text x="627" y="76" font-size="10.5" fill="#718096" text-anchor="middle" font-style="italic">auf der Join-Menge</text>
+<text x="627" y="96" font-size="10.5" fill="#4a5568" text-anchor="middle">Pearson-Hub | multiples R^2 (Ridge)</text>
+<text x="627" y="112" font-size="10.5" fill="#4a5568" text-anchor="middle">funktionale Abhaengigkeiten</text>
+<text x="627" y="128" font-size="10.5" fill="#4a5568" text-anchor="middle">Trivial-Paar (A.join, B.key) ausgeblendet</text>
+<line x1="627" y1="170" x2="627" y2="195" stroke="#718096" stroke-width="1.6"/>
+<polygon points="627,195 623.3,186.8 630.7,186.8" fill="#718096"/>
+<rect x="515" y="195" width="225" height="105" rx="8" fill="#c6f6d5" stroke="#38a169" stroke-width="1.5"/>
+<text x="627" y="215" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">Ergebnis je Paar</text>
+<text x="627" y="235" font-size="10.5" fill="#4a5568" text-anchor="middle">Rollen + influenceScore</text>
+<text x="627" y="251" font-size="10.5" fill="#4a5568" text-anchor="middle">je Feld, Namen 'coll.feld'</text>
+<text x="627" y="267" font-size="10.5" fill="#4a5568" text-anchor="middle">Cross-Abhaengigkeiten</text>
+<text x="627" y="283" font-size="10.5" fill="#4a5568" text-anchor="middle">topDriver | note | Reports</text>
+<line x1="20" y1="345" x2="740" y2="345" stroke="#e2e8f0" stroke-width="1"/>
+<text x="380" y="362" font-size="10.5" fill="#718096" text-anchor="middle">Guards: rows &lt; minJoinPairs oder Join-Abdeckung &lt; minJoinCoverage =&gt; Paar wird uebersprungen; Selbst-Referenzen uebersprungen (FA-31 zustaendig).</text>
+</svg>

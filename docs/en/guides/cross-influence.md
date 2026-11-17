@@ -44,6 +44,13 @@ the joined row set. Read-only; result field names are collection-qualified
 - `dependencies` lists only dependencies with source and target in different
   collections; roles count all dependencies of the joined set.
 
+<img src="../../images/cross-influence-join.svg" alt="Cross-collection analysis: two collections joined via declared or discovered relations, analyzed with the FA-31 machinery" width="760">
+
+The flow as a graphic: both join sources (declared `__references` or discovered
+foreign keys) feed the join, guards filter pairs that are too small or too
+weakly linked, and the FA-31 machinery analyzes the joined set – the trivial
+join dependency stays suppressed by default.
+
 ## Options (CrossInfluenceOptions)
 
 | Option | Default | Meaning |

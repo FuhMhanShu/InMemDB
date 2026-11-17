@@ -46,6 +46,13 @@ Ergebnis-Feldnamen sind collection-qualifiziert (`collection.feld`).
   unterschiedlichen Collections; die Rollen zählen alle Abhängigkeiten der
   verknüpften Menge.
 
+<img src="../../images/cross-influence-join.svg" alt="Cross-Collection-Analyse: zwei Collections werden über declared- oder discovered-Beziehungen gejoint und mit der FA-31-Maschinerie analysiert" width="760">
+
+Der Ablauf als Grafik: beide Join-Quellen (deklarierte `__references` oder
+entdeckte Fremdschlüssel) speisen den Join, Guards filtern zu kleine oder zu
+schwach verknüpfte Paare, und die FA-31-Maschinerie analysiert die verknüpfte
+Menge – die triviale Join-Abhängigkeit bleibt dabei standardmäßig ausgeblendet.
+
 ## Optionen (CrossInfluenceOptions)
 
 | Option | Default | Bedeutung |

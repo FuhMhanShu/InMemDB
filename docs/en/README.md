@@ -55,7 +55,8 @@ Background and decisions for contributors:
 
 ## Images
 
-[images/](../images/) – example graphs (SVG) from the discovery guide.
+[images/](../images/) – example graphs (SVG) from the discovery and analysis guides
+(pipeline dispatcher, histogram/Benford, evidence/roles, cross-collection join).
 
 ---
 

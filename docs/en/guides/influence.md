@@ -42,6 +42,14 @@ Influence score (0..1): `0.5 * hubRatio + 0.3 * (determines / partners) + 0.2 * 
 `topDriver` is the highest-scoring field, provided a dominance signal exists
 (functional determination, strong correlation or hubRatio >= 0.8).
 
+<img src="../../images/influence-evidence.svg" alt="Evidence kinds correlation and functional dependency, role panel and influence score formula" width="760">
+
+The path from evidence to role: Pearson correlation and functional dependencies
+(with regression-based R²) form the evidence base, the four roles are derived
+from it, and the weighted score
+`0.5 * hubRatio + 0.3 * (determines / partners) + 0.2 * (1 - R²)` elects the
+`topDriver`.
+
 ## Functions
 
 ```cpp

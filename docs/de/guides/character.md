@@ -16,6 +16,13 @@ drei Kategorien eingestuft:
 | `DataCategory::Mixed` | Kategorie 2: Mischung aus Zahlen, Strings, Booleans | Regel-/Assoziations-Mining, semantische Typen |
 | `DataCategory::Complex` | Kategorie 3: komplexe Mischformen (Arrays, Dokumente, Binär, Typ-Drift >= 40 %) | rekursive Profilierung, Schema-Varianten, Entity Resolution |
 
+<img src="../../images/analysis-pipeline.svg" alt="Analyse-Pipeline-Dispatcher: assessCharacter stuft jede Collection in Numeric, Mixed oder Complex ein und leitet zur passenden Analyse weiter" width="760">
+
+Die folgende Grafik zeigt den Dispatcher im Überblick: `assessCharacter` stuft jede
+Collection read-only ein und leitet zur passenden Analyse-Pipeline weiter –
+Kategorie 1 direkt in die Kette FA-30/31/32, Kategorie 2 und 3 sind für spätere
+Module vorgemerkt.
+
 ## Funktionen
 
 ```cpp

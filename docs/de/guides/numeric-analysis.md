@@ -58,6 +58,13 @@ std::string md = memdb::toMarkdown(res);   // Tabellen inkl. Korrelationen
 | `histogram`, `binMin`, `binWidth` | äquidistantes Histogramm über min..max |
 | `note` | Interpretations-Hinweise auf Deutsch (z. B. "diskret …; sequenzielle ID (Schritt 1, keine Lücken); Raster 100 …") |
 
+<img src="../../images/numeric-analysis.svg" alt="Histogramm mit Q1/Median/Q3-Markern und Benford-Balkendiagramm mit Erwartungslinie" width="760">
+
+Zwei zentrale Merkmale im Bild: links ein äquidistantes Histogramm mit den per
+linearer Interpolation ermittelten Quantilen, rechts die Benford-Analyse der
+ersten signifikanten Ziffer mit der erwarteten Verteilung `log10(1+1/d)` – eine
+MAD >= 0.015 gegenüber der Erwartung markiert das Feld als `benfordSuspicious`.
+
 ## Details
 
 - Read-only; ein Scan pro Collection. Sequenz-Analysen rekonstruieren die

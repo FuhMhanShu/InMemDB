@@ -58,6 +58,13 @@ std::string md = memdb::toMarkdown(res);   // tables incl. correlations
 | `histogram`, `binMin`, `binWidth` | equidistant histogram over min..max |
 | `note` | interpretation hints in German (e.g. "diskret …; sequenzielle ID (Schritt 1, keine Lücken); Raster 100 …") |
 
+<img src="../../images/numeric-analysis.svg" alt="Histogram with Q1/median/Q3 markers and Benford bar chart with expected distribution line" width="760">
+
+Two core features at a glance: on the left an equidistant histogram with the
+quantiles obtained via linear interpolation, on the right the Benford analysis of
+the first significant digit against the expected distribution `log10(1+1/d)` – a
+MAD >= 0.015 against the expectation flags the field as `benfordSuspicious`.
+
 ## Details
 
 - Read-only; one scan per collection. Sequence analyses reconstruct the insertion
