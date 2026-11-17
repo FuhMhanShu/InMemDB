@@ -40,7 +40,7 @@ jobs:
         run: |
           ctest --test-dir build --output-on-failure -C Release > /tmp/ctest.log 2>&1 || true
           if grep -qE "tests failed|Failed " /tmp/ctest.log; then
-            grep -E "FAIL|Failed|failed|tests passed|tests failed" /tmp/ctest.log | head -60 | while IFS= read -r l; do
+            grep -E "FAIL|DIAG|Failed|failed|tests passed|tests failed" /tmp/ctest.log | head -60 | while IFS= read -r l; do
               echo "::error::${l}"
             done
             exit 8
@@ -66,7 +66,7 @@ jobs:
         run: |
           ctest --test-dir build --output-on-failure -C Release > /tmp/ctest.log 2>&1 || true
           if grep -qE "tests failed|Failed " /tmp/ctest.log; then
-            grep -E "FAIL|Failed|failed|tests passed|tests failed" /tmp/ctest.log | head -60 | while IFS= read -r l; do
+            grep -E "FAIL|DIAG|Failed|failed|tests passed|tests failed" /tmp/ctest.log | head -60 | while IFS= read -r l; do
               echo "::error::${l}"
             done
             exit 8
