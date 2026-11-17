@@ -1,7 +1,5 @@
 name: CI
 
-permissions:
-  contents: write
 on:
   push:
     branches: [main, dev]
@@ -36,35 +34,10 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: |
-          set +e
-          cmake --build build --config Release -j 2>&1 | tee /tmp/build.log
-          code=${PIPESTATUS[0]}
-          grep -E "error:|Fehler" /tmp/build.log | head -40 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
-          exit $code
+        run: cmake --build build --config Release -j
 
       - name: Test
-        run: |
-          set +e
-          ctest --test-dir build --output-on-failure -C Release 2>&1 | tee /tmp/ctest.log
-          code=${PIPESTATUS[0]}
-          grep -E "FAILED|Fehler|FAIL |Segmentation|error:" /tmp/ctest.log | head -40 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
-          exit $code
-
-      - name: Debug-Logs committen
-        if: failure()
-        run: |
-          set -e
-          BR=${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}
-          mkdir -p .ci-debug
-          cp /tmp/build.log /tmp/ctest.log .ci-debug/ 2>/dev/null || true
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin "$BR" --depth=1
-          git checkout -B "$BR" FETCH_HEAD
-          git add .ci-debug
-          git commit -m "ci-debug: logs [skip ci]"
-          git push origin "$BR"
+        run: ctest --test-dir build --output-on-failure -C Release
 
   sqlite-import:
     name: Import (sqlite, INMEMDB_WITH_SQLITE=ON)
@@ -80,35 +53,10 @@ jobs:
         run: cmake -S . -B build -DINMEMDB_WITH_SQLITE=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: |
-          set +e
-          cmake --build build -j 2>&1 | tee /tmp/build.log
-          code=${PIPESTATUS[0]}
-          grep -E "error:|Fehler" /tmp/build.log | head -40 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
-          exit $code
+        run: cmake --build build -j
 
       - name: Test (inkl. Import-Tests)
-        run: |
-          set +e
-          ctest --test-dir build --output-on-failure -C Release 2>&1 | tee /tmp/ctest.log
-          code=${PIPESTATUS[0]}
-          grep -E "FAILED|Fehler|FAIL |Segmentation|error:" /tmp/ctest.log | head -40 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
-          exit $code
-
-      - name: Debug-Logs committen
-        if: failure()
-        run: |
-          set -e
-          BR=${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}
-          mkdir -p .ci-debug
-          cp /tmp/build.log /tmp/ctest.log .ci-debug/ 2>/dev/null || true
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin "$BR" --depth=1
-          git checkout -B "$BR" FETCH_HEAD
-          git add .ci-debug
-          git commit -m "ci-debug: logs [skip ci]"
-          git push origin "$BR"
+        run: ctest --test-dir build --output-on-failure -C Release
 
   qmake-qt:
     name: qmake/Qt-Einbindung (FA-23)

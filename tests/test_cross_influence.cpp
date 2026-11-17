@@ -300,7 +300,7 @@ int main() {
             CHECK(katI != nullptr && near(katI->maxAbsPearson, 0.9716254134469435, 1e-9));
             CHECK(katI != nullptr && katI->determines == 1);
             CHECK(katI != nullptr && katI->determinedBy == 0);
-            CHECK(katI != nullptr && near(katI->rSquared, 0.9393900944595107, 1e-6));
+            CHECK(katI != nullptr && near(katI->rSquared, 0.9542857098937575, 1e-6)); // zentrierte Regression (Härtung)
             CHECK(katI != nullptr && katI->role == FieldRole::Mediator);
             const auto* bkatI = findField(*p, "kategorien.kat");
             CHECK(bkatI != nullptr);
@@ -314,7 +314,7 @@ int main() {
             CHECK(rabI != nullptr && rabI->determinedBy == 2);
             CHECK(rabI != nullptr && rabI->determines == 0);
             CHECK(rabI != nullptr && rabI->strongCorrelations == 4);
-            CHECK(rabI != nullptr && near(rabI->rSquared, 0.7854252199104226, 1e-6));
+            CHECK(rabI != nullptr && near(rabI->rSquared, 0.7999999999997920, 1e-6)); // zentrierte Regression (Härtung)
             CHECK(rabI != nullptr && rabI->role == FieldRole::Mediator);
             CHECK(rabI != nullptr && rabI->rationale.find("orders2.kat -> kategorien.rabatt") !=
                                           std::string::npos);
