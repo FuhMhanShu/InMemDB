@@ -34,7 +34,12 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release -j
+        run: |
+          set +e
+          cmake --build build --config Release -j 2>&1 | tee /tmp/build.log
+          code=${PIPESTATUS[0]}
+          grep -E "error:|Error " /tmp/build.log | head -30 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
+          exit $code
 
       - name: Test
         run: |
@@ -58,7 +63,12 @@ jobs:
         run: cmake -S . -B build -DINMEMDB_WITH_SQLITE=ON -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build -j
+        run: |
+          set +e
+          cmake --build build -j 2>&1 | tee /tmp/build.log
+          code=${PIPESTATUS[0]}
+          grep -E "error:|Error " /tmp/build.log | head -30 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
+          exit $code
 
       - name: Test (inkl. Import-Tests)
         run: |
