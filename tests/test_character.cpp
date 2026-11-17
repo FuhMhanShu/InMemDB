@@ -195,6 +195,27 @@ int main() {
         CHECK(toString(DataCategory::Mixed) == "mixed");
     }
 
+    // 10) Haertung: maxFieldsPerCollection = 0 (kein Crash) und
+    //     sampleSize > docCount (Vollscan statt Übersampling)
+    {
+        Database db("cat10");
+        auto c = db.createCollection("edge");
+        c.insert({{"v", 1}});
+        DiscoveryOptions o;
+        o.maxFieldsPerCollection = 0;
+        CollectionCharacter cc = assessCharacter(c, o);
+        CHECK(cc.fields.empty());
+        CHECK(cc.effectiveFields == 0);
+        CHECK(cc.category == DataCategory::Mixed);
+        CHECK(cc.confidence == 0.0);
+        o.maxFieldsPerCollection = 64;
+        o.sampleSize = 100; // > docCount => Vollscan
+        CollectionCharacter cc2 = assessCharacter(c, o);
+        CHECK(cc2.sampleSize == 1);
+        CHECK(cc2.fields.size() == 1);
+        CHECK(cc2.category == DataCategory::Numeric);
+    }
+
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     return g_failures == 0 ? 0 : 1;
 }

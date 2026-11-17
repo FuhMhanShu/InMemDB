@@ -282,6 +282,91 @@ int main() {
         CHECK(jf.find("\"firstDigitFreq\"") != std::string::npos);
     }
 
+    // 11) Haertung: grosse Offsets – Pearson trotz Ausloeschung exakt
+    //     (zentrierte zweistufige Berechnung in long double)
+    {
+        Database db("n11");
+        auto c = db.createCollection("offsets");
+        for (int i = 0; i < 20; ++i)
+            c.insert({{"x", 1e12 + 1.0 * i}, {"y", 1e12 + 3.0 * i}});
+        NumericAnalysisOptions opts;
+        auto res = analyzeNumeric(c, opts);
+        CHECK(res.correlations.size() == 1);
+        const NumericPairCorrelation* pc = nullptr;
+        for (const auto& p : res.correlations)
+            if (p.fieldX == "x" && p.fieldY == "y")
+                pc = &p;
+        CHECK(pc != nullptr);
+        CHECK(pc != nullptr && near(pc->pearson, 1.0, 1e-9));
+        CHECK(pc != nullptr && pc->pairs == 20);
+        const auto* fx = findField(res.fields, "x");
+        CHECK(fx != nullptr);
+        CHECK(fx != nullptr && std::isfinite(fx->mean));
+        CHECK(fx != nullptr && std::isfinite(fx->stddev));
+        CHECK(fx != nullptr && std::isfinite(fx->skewness));
+        CHECK(fx != nullptr && std::isfinite(fx->kurtosis));
+        CHECK(fx != nullptr && fx->histogram.size() == 10);
+        std::size_t hsum = 0;
+        for (std::size_t h : fx->histogram)
+            hsum += h;
+        CHECK(hsum == 20);
+    }
+
+    // 12) Haertung: Extremwerte (kein inf/nan in Reports), konstantes Feld,
+    //     minValuesPerField 0/1 (Guard gegen leere Wertmengen)
+    {
+        Database db("n12");
+        auto c = db.createCollection("extrem");
+        c.insert({{"big", 1.7e308}});
+        c.insert({{"big", -1.7e308}});
+        for (int i = 0; i < 8; ++i)
+            c.insert({{"big", 1000.0 * i - 3500.0}});
+        NumericAnalysisOptions opts;
+        auto fields = analyzeNumericFields(c, opts);
+        CHECK(fields.size() == 1);
+        const auto& f = fields[0];
+        CHECK(f.field == "big");
+        CHECK(std::isfinite(f.min) && std::isfinite(f.max));
+        CHECK(std::isfinite(f.mean) && std::isfinite(f.stddev));
+        CHECK(std::isfinite(f.skewness) && std::isfinite(f.kurtosis));
+        CHECK(std::isfinite(f.iqr));
+        CHECK(f.histogram.size() == 10);
+        std::size_t hsum = 0;
+        for (std::size_t h : f.histogram)
+            hsum += h;
+        CHECK(hsum == 10);
+        const std::string j = toJson(f);
+        CHECK(j.find(":inf") == std::string::npos);
+        CHECK(j.find(":nan") == std::string::npos);
+
+        // konstantes Feld: Stdabw 0, kein Benford (Spannweite 0), alles in Bin 0
+        auto c2 = db.createCollection("konst");
+        for (int i = 0; i < 8; ++i)
+            c2.insert({{"k", 5}});
+        auto f2s = analyzeNumericFields(c2, opts);
+        CHECK(f2s.size() == 1);
+        const auto& k = f2s[0];
+        CHECK(near(k.stddev, 0.0));
+        CHECK(near(k.skewness, 0.0));
+        CHECK(near(k.kurtosis, 0.0));
+        CHECK(!k.benfordApplicable);
+        CHECK(k.histogram.size() == 10);
+        CHECK(k.histogram[0] == 8);
+
+        // minValuesPerField 0/1: Guard greift, keine Crashes
+        NumericAnalysisOptions o0;
+        o0.minValuesPerField = 0;
+        auto r0 = analyzeNumeric(c2, o0);
+        CHECK(r0.fields.size() == 1);
+        NumericAnalysisOptions o1;
+        o1.minValuesPerField = 1;
+        auto c3 = db.createCollection("mini");
+        c3.insert({{"m", 1}});
+        auto r1 = analyzeNumeric(c3, o1);
+        CHECK(r1.fields.size() == 1);
+        CHECK(near(r1.fields[0].min, 1.0) && near(r1.fields[0].max, 1.0));
+    }
+
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     return g_failures == 0 ? 0 : 1;
 }

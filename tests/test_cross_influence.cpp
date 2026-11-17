@@ -300,7 +300,7 @@ int main() {
             CHECK(katI != nullptr && near(katI->maxAbsPearson, 0.9716254134469435, 1e-9));
             CHECK(katI != nullptr && katI->determines == 1);
             CHECK(katI != nullptr && katI->determinedBy == 0);
-            CHECK(katI != nullptr && near(katI->rSquared, 0.9393900944595107, 1e-6));
+            CHECK(katI != nullptr && near(katI->rSquared, 0.9542857098937575, 1e-6)); // zentrierte Regression (Härtung)
             CHECK(katI != nullptr && katI->role == FieldRole::Mediator);
             const auto* bkatI = findField(*p, "kategorien.kat");
             CHECK(bkatI != nullptr);
@@ -314,7 +314,7 @@ int main() {
             CHECK(rabI != nullptr && rabI->determinedBy == 2);
             CHECK(rabI != nullptr && rabI->determines == 0);
             CHECK(rabI != nullptr && rabI->strongCorrelations == 4);
-            CHECK(rabI != nullptr && near(rabI->rSquared, 0.7854252199104226, 1e-6));
+            CHECK(rabI != nullptr && near(rabI->rSquared, 0.7999999999997920, 1e-6)); // zentrierte Regression (Härtung)
             CHECK(rabI != nullptr && rabI->role == FieldRole::Mediator);
             CHECK(rabI != nullptr && rabI->rationale.find("orders2.kat -> kategorien.rabatt") !=
                                           std::string::npos);
@@ -496,6 +496,84 @@ int main() {
         CHECK(r.note.find("keine verknuepfbaren Collection-Paare") != std::string::npos);
         const std::string js = toJson(r);
         CHECK(js == "{\"note\":\"keine verknuepfbaren Collection-Paare gefunden\",\"pairs\":[]}");
+    }
+
+    // =====================================================================
+    // 4) Haertung: haengende Kanten (geloeschte Ziel-Dokumente) zaehlen
+    //    nicht mehr in rows/matchedA/Join-Abdeckung
+    // =====================================================================
+    {
+        Database db("ci7");
+        auto a = db.createCollection("q");
+        auto b = db.createCollection("w");
+        std::vector<DocumentId> aid, bid;
+        for (int i = 0; i < 6; ++i)
+            aid.push_back(a.insert({{"x", i + 1}, {"y", 10 * (i + 1)}}));
+        for (int i = 0; i < 3; ++i)
+            bid.push_back(b.insert({{"bId", i + 1}, {"z", 3 * (i + 1)}}));
+        ReferenceIndex ri(db);
+        for (int i = 0; i < 6; ++i)
+            ri.link("q", aid[i], "w", bid[i % 3], "ref");
+        CHECK(b.removeById(bid[1]));
+        CHECK(b.removeById(bid[2])); // 4 von 6 Kanten haengen jetzt im Ziel
+        CrossInfluenceOptions opts;
+        opts.includeDiscovered = false;
+        opts.minJoinPairs = 2;
+        opts.influence.numeric.minValuesPerField = 2;
+        CrossInfluenceResult r = analyzeCrossInfluence(db, opts);
+        const CrossPairAnalysis* p = findPair(r, "q", "w", "declared");
+        CHECK(p != nullptr);
+        CHECK(p != nullptr && p->docsA == 6);
+        CHECK(p != nullptr && p->rows == 2); // nur Kanten auf lebende B-Dokumente
+        CHECK(p != nullptr && p->matchedA == 2);
+        CHECK(p != nullptr && near(p->joinCoverage, 2.0 / 6.0));
+        CHECK(p != nullptr && p->fields.size() == 4);
+    }
+
+    // =====================================================================
+    // 5) Haertung: ungueltige __references-Eintraege (negative oder nicht
+    //    ganzzahlige IDs) werden ignoriert und erzeugen keine Paare
+    // =====================================================================
+    {
+        Database db("ci8");
+        auto a = db.createCollection("l");
+        auto b = db.createCollection("r");
+        std::vector<DocumentId> aid, bid;
+        for (int i = 0; i < 4; ++i)
+            aid.push_back(a.insert({{"x", i + 1}, {"y", 10 * (i + 1)}}));
+        for (int i = 0; i < 2; ++i)
+            bid.push_back(b.insert({{"bId", i + 1}, {"z", 3 * (i + 1)}}));
+        ReferenceIndex ri(db); // legt __references an
+        for (int i = 0; i < 4; ++i)
+            ri.link("l", aid[i], "r", bid[i % 2], "ok");
+        // Collection-Handle ist ein Wertobjekt (teilt den Zustand mit der DB)
+        auto refs = db.collection("__references");
+        refs.insert({{"from_coll", std::string("l")},
+                     {"from_id", -3},
+                     {"to_coll", std::string("r")},
+                     {"to_id", 1},
+                     {"relation", std::string("bad1")}});
+        refs.insert({{"from_coll", std::string("l")},
+                     {"from_id", 2.5},
+                     {"to_coll", std::string("r")},
+                     {"to_id", 1},
+                     {"relation", std::string("bad2")}});
+        refs.insert({{"from_coll", std::string("l")},
+                     {"from_id", 1},
+                     {"to_coll", std::string("r")},
+                     {"to_id", -1},
+                     {"relation", std::string("bad3")}});
+        CrossInfluenceOptions opts;
+        opts.includeDiscovered = false;
+        opts.minJoinPairs = 2;
+        opts.influence.numeric.minValuesPerField = 2;
+        CrossInfluenceResult r = analyzeCrossInfluence(db, opts);
+        CHECK(r.pairs.size() == 1); // nur die gueltige Relation "ok"
+        const CrossPairAnalysis* p = findPair(r, "l", "r", "declared");
+        CHECK(p != nullptr);
+        CHECK(p != nullptr && p->relation == "ok");
+        CHECK(p != nullptr && p->rows == 4);
+        CHECK(p != nullptr && p->matchedA == 4);
     }
 
     if (g_failures == 0)

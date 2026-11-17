@@ -142,7 +142,7 @@ NumericCollectionAnalysis analyzeNumeric(const Collection& c, const NumericAnaly
     // Feld-Analysen (alphabetisch stabil sortiert)
     for (std::size_t idx = 0; idx < cap; ++idx) {
         const auto& vals = fieldValues[idx];
-        if (vals.size() < opts.minValuesPerField)
+        if (vals.empty() || vals.size() < opts.minValuesPerField) // Härtung: auch bei minValuesPerField == 0 nie ohne Werte
             continue;
         NumericFieldAnalysis a;
         a.collection = res.collection;
@@ -164,29 +164,37 @@ NumericCollectionAnalysis analyzeNumeric(const Collection& c, const NumericAnaly
             a.distinct = distinctSet.size();
         }
         const double cnt = static_cast<double>(xs.size());
-        double mean = 0.0;
+        // Härtung: Momente in long double akkumulieren (kein Überlauf bei Extremwerten),
+        // beim Zurückschreiben auf double Endlichkeit erzwingen (gültiges JSON).
+        long double lmean = 0.0L;
         for (double x : xs)
-            mean += x;
-        mean /= cnt;
-        a.mean = mean;
-        double m2 = 0.0, m3 = 0.0, m4 = 0.0;
+            lmean += static_cast<long double>(x);
+        lmean /= static_cast<long double>(xs.size());
+        long double lm2 = 0.0L, lm3 = 0.0L, lm4 = 0.0L;
         for (double x : xs) {
-            const double d = x - mean;
-            m2 += d * d;
-            m3 += d * d * d;
-            m4 += d * d * d * d;
+            const long double d = static_cast<long double>(x) - lmean;
+            lm2 += d * d;
+            lm3 += d * d * d;
+            lm4 += d * d * d * d;
         }
-        m2 /= cnt;
-        m3 /= cnt;
-        m4 /= cnt;
-        a.stddev = std::sqrt(m2);
+        lm2 /= static_cast<long double>(xs.size());
+        lm3 /= static_cast<long double>(xs.size());
+        lm4 /= static_cast<long double>(xs.size());
+        const double mean = static_cast<double>(lmean);
+        a.mean = std::isfinite(mean) ? mean : 0.0;
+        const double m2d = static_cast<double>(lm2);
+        a.stddev = std::isfinite(m2d) ? std::sqrt(m2d) : 0.0;
         a.q1 = quantile(xs, 0.25);
         a.median = quantile(xs, 0.5);
         a.q3 = quantile(xs, 0.75);
         a.iqr = a.q3 - a.q1;
-        if (xs.size() >= 3 && m2 > 0.0) {
-            a.skewness = m3 / std::pow(m2, 1.5);
-            a.kurtosis = m4 / (m2 * m2) - 3.0;
+        if (xs.size() >= 3 && lm2 > 0.0L) {
+            const double sk = static_cast<double>(lm3 / (lm2 * std::sqrt(lm2)));
+            const double ku = static_cast<double>(lm4 / (lm2 * lm2) - 3.0L);
+            if (std::isfinite(sk))
+                a.skewness = sk;
+            if (std::isfinite(ku))
+                a.kurtosis = ku;
         }
         std::size_t integral = 0;
         for (double x : xs)
@@ -278,6 +286,9 @@ NumericCollectionAnalysis analyzeNumeric(const Collection& c, const NumericAnaly
             a.binMin = a.min;
             const double range = a.max - a.min;
             a.binWidth = range / static_cast<double>(opts.histogramBins);
+            // Härtung: nicht endliche Spannweite (Extremwerte) => alle Werte in Bin 0
+            if (!std::isfinite(a.binWidth))
+                a.binWidth = 0.0;
             for (double x : xs) {
                 std::size_t idx2 = 0;
                 if (a.binWidth > 0.0) {
@@ -318,49 +329,76 @@ NumericCollectionAnalysis analyzeNumeric(const Collection& c, const NumericAnaly
                   return x.field < y.field;
               });
 
-    // Paarweise Pearson-Korrelationen über Dokumente mit beiden Feldern
+    // Paarweise Pearson-Korrelationen über Dokumente mit beiden Feldern.
+    // Härtung: zentrierte zweistufige Berechnung in long double – die
+    // Summenformel (n*Sxy - Sx*Sy) verliert bei großen Werten mit kleinem
+    // Variationsbereich massiv an Genauigkeit (katastrophale Auslöschung).
     if (opts.withCorrelations && cap >= 2) {
         struct PairAcc {
             std::size_t n = 0;
-            double sx = 0.0, sy = 0.0, sxy = 0.0, sx2 = 0.0, sy2 = 0.0;
+            long double sx = 0.0L, sy = 0.0L;
+            long double mx = 0.0L, my = 0.0L;
+            long double cxy = 0.0L, cxx = 0.0L, cyy = 0.0L;
         };
         std::map<std::pair<std::size_t, std::size_t>, PairAcc> pairAcc;
-        for (const auto& row : rows) {
-            if (row.vals.size() < 2)
-                continue;
-            for (std::size_t i = 0; i < row.vals.size(); ++i) {
-                if (row.vals[i].first >= cap)
+        auto eachPair = [&](auto&& cb) {
+            for (const auto& row : rows) {
+                if (row.vals.size() < 2)
                     continue;
-                for (std::size_t j = i + 1; j < row.vals.size(); ++j) {
-                    if (row.vals[j].first >= cap)
+                for (std::size_t i = 0; i < row.vals.size(); ++i) {
+                    if (row.vals[i].first >= cap)
                         continue;
-                    std::pair<std::size_t, std::size_t> key(row.vals[i].first, row.vals[j].first);
-                    if (key.first > key.second)
-                        std::swap(key.first, key.second);
-                    PairAcc& p = pairAcc[key];
-                    ++p.n;
-                    const double xv = row.vals[i].second.asDouble();
-                    const double yv = row.vals[j].second.asDouble();
-                    p.sx += xv;
-                    p.sy += yv;
-                    p.sxy += xv * yv;
-                    p.sx2 += xv * xv;
-                    p.sy2 += yv * yv;
+                    for (std::size_t j = i + 1; j < row.vals.size(); ++j) {
+                        if (row.vals[j].first >= cap)
+                            continue;
+                        std::pair<std::size_t, std::size_t> key(row.vals[i].first,
+                                                               row.vals[j].first);
+                        if (key.first > key.second)
+                            std::swap(key.first, key.second);
+                        // Werte-Slots konsistent zum sortierten Schlüssel zuordnen
+                        // (Feldreihenfolge kann je Dokument wechseln)
+                        double xv = row.vals[i].second.asDouble();
+                        double yv = row.vals[j].second.asDouble();
+                        if (key.first != row.vals[i].first)
+                            std::swap(xv, yv);
+                        cb(key, xv, yv);
+                    }
                 }
             }
+        };
+        eachPair([&](std::pair<std::size_t, std::size_t> key, double xv, double yv) {
+            PairAcc& p = pairAcc[key];
+            ++p.n;
+            p.sx += static_cast<long double>(xv);
+            p.sy += static_cast<long double>(yv);
+        });
+        for (auto& kv : pairAcc) {
+            PairAcc& p = kv.second;
+            p.mx = p.sx / static_cast<long double>(p.n);
+            p.my = p.sy / static_cast<long double>(p.n);
         }
+        eachPair([&](std::pair<std::size_t, std::size_t> key, double xv, double yv) {
+            PairAcc& p = pairAcc[key];
+            const long double dx = static_cast<long double>(xv) - p.mx;
+            const long double dy = static_cast<long double>(yv) - p.my;
+            p.cxy += dx * dy;
+            p.cxx += dx * dx;
+            p.cyy += dy * dy;
+        });
         for (const auto& kv : pairAcc) {
             const PairAcc& p = kv.second;
             if (p.n < 3)
                 continue;
-            const double cov = static_cast<double>(p.n) * p.sxy - p.sx * p.sy;
-            const double varx = static_cast<double>(p.n) * p.sx2 - p.sx * p.sx;
-            const double vary = static_cast<double>(p.n) * p.sy2 - p.sy * p.sy;
-            if (varx <= 0.0 || vary <= 0.0)
-                continue;
-            const double r = cov / std::sqrt(varx * vary);
+            if (!(p.cxx > 0.0L) || !(p.cyy > 0.0L))
+                continue; // konstantes Feld: Korrelation bedeutungslos
+            long double lr = p.cxy / std::sqrt(p.cxx * p.cyy);
+            double r = static_cast<double>(lr);
             if (!std::isfinite(r))
                 continue;
+            if (r > 1.0)
+                r = 1.0;
+            if (r < -1.0)
+                r = -1.0;
             NumericPairCorrelation pc;
             pc.fieldX = fieldNames2[kv.first.first];
             pc.fieldY = fieldNames2[kv.first.second];

@@ -54,13 +54,22 @@ bool ciSolveLinearSystem(std::vector<std::vector<double>>& A, std::vector<double
             s -= A[i][j] * b[j];
         b[i] = s / A[i][i];
     }
+    // Härtung: bei Extremwerten können Zwischenergebnisse unendlich werden –
+    // dann lieber "nicht lösbar" melden, als NaN in die Statistik zu schreiben.
+    for (std::size_t i = 0; i < m; ++i)
+        if (!std::isfinite(b[i]))
+            return false;
     return true;
 }
 
-/// Quadratsummen pro Zeilenpaar: n, sx, sy, sxy, sx2, sy2 (Pearson wie FA-30/31).
+/// Härtung: Pearson über zentrierte zweistufige Summen in long double – die
+/// Summenformel (n*Sxy - Sx*Sy) verliert bei großen Werten mit kleinem
+/// Variationsbereich massiv an Genauigkeit (katastrophale Auslöschung).
 struct CiPairAcc {
     std::size_t n = 0;
-    double sx = 0.0, sy = 0.0, sxy = 0.0, sx2 = 0.0, sy2 = 0.0;
+    long double sx = 0.0L, sy = 0.0L;
+    long double mx = 0.0L, my = 0.0L;
+    long double cxy = 0.0L, cxx = 0.0L, cyy = 0.0L;
 };
 
 /// Eine verknuepfte Zeile (A-Dokument x B-Dokument): numerische Werte mit Feldindex.
@@ -83,18 +92,24 @@ CrossPairAnalysis analyzeJoinedPair(const std::string& origin, const std::string
     res.collectionB = collB.name();
     res.keyFieldB = keyFieldB;
     res.docsA = collA.size();
-    res.rows = pairs.size();
-
-    // Join-Statistik: Abdeckung in A, Kardinalitaet aus A-Sicht
+    // Join-Statistik: Abdeckung in A, Kardinalitaet aus A-Sicht.
+    // Härtung: nur Kanten auf (noch) existierende Dokumente werten – sonst
+    // wären gelöschte Dokumente in rows/matchedA/Abdeckung gezählt.
+    std::vector<std::pair<DocumentId, DocumentId>> livePairs;
+    livePairs.reserve(pairs.size());
+    for (const auto& pr : pairs)
+        if (collA.findById(pr.first) && collB.findById(pr.second))
+            livePairs.push_back(pr);
     std::set<DocumentId> matched;
     std::map<DocumentId, std::set<DocumentId>> aPartners;
-    for (const auto& p : pairs) {
+    for (const auto& p : livePairs) {
         matched.insert(p.first);
         aPartners[p.first].insert(p.second);
     }
     res.matchedA = matched.size();
     res.joinCoverage =
         res.docsA > 0 ? static_cast<double>(res.matchedA) / static_cast<double>(res.docsA) : 0.0;
+    res.rows = livePairs.size();
     res.cardinality = "n:1";
     for (const auto& kv : aPartners)
         if (kv.second.size() > 1) {
@@ -139,7 +154,7 @@ CrossPairAnalysis analyzeJoinedPair(const std::string& origin, const std::string
             row.vals.emplace_back(idx, v);
         });
     };
-    for (const auto& p : pairs) {
+    for (const auto& p : livePairs) {
         auto da = collA.findById(p.first);
         auto db = collB.findById(p.second);
         if (!da || !db)
@@ -191,43 +206,66 @@ CrossPairAnalysis analyzeJoinedPair(const std::string& origin, const std::string
 
     // 1) Paarweise Pearson-Korrelationen (Felder mit >= 3 gemeinsamen Zeilen)
     std::map<std::pair<std::size_t, std::size_t>, CiPairAcc> pairAcc;
-    for (const auto& row : rows) {
-        if (row.vals.size() < 2)
-            continue;
-        for (std::size_t a = 0; a < row.vals.size(); ++a) {
-            if (row.vals[a].first >= cap)
+    auto eachPair = [&](auto&& cb) {
+        for (const auto& row : rows) {
+            if (row.vals.size() < 2)
                 continue;
-            for (std::size_t b = a + 1; b < row.vals.size(); ++b) {
-                if (row.vals[b].first >= cap)
+            for (std::size_t a = 0; a < row.vals.size(); ++a) {
+                if (row.vals[a].first >= cap)
                     continue;
-                std::pair<std::size_t, std::size_t> key(row.vals[a].first, row.vals[b].first);
-                if (key.first > key.second)
-                    std::swap(key.first, key.second);
-                CiPairAcc& pa = pairAcc[key];
-                ++pa.n;
-                const double xv = row.vals[a].second.asDouble();
-                const double yv = row.vals[b].second.asDouble();
-                pa.sx += xv;
-                pa.sy += yv;
-                pa.sxy += xv * yv;
-                pa.sx2 += xv * xv;
-                pa.sy2 += yv * yv;
+                for (std::size_t b = a + 1; b < row.vals.size(); ++b) {
+                    if (row.vals[b].first >= cap)
+                        continue;
+                    std::pair<std::size_t, std::size_t> key(row.vals[a].first,
+                                                           row.vals[b].first);
+                    if (key.first > key.second)
+                        std::swap(key.first, key.second);
+                    // Werte-Slots konsistent zum sortierten Schluessel zuordnen
+                    // (Feldreihenfolge kann je Zeile wechseln)
+                    double xv = row.vals[a].second.asDouble();
+                    double yv = row.vals[b].second.asDouble();
+                    if (key.first != row.vals[a].first)
+                        std::swap(xv, yv);
+                    cb(key, xv, yv);
+                }
             }
         }
+    };
+    eachPair([&](std::pair<std::size_t, std::size_t> key, double xv, double yv) {
+        CiPairAcc& pa = pairAcc[key];
+        ++pa.n;
+        pa.sx += static_cast<long double>(xv);
+        pa.sy += static_cast<long double>(yv);
+    });
+    for (auto& kv : pairAcc) {
+        CiPairAcc& pa = kv.second;
+        pa.mx = pa.sx / static_cast<long double>(pa.n);
+        pa.my = pa.sy / static_cast<long double>(pa.n);
     }
+    eachPair([&](std::pair<std::size_t, std::size_t> key, double xv, double yv) {
+        CiPairAcc& pa = pairAcc[key];
+        const long double dx = static_cast<long double>(xv) - pa.mx;
+        const long double dy = static_cast<long double>(yv) - pa.my;
+        pa.cxy += dx * dy;
+        pa.cxx += dx * dx;
+        pa.cyy += dy * dy;
+    });
     std::map<std::pair<std::size_t, std::size_t>, double> pearson;
     for (const auto& kv : pairAcc) {
         const CiPairAcc& pa = kv.second;
         if (pa.n < 3)
             continue;
-        const double cov = static_cast<double>(pa.n) * pa.sxy - pa.sx * pa.sy;
-        const double varx = static_cast<double>(pa.n) * pa.sx2 - pa.sx * pa.sx;
-        const double vary = static_cast<double>(pa.n) * pa.sy2 - pa.sy * pa.sy;
-        if (varx <= 0.0 || vary <= 0.0)
+        if (!(pa.cxx > 0.0L) || !(pa.cyy > 0.0L))
+            continue; // konstantes Feld: Korrelation bedeutungslos
+        long double lr = pa.cxy / std::sqrt(pa.cxx * pa.cyy);
+        double r = static_cast<double>(lr);
+        if (!std::isfinite(r))
             continue;
-        const double r = cov / std::sqrt(varx * vary);
-        if (std::isfinite(r))
-            pearson[kv.first] = r;
+        if (r > 1.0)
+            r = 1.0;
+        if (r < -1.0)
+            r = -1.0;
+        pearson[kv.first] = r;
     }
 
     // 2) Funktionale Abhaengigkeiten (beide Richtungen, Evidenz-Gruppen wie FA-31).
@@ -360,46 +398,59 @@ CrossPairAnalysis analyzeJoinedPair(const std::string& origin, const std::string
         const std::size_t k = preds.size();
         if (yv.size() < std::max(inf.minRegressionRows, k + 2))
             return false;
-        double mean = 0.0;
-        for (double v : yv)
-            mean += v;
-        mean /= static_cast<double>(yv.size());
+        // Härtung: mittelwertzentrierte Regression (siehe influence.cpp) – bei
+        // großen Offsets bleibt die Kondition der Normalgleichungen beherrschbar.
+        const double rn = static_cast<double>(yv.size());
+        std::vector<double> mx(k, 0.0);
+        double my = 0.0;
+        for (std::size_t r = 0; r < X.size(); ++r) {
+            for (std::size_t i = 0; i < k; ++i)
+                mx[i] += X[r][i];
+            my += yv[r];
+        }
+        for (std::size_t i = 0; i < k; ++i)
+            mx[i] /= rn;
+        my /= rn;
+        if (!std::isfinite(my))
+            return false;
+        for (std::size_t i = 0; i < k; ++i)
+            if (!std::isfinite(mx[i]))
+                return false; // Härtung: Extremwerte, Arithmetik übergelaufen
         double sst = 0.0;
         for (double v : yv)
-            sst += (v - mean) * (v - mean);
+            sst += (v - my) * (v - my);
+        if (!std::isfinite(sst))
+            return false; // Härtung: Extremwerte, Arithmetik übergelaufen
         if (!(sst > 0.0))
             return false;
-        const std::size_t m = k + 1;
-        std::vector<std::vector<double>> A(m, std::vector<double>(m, 0.0));
-        std::vector<double> b(m, 0.0);
+        std::vector<std::vector<double>> A(k, std::vector<double>(k, 0.0));
+        std::vector<double> b(k, 0.0);
         for (std::size_t r = 0; r < X.size(); ++r) {
-            A[0][0] += 1.0;
             for (std::size_t i = 0; i < k; ++i) {
-                A[0][i + 1] += X[r][i];
-                A[i + 1][0] += X[r][i];
-                b[i + 1] += X[r][i] * yv[r];
+                const double xi = X[r][i] - mx[i];
+                b[i] += xi * (yv[r] - my);
                 for (std::size_t j = 0; j < k; ++j)
-                    A[i + 1][j + 1] += X[r][i] * X[r][j];
+                    A[i][j] += xi * (X[r][j] - mx[j]);
             }
-            b[0] += yv[r];
         }
         double diag = 0.0;
-        for (std::size_t i = 0; i < m; ++i)
+        for (std::size_t i = 0; i < k; ++i)
             diag += std::fabs(A[i][i]);
-        const double lambda = 1e-9 * std::max(1.0, diag / static_cast<double>(m));
-        for (std::size_t i = 0; i < m; ++i)
+        const double lambda = 1e-9 * std::max(1.0, diag / static_cast<double>(k));
+        for (std::size_t i = 0; i < k; ++i)
             A[i][i] += lambda;
         if (!ciSolveLinearSystem(A, b))
             return false;
         double sse = 0.0;
         for (std::size_t r = 0; r < X.size(); ++r) {
-            double pred = b[0];
+            double e = yv[r] - my;
             for (std::size_t i = 0; i < k; ++i)
-                pred += b[i + 1] * X[r][i];
-            const double e = yv[r] - pred;
+                e -= b[i] * (X[r][i] - mx[i]);
             sse += e * e;
         }
         r2Out = 1.0 - sse / sst;
+        if (!std::isfinite(r2Out))
+            return false; // Härtung: kein NaN/Inf in Score/Sortierung sickern lassen
         if (r2Out < 0.0)
             r2Out = 0.0;
         if (r2Out > 1.0)
@@ -482,6 +533,9 @@ CrossPairAnalysis analyzeJoinedPair(const std::string& origin, const std::string
                 : 0.0;
         const double r2Part = inf1.rSquaredComputed ? (1.0 - inf1.rSquared) : 0.5;
         inf1.influenceScore = 0.5 * inf1.hubRatio + 0.3 * fdRatio + 0.2 * r2Part;
+        if (!std::isfinite(inf1.influenceScore))
+            inf1.influenceScore =
+                0.0; // Härtung: NaN bricht die Sortierung (strict weak ordering)
 
         if (inf1.determines > 0) {
             inf1.rationale += "bestimmt funktional " + std::to_string(inf1.determines) +
@@ -587,8 +641,16 @@ CrossInfluenceResult analyzeCrossInfluence(Database& db, const CrossInfluenceOpt
             const Value* tc = d.find("to_coll");
             const Value* ti = d.find("to_id");
             const Value* rel = d.find("relation");
-            if (!fc || !fc->isString() || !fi || !fi->isNumber() || !tc || !tc->isString() ||
-                !ti || !ti->isNumber())
+            // Härtung: manuell/importiert eingetragene Kanten mit ungueltigen IDs
+            // (negativ, nicht ganzzahlig, NaN, jenseits 2^53) ignorieren.
+            auto validId = [](const Value* v) {
+                if (!v || !v->isNumber())
+                    return false;
+                const double dv = v->asDouble();
+                return dv >= 0.0 && dv <= 9.0e15 && std::floor(dv) == dv;
+            };
+            if (!fc || !fc->isString() || !validId(fi) || !tc || !tc->isString() ||
+                !validId(ti))
                 return;
             const DocumentId aid(static_cast<std::uint64_t>(fi->asInt()));
             const DocumentId bid(static_cast<std::uint64_t>(ti->asInt()));
