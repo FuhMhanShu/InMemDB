@@ -7,6 +7,14 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
 ## [Unreleased]
 
 ### Added
+- **Komplexe Metadaten-Analyse (FA-34):** `analyzeComplexFields`/`analyzeComplex` (Collection,
+  mehrere Collections, `Database&`) profiliert verschachtelte Strukturen rekursiv als
+  Pfad-Profil in Punktnotation (`adresse.plz`, `tags[]`, `items[].preis`) – je Pfad
+  Typ-Sichtungen mit dominantem Typ und Typ-Drift, Skalar-Distinct-Werte und
+  Missing-Quote, plus Schema-Varianten (Fingerprint aus sortierten Pfaden) mit
+  Schema-Konsistenz; Guards gegen pathologische Strukturen (Tiefe, Pfad- und
+  Varianten-Caps, distinct-Deckel, Mindest-Sichtungen); Reports
+  `toJson`/`toMarkdown`; Tests `tests/test_complex_analysis.cpp` (175 Checks)
 - Discovery v0.42: **Confusion-Matrix** `evaluateConfusion(rels, db, opts)` + `AnalysisReport::confusion`
   (nur `analyze(Database&)` mit `__references`): entdeckte FKs (gerichtete Collection-Paare, conf ≥
   `confusionMinConfidence` = 0.9) vs. deklarierte Referenzen → TP/FP/FN/TN + Precision/Recall/F1;

@@ -10,6 +10,7 @@
 #include "change_event.hpp"
 #include "character.hpp"
 #include "collection.hpp"
+#include "complex_analysis.hpp"
 #include "cross_influence.hpp"
 #include "cursor.hpp"
 #include "database.hpp"

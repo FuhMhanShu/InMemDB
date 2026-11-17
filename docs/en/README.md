@@ -40,6 +40,7 @@ Task-oriented guides – one per feature:
 | [influence.md](guides/influence.md) | Influence analysis: dominant fields, R², functional dependencies, roles (FA-31) |
 | [cross-influence.md](guides/cross-influence.md) | Cross-collection influence: join from references/FKs, roles per collection pair (FA-32) |
 | [mixed-analysis.md](guides/mixed-analysis.md) | Mixed metadata analysis: dominant types, text classes, format hints, associations (FA-33) |
+| [complex-analysis.md](guides/complex-analysis.md) | Complex metadata analysis: recursive path profile, type drift, schema variants (FA-34) |
 | [qt-qmake.md](guides/qt-qmake.md) | Qt/qmake integration + `QAbstractTableModel` adapter, no hard Qt dependency (FA-23, v0.16/v0.23) |
 | [type-mapping.md](guides/type-mapping.md) | Type mapping InMemDB ↔ SQL / MongoDB(BSON) / JSON |
 
