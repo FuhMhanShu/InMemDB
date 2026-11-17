@@ -37,7 +37,12 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release -j
+        run: |
+          set +e
+          cmake --build build --config Release -j > build.log 2>&1
+          rc=$?
+          tail -200 build.log
+          exit $rc
 
       - name: Test
         run: |
@@ -57,10 +62,11 @@ jobs:
           git fetch origin ${{ github.ref_name }}
           git checkout ${{ github.ref_name }}
           mkdir -p .ci-debug
-          cp ctest.log .ci-debug/ctest.log
-          git add .ci-debug/ctest.log
-          git commit -m "CI-Debug-Logs [skip ci]"
-          git push origin HEAD:${{ github.ref_name }}
+          cp build.log .ci-debug/build.log 2>/dev/null || true
+          cp ctest.log .ci-debug/ctest.log 2>/dev/null || true
+          git add .ci-debug || true
+          git commit -m "CI-Debug-Logs [skip ci]" || true
+          git push origin HEAD:${{ github.ref_name }} || true
 
   sqlite-import:
     name: Import (sqlite, INMEMDB_WITH_SQLITE=ON)
