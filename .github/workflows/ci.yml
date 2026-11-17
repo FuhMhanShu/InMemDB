@@ -17,6 +17,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build-and-test:
     name: Build & Test (${{ matrix.os }})
@@ -37,7 +40,26 @@ jobs:
         run: cmake --build build --config Release -j
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure -C Release
+        run: |
+          set +e
+          ctest --test-dir build --output-on-failure -C Release > ctest.log 2>&1
+          rc=$?
+          cat ctest.log
+          exit $rc
+
+      - name: Debug-Logs committen
+        if: failure()
+        continue-on-error: true
+        run: |
+          mkdir -p .ci-debug
+          cp ctest.log .ci-debug/ctest-build-and-test.log
+          git config user.name "ci-debug-bot"
+          git config user.email "ci-debug-bot@users.noreply.github.com"
+          git fetch origin dev_mixed --depth=1
+          git checkout -f dev_mixed
+          git add .ci-debug
+          git commit -m "ci-debug: Test-Logs [skip ci]"
+          git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:dev_mixed
 
   sqlite-import:
     name: Import (sqlite, INMEMDB_WITH_SQLITE=ON)
