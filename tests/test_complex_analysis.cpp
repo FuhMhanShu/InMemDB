@@ -44,6 +44,7 @@ bool near(double a, double b, double eps = 1e-9) {
 int main() {
     // 1) Verschachtelte Dokumente: Pfad-Notation, Tiefe, dominantKind, distinct
     {
+        std::cerr << "B1:start\n";
         Database db("c1");
         auto c = db.createCollection("adressen");
         for (int i = 0; i < 2; ++i)
@@ -95,6 +96,7 @@ int main() {
 
     // 2) Arrays: Container-Pfad und "[]"-Elementpfad
     {
+        std::cerr << "B2:start\n";
         Database db("c2");
         auto c = db.createCollection("posts");
         c.insert({{"n", 1}, {"tags", std::vector<Value>{"a", "b"}}});
@@ -121,6 +123,7 @@ int main() {
 
     // 3) Arrays aus Dokumenten: "items[]", "items[].preis" etc.
     {
+        std::cerr << "B3:start\n";
         Database db("c3");
         auto c = db.createCollection("bestellungen");
         c.insert({{"items", std::vector<Value>{
@@ -149,6 +152,7 @@ int main() {
 
     // 4) Typ-Drift: mehrere Arten an einem Pfad, Tie-Break, scalarShare
     {
+        std::cerr << "B4:start\n";
         Database db("c4");
         auto c = db.createCollection("drift");
         c.insert({{"x", 1}});
@@ -182,6 +186,7 @@ int main() {
 
     // 5) Schema-Varianten: Fingerprint-Gruppen, share, Konsistenz, Notes
     {
+        std::cerr << "B5:start\n";
         Database db("c5");
         auto c = db.createCollection("mixed");
         for (int i = 0; i < 8; ++i) {
@@ -214,6 +219,7 @@ int main() {
 
     // 6) Binaer und null: Sichtungen, Missing-Quote, Feld-Anzahl
     {
+        std::cerr << "B6:start\n";
         Database db("c6");
         auto c = db.createCollection("blobs");
         c.insert({{"b", std::vector<std::uint8_t>{1, 2}}, {"s", nullptr}});
@@ -240,6 +246,7 @@ int main() {
 
     // 7) Ueberladungen: vector<Collection> und Database& (__references wird ignoriert)
     {
+        std::cerr << "B7:start\n";
         Database db("c7");
         auto c1 = db.createCollection("eins");
         c1.insert({{"a", 1}});
@@ -269,6 +276,7 @@ int main() {
 
     // 8) Sampling: reproduktiv, sampleSize kleiner als docCount, Vollscan-Default
     {
+        std::cerr << "B8:start\n";
         Database db("c8");
         auto c = db.createCollection("nums");
         for (int i = 0; i < 10; ++i)
@@ -298,6 +306,7 @@ int main() {
 
     // 9) Pfad-Cap: neue Pfade jenseits des Caps werden ignoriert, Note gesetzt
     {
+        std::cerr << "B9:start\n";
         Database db("c9");
         auto c = db.createCollection("breit");
         c.insert({{"a", 1}, {"b", 2}, {"c", 3}});
@@ -327,6 +336,7 @@ int main() {
 
     // 10) Tiefen-Guard: Standard 8, konfigurierbar, Note gesetzt
     {
+        std::cerr << "B10:start\n";
         Database db("c10");
         auto c = db.createCollection("tief");
         Value inner = Value(std::string("x"));
@@ -354,6 +364,7 @@ int main() {
 
     // 11) distinct-Cap je Pfad (Speicher-Guard)
     {
+        std::cerr << "B11:start\n";
         Database db("c11");
         auto c = db.createCollection("viele");
         c.insert({{"xs", std::vector<Value>{1, 2, 3, 4, 5}}});
@@ -368,6 +379,7 @@ int main() {
 
     // 12) Reports: JSON (maschinenlesbar, kein inf/nan) und Markdown
     {
+        std::cerr << "B12:start\n";
         Database db("c12");
         auto c = db.createCollection("rep");
         c.insert({{"items", std::vector<Value>{
@@ -399,6 +411,7 @@ int main() {
 
     // 13) Leere Collection: keine Crashes, definierte Nullwerte
     {
+        std::cerr << "B13:start\n";
         Database db("c13");
         auto c = db.createCollection("leer");
         auto res = analyzeComplex(c);
@@ -422,13 +435,18 @@ int main() {
     //     Stack-Overflow bei grosszuegigen Optionen), distinct-Cap-Hinweis,
     //     leerer Fingerprint (Dokument ohne Pfade)
     {
+        std::cerr << "B14:start\n";
+        std::cerr << "B14:start\n";
         Database db("c14");
         auto c = db.createCollection("zyklus");
         auto sp = std::make_shared<Document>();
         sp->set("x", 1);
         sp->set("self", Value(sp)); // Zyklus: Dokument verweist auf sich selbst
+        std::cerr << "B14:vor-insert\n";
         c.insert({{"root", Value(sp)}});
+        std::cerr << "B14:nach-insert\n";
 
+        std::cerr << "B14:vor-analyze1\n";
         // Default-Optionen: Rekursion endet beim Tiefen-Guard (8), kein Crash
         auto res = analyzeComplex(c);
         CHECK(res.maxDepth == 8);
@@ -441,6 +459,7 @@ int main() {
         CHECK(res.notes.size() == 1); // kein Clamp (8 <= 64)
 
         // Grosszuegige Optionen: harte Obergrenze 64 verhindert den Stack-Overflow
+        std::cerr << "B14:vor-analyze2\n";
         ComplexAnalysisOptions big;
         big.maxDepth = 1000000;
         auto res2 = analyzeComplex(c, big);
@@ -456,6 +475,7 @@ int main() {
         CHECK(j.find(":inf") == std::string::npos);
         CHECK(j.find(":nan") == std::string::npos);
 
+        std::cerr << "B14:vor-cap\n";
         // distinct-Cap: transparenter Hinweis im Pfad-Note
         auto c2 = db.createCollection("viele2");
         c2.insert({{"xs", std::vector<Value>{1, 2, 3, 4, 5}}});
@@ -468,6 +488,7 @@ int main() {
         CHECK(xs != nullptr &&
               xs->note.find("distinct gedeckelt bei 3") != std::string::npos);
 
+        std::cerr << "B14:vor-empty\n";
         // leeres Dokument: Fingerprint leer, Varianten-Felder leer (kein ""-Eintrag)
         auto c3 = db.createCollection("leerDocs");
         c3.insert(Document{});
