@@ -24,6 +24,7 @@ add_library(memdb STATIC
     src/discovery.cpp
     src/character.cpp
     src/numeric_analysis.cpp
+    src/mixed_analysis.cpp
     src/influence.cpp
     src/cross_influence.cpp
     src/collection.cpp
@@ -204,6 +205,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     add_executable(memdb_tests_numeric_analysis tests/test_numeric_analysis.cpp)
     target_link_libraries(memdb_tests_numeric_analysis PRIVATE memdb)
     add_test(NAME memdb_tests_numeric_analysis COMMAND memdb_tests_numeric_analysis)
+
+    add_executable(memdb_tests_mixed_analysis tests/test_mixed_analysis.cpp)
+    target_link_libraries(memdb_tests_mixed_analysis PRIVATE memdb)
+    add_test(NAME memdb_tests_mixed_analysis COMMAND memdb_tests_mixed_analysis)
 
     add_executable(memdb_tests_influence tests/test_influence.cpp)
     target_link_libraries(memdb_tests_influence PRIVATE memdb)

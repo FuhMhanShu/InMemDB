@@ -13,15 +13,15 @@ drei Kategorien eingestuft:
 | Kategorie | Bedeutung | Typische Analyse-Pipeline |
 |---|---|---|
 | `DataCategory::Numeric` | Kategorie 1: fast ausschließlich numerische Felder (>= 80 %) | numerische Metadaten-Analyse (`numeric_analysis.hpp`, FA-30) |
-| `DataCategory::Mixed` | Kategorie 2: Mischung aus Zahlen, Strings, Booleans | Regel-/Assoziations-Mining, semantische Typen |
+| `DataCategory::Mixed` | Kategorie 2: Mischung aus Zahlen, Strings, Booleans | gemischte Metadaten-Analyse (`mixed_analysis.hpp`, FA-33) |
 | `DataCategory::Complex` | Kategorie 3: komplexe Mischformen (Arrays, Dokumente, Binär, Typ-Drift >= 40 %) | rekursive Profilierung, Schema-Varianten, Entity Resolution |
 
 <img src="../../images/analysis-pipeline.svg" alt="Analyse-Pipeline-Dispatcher: assessCharacter stuft jede Collection in Numeric, Mixed oder Complex ein und leitet zur passenden Analyse weiter" width="760">
 
 Die folgende Grafik zeigt den Dispatcher im Überblick: `assessCharacter` stuft jede
 Collection read-only ein und leitet zur passenden Analyse-Pipeline weiter –
-Kategorie 1 direkt in die Kette FA-30/31/32, Kategorie 2 und 3 sind für spätere
-Module vorgemerkt.
+Kategorie 1 direkt in die Kette FA-30/31/32 und Kategorie 2 in die gemischte
+Metadaten-Analyse FA-33; Kategorie 3 bleibt für spätere Module vorgemerkt.
 
 ## Funktionen
 
@@ -76,7 +76,8 @@ std::string md = memdb::toMarkdown(ccs); // Übersichtstabelle
   Kappung erfolgt alphabetisch wie im Discovery-Modul.
 - Leere Collections (keine Werte-Felder) werden als `Mixed` mit `confidence == 0`
   eingestuft.
-- Tests: `tests/test_character.cpp` (55 Checks).
+- Tests: `tests/test_character.cpp` (62 Checks).
 
-Siehe auch: [numeric-analysis.md](numeric-analysis.md) für die Kategorie-1-Pipeline
+Siehe auch: [mixed-analysis.md](mixed-analysis.md) für die Kategorie-2-Pipeline,
+[numeric-analysis.md](numeric-analysis.md) für die Kategorie-1-Pipeline
 und [discovery.md](discovery.md) für die zugrunde liegenden Datenprofile.

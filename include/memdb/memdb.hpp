@@ -29,6 +29,7 @@
 #include "limits.hpp"
 #include "metrics.hpp"
 #include "message_handler.hpp"
+#include "mixed_analysis.hpp"
 #include "numeric_analysis.hpp"
 #include "query.hpp"
 #include "query_dsl.hpp"
