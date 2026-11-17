@@ -334,12 +334,12 @@ int main() {
             inner = Value(std::make_shared<Document>(Document{{"l" + std::to_string(lvl), inner}}));
         c.insert({{"root", inner}});
         auto res = analyzeComplex(c);
-        CHECK(res.pathCount == 9); // root + l1..l8
-        CHECK(res.maxDepth == 9);  // root(1) .. root.l1...l8 (9 Segmente)
-        const auto* l8 = findPath(res.paths, "root.l1.l2.l3.l4.l5.l6.l7.l8");
-        CHECK(l8 != nullptr);
-        CHECK(l8 != nullptr && l8->depth == 9);
-        CHECK(findPath(res.paths, "root.l1.l2.l3.l4.l5.l6.l7.l8.l9") == nullptr);
+        CHECK(res.pathCount == 8); // root + l1..l7 (Tiefen-Guard stoppt bei Tiefe 8)
+        CHECK(res.maxDepth == 8);
+        const auto* l7 = findPath(res.paths, "root.l1.l2.l3.l4.l5.l6.l7");
+        CHECK(l7 != nullptr);
+        CHECK(l7 != nullptr && l7->depth == 8);
+        CHECK(findPath(res.paths, "root.l1.l2.l3.l4.l5.l6.l7.l8") == nullptr);
         CHECK(res.notes.size() == 1);
         CHECK(res.notes[0].find("Tiefen-Guard") != std::string::npos);
         ComplexAnalysisOptions opts;
