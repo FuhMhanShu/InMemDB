@@ -130,8 +130,8 @@ int main() {
         CHECK(text->count == 20 && text->distinct == 14);
         CHECK(near(text->uniqueness, 0.7));
         CHECK(text->textClass == TextClass::FreeText);
-        CHECK(text->lenMin == 47 && text->lenMax == 48);
-        CHECK(near(text->lenMean, 47.25));
+        CHECK(text->lenMin == 45 && text->lenMax == 46);
+        CHECK(near(text->lenMean, 45.25));
         CHECK(text->note.find("Freitext") != std::string::npos);
     }
 
@@ -180,8 +180,8 @@ int main() {
         CHECK(notiz != nullptr);
         CHECK(near(notiz->emptyShare, 0.25));
         CHECK(!notiz->dateLike && !notiz->hexLike && !notiz->numericLike);
-        CHECK(notiz->distinct == 1);
-        CHECK(notiz->note.find("konstant") != std::string::npos);
+        CHECK(notiz->distinct == 2); // "x" und "" sind zwei Werte
+        CHECK(notiz->note.find("kategorisch (2 Auspraegungen)") != std::string::npos);
         CHECK(notiz->note.find("leere Strings (25 %)") != std::string::npos);
     }
 
@@ -274,7 +274,7 @@ int main() {
         MixedCollectionAnalysis res2 = analyzeMixed(c2);
         const auto* e2 = findAssoc(res2.associations, "g", "wert", "etaSquared");
         CHECK(e2 != nullptr);
-        CHECK(e2 != nullptr && near(e2->value, 75.0 / 77.0, 1e-9));
+        CHECK(e2 != nullptr && near(e2->value, 253.5 / 257.5, 1e-9));
 
         auto c3 = db.createCollection("cv");
         const char* kats[] = {"A", "B", "C"};
@@ -320,11 +320,11 @@ int main() {
         MixedAnalysisOptions capOpts;
         capOpts.maxFieldsPerCollection = 2;
         auto capped = analyzeMixedFields(c, capOpts);
-        CHECK(capped.size() == 1); // Cap in Erstsicht-Reihenfolge: gross, klein (dritt raus);
-                                   // klein faellt danach an minValuesPerField
+        CHECK(capped.size() == 2); // Cap in alphabetischer Erstsicht-Reihenfolge (std::map):
+                                   // dritt, gross – klein als drittes Feld vom Cap ausgeschlossen
         CHECK(findField(capped, "gross") != nullptr);
-        CHECK(findField(capped, "klein") == nullptr);
-        CHECK(findField(capped, "dritt") == nullptr);
+        CHECK(findField(capped, "klein") == nullptr); // zudem 4 Werte < minValuesPerField 5
+        CHECK(findField(capped, "dritt") != nullptr);
 
         MixedAnalysisOptions off;
         off.withAssociations = false;

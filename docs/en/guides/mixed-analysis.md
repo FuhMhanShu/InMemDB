@@ -75,7 +75,9 @@ categorical texts.
 - Read-only; one scan per collection. `__references` is ignored; the analysis
   considers each collection in isolation.
 - Fields with fewer than `minValuesPerField` values of the dominant type are
-  skipped; the cap applies after `maxFieldsPerCollection` fields.
+  skipped; the cap applies after `maxFieldsPerCollection` fields (truncation is
+  alphabetical as in the discovery module, since the field order of first sight
+  follows the sorted document map).
 - Associations require at least `minPairsForAssociation` common documents;
   constant fields (variance 0) and fields above `maxDistinctForAssociation`
   distinct categories are excluded.

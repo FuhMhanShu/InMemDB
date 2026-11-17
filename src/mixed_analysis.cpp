@@ -542,16 +542,22 @@ MixedCollectionAnalysis analyzeMixed(const Collection& c, const MixedAnalysisOpt
                         continue;
                     const long double nld = static_cast<long double>(pairs);
                     long double chi2 = 0.0L;
-                    for (const auto& cell : cells) {
-                        const long double ri =
-                            static_cast<long double>(rowM[cell.first.first]);
-                        const long double cj =
-                            static_cast<long double>(colM[cell.first.second]);
-                        const long double expected = ri * cj / nld;
-                        const long double obs = static_cast<long double>(cell.second);
-                        const long double d = obs - expected;
-                        chi2 += d * d / expected;
-                    }
+                    // Härtung/Korrektheit: chi^2 über die VOLLSTAENDIGE Kontingenztafel
+                    // (rowM x colM) summieren – unbeobachtete Zellen (obs == 0)
+                    // contribute (0 - expected)^2/expected und fehlten sonst.
+                    for (const auto& rm : rowM)
+                        for (const auto& cm : colM) {
+                            const long double expected =
+                                static_cast<long double>(rm.second) *
+                                static_cast<long double>(cm.second) / nld;
+                            const auto cit = cells.find({rm.first, cm.first});
+                            const long double obs =
+                                cit != cells.end()
+                                    ? static_cast<long double>(cit->second)
+                                    : 0.0L;
+                            const long double d = obs - expected;
+                            chi2 += d * d / expected;
+                        }
                     if (!std::isfinite(static_cast<double>(chi2)) || chi2 < 0.0L)
                         continue;
                     const std::size_t denom =

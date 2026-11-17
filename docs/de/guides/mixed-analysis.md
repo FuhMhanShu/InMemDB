@@ -75,7 +75,9 @@ kategorische Texte.
 - Read-only; ein Scan pro Collection. `__references` wird ignoriert; die Analyse
   betrachtet jede Collection isoliert.
 - Felder mit weniger als `minValuesPerField` Werten des dominanten Typs werden
-  übersprungen; nach `maxFieldsPerCollection` Feldern greift der Cap.
+  übersprungen; nach `maxFieldsPerCollection` Feldern greift der Cap (Kappung
+  alphabetisch wie im Discovery-Modul, da die Feld-Reihenfolge der Erstsicht
+  der sortierten Dokument-Map folgt).
 - Assoziationen benötigen mindestens `minPairsForAssociation` gemeinsame
   Dokumente; konstante Felder (Varianz 0) und Felder über
   `maxDistinctForAssociation` distincten Kategorien werden ausgeschlossen.
