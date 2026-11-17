@@ -17,9 +17,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
-
 jobs:
   build-and-test:
     name: Build & Test (${{ matrix.os }})
@@ -37,36 +34,10 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: |
-          set +e
-          cmake --build build --config Release -j > build.log 2>&1
-          rc=$?
-          tail -200 build.log
-          exit $rc
+        run: cmake --build build --config Release -j
 
       - name: Test
-        run: |
-          set +e
-          ctest --test-dir build --output-on-failure -C Release > ctest.log 2>&1
-          rc=$?
-          cat ctest.log
-          exit $rc
-
-      - name: Debug-Logs committen
-        if: failure()
-        continue-on-error: true
-        run: |
-          git config user.name "ci-debug"
-          git config user.email "ci-debug@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-          git fetch origin ${{ github.head_ref || github.ref_name }}
-          git checkout ${{ github.head_ref || github.ref_name }}
-          mkdir -p .ci-debug
-          cp build.log .ci-debug/build.log 2>/dev/null || true
-          cp ctest.log .ci-debug/ctest.log 2>/dev/null || true
-          git add .ci-debug || true
-          git commit -m "CI-Debug-Logs [skip ci]" || true
-          git push origin HEAD:${{ github.head_ref || github.ref_name }} || true
+        run: ctest --test-dir build --output-on-failure -C Release
 
   sqlite-import:
     name: Import (sqlite, INMEMDB_WITH_SQLITE=ON)

@@ -57,7 +57,8 @@ struct Walker {
     bool capped = false;
     bool depthLimited = false;
     /// Härtung: harte Tiefen-Obergrenze – unabhängig von opts.maxDepth, sonst
-    /// Stack-Overflow bei zyklischen Strukturen (Dokument verweist auf sich selbst).
+    /// Stack-Overflow der Analyse-Rekursion bei großzügigen Optionen
+    /// (maxDepth bis 1e6) auf tief verschachtelten Strukturen.
     static constexpr std::size_t kHardDepthLimit = 64;
     std::size_t depthGuard = kHardDepthLimit;
 
@@ -310,7 +311,7 @@ ComplexCollectionAnalysis analyzeComplex(const Collection& c,
                             "): tiefere Pfade ignoriert");
     if (opts.maxDepth > Walker::kHardDepthLimit) // Härtung: Begrenzung transparent machen
         res.notes.push_back("Tiefen-Guard auf " + std::to_string(Walker::kHardDepthLimit) +
-                           " begrenzt (zyklensicher)");
+                           " begrenzt (harte Obergrenze)");
     return res;
 }
 

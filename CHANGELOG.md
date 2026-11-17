@@ -30,17 +30,18 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   `toJson`/`toMarkdown`; Tests `tests/test_mixed_analysis.cpp` (129 Checks)
 
 ### Fixed (Härtung FA-34)
-- **Zyklen-Sicherheit:** Die Pfad-Rekursion endet unabhängig von `maxDepth` bei
-  einer harten Tiefen-Obergrenze von 64 – Werte, die über `shared_ptr` auf sich
-  selbst verweisende Dokumente enthalten, würden bei großzügigen Optionen
+- **Tiefen-Grenze:** Die Pfad-Rekursion endet unabhängig von `maxDepth` bei
+  einer harten Tiefen-Obergrenze von 64 – bei großzügigen Optionen
+  (`maxDepth` bis 1e6) würde die Analyse tief verschachtelter Strukturen
   sonst den Stack überlaufen lassen; die Begrenzung wird als Note transparent
   gemacht.
 - **Deckel-Transparenz:** Der distinct-Deckel wird jetzt im Pfad-`note`
   dokumentiert („distinct gedeckelt bei N“).
 - **Leerer Fingerprint:** Dokumente ohne Pfade erhalten einen leeren Fingerprint
   ohne leere Feld-Einträge (statt eines Pseudo-Felds „“).
-  Regressionstests für Zyklen (Standard- und großzügige Optionen), distinct-Deckel
-  und leere Dokumente: `tests/test_complex_analysis.cpp` (175 → 197 Checks)
+  Regressionstests für tief verschachtelte Strukturen (Standard- und
+  großzügige Optionen), distinct-Deckel und leere Dokumente:
+  `tests/test_complex_analysis.cpp` (175 → 197 Checks)
 
 ### Fixed (Härtung FA-30)
 - **Quantile/IQR/Sequenz-Schritte:** Quantile werden wie bei FA-33 überlaufsicher in
