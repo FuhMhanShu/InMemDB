@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="330" viewBox="0 0 760 330" font-family="sans-serif">
+<rect width="760" height="330" fill="#ffffff" rx="10"/>
+<rect x="20" y="30" width="215" height="74" rx="8" fill="#ffffff" stroke="#3182ce" stroke-width="1.5"/>
+<text x="127" y="49" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">1) Pearson-Hub</text>
+<text x="127" y="66.0" font-size="10" fill="#4a5568" text-anchor="middle">Summe/Mittel der |r| ueber alle</text>
+<text x="127" y="79.5" font-size="10" fill="#4a5568" text-anchor="middle">Partnerfelder; zaehlt starke</text>
+<text x="127" y="93.0" font-size="10" fill="#4a5568" text-anchor="middle">Zusammenhaenge (|r| &gt;= 0.8)</text>
+<line x1="235" y1="67" x2="285" y2="165" stroke="#718096" stroke-width="1.6"/>
+<polygon points="285,165 278.0,159.3 284.5,156.0" fill="#718096"/>
+<rect x="20" y="110" width="215" height="74" rx="8" fill="#ffffff" stroke="#3182ce" stroke-width="1.5"/>
+<text x="127" y="129" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">2) Multiples R^2</text>
+<text x="127" y="146.0" font-size="10" fill="#4a5568" text-anchor="middle">Erklaertheit jedes Feldes durch</text>
+<text x="127" y="159.5" font-size="10" fill="#4a5568" text-anchor="middle">die uebrigen (Complete-Cases-</text>
+<text x="127" y="173.0" font-size="10" fill="#4a5568" text-anchor="middle">Regression mit Ridge-Term)</text>
+<line x1="235" y1="147" x2="285" y2="147" stroke="#718096" stroke-width="1.6"/>
+<polygon points="285,147 276.8,150.7 276.8,143.3" fill="#718096"/>
+<rect x="20" y="190" width="215" height="74" rx="8" fill="#ffffff" stroke="#3182ce" stroke-width="1.5"/>
+<text x="127" y="209" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">3) Funktionale Abhaengigkeit</text>
+<text x="127" y="226.0" font-size="10" fill="#4a5568" text-anchor="middle">gleicher Quell-Wert fuehrt stets zum</text>
+<text x="127" y="239.5" font-size="10" fill="#4a5568" text-anchor="middle">selben Ziel-Wert; Evidenz nur aus</text>
+<text x="127" y="253.0" font-size="10" fill="#4a5568" text-anchor="middle">wiederholten Quell-Werten (&gt;= 0.99)</text>
+<line x1="235" y1="227" x2="285" y2="165" stroke="#718096" stroke-width="1.6"/>
+<polygon points="285,165 282.7,173.7 277.0,169.1" fill="#718096"/>
+<rect x="285" y="30" width="205" height="234" rx="8" fill="#f7fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+<text x="387" y="52" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">Rolle je Feld (FieldRole)</text>
+<rect x="297" y="70" width="181" height="38" rx="8" fill="#c6f6d5" stroke="#38a169" stroke-width="1.5"/>
+<text x="305" y="86" font-size="11.5" fill="#1a202c" text-anchor="start" font-weight="bold">driver</text>
+<text x="305" y="101" font-size="9.5" fill="#4a5568" text-anchor="start">bestimmt andere, selbst nicht erklaert</text>
+<rect x="297" y="122" width="181" height="38" rx="8" fill="#e9d8fd" stroke="#805ad5" stroke-width="1.5"/>
+<text x="305" y="138" font-size="11.5" fill="#1a202c" text-anchor="start" font-weight="bold">mediator</text>
+<text x="305" y="153" font-size="9.5" fill="#4a5568" text-anchor="start">abhaengig UND treibt weitere Felder</text>
+<rect x="297" y="174" width="181" height="38" rx="8" fill="#fed7d7" stroke="#e53e3e" stroke-width="1.5"/>
+<text x="305" y="190" font-size="11.5" fill="#1a202c" text-anchor="start" font-weight="bold">dependent</text>
+<text x="305" y="205" font-size="9.5" fill="#4a5568" text-anchor="start">von anderen Feldern erklaert</text>
+<rect x="297" y="226" width="181" height="38" rx="8" fill="#e2e8f0" stroke="#718096" stroke-width="1.5"/>
+<text x="305" y="242" font-size="11.5" fill="#1a202c" text-anchor="start" font-weight="bold">independent</text>
+<text x="305" y="257" font-size="9.5" fill="#4a5568" text-anchor="start">keine starken Zusammenhaenge</text>
+<line x1="490" y1="165" x2="525" y2="105" stroke="#718096" stroke-width="1.6"/>
+<polygon points="525,105 524.0,113.9 517.7,110.2" fill="#718096"/>
+<rect x="525" y="40" width="215" height="115" rx="8" fill="#ffffff" stroke="#3182ce" stroke-width="1.5"/>
+<text x="632" y="60" font-size="12.5" fill="#1a202c" text-anchor="middle" font-weight="bold">influenceScore (0 bis 1)</text>
+<text x="632" y="82" font-size="11.5" fill="#4a5568" text-anchor="middle">0.5 * hubRatio</text>
+<text x="632" y="99" font-size="11.5" fill="#4a5568" text-anchor="middle">+ 0.3 * (determines / Partner)</text>
+<text x="632" y="116" font-size="11.5" fill="#4a5568" text-anchor="middle">+ 0.2 * (1 - R^2)</text>
+<text x="632" y="133" font-size="10.5" fill="#718096" text-anchor="middle" font-style="italic">Rangfolge der Felder</text>
+<line x1="632" y1="155" x2="632" y2="185" stroke="#718096" stroke-width="1.6"/>
+<polygon points="632,185 628.3,176.8 635.7,176.8" fill="#718096"/>
+<rect x="525" y="185" width="215" height="79" rx="8" fill="#c6f6d5" stroke="#38a169" stroke-width="1.5"/>
+<text x="632" y="208" font-size="13" fill="#1a202c" text-anchor="middle" font-weight="bold">topDriver</text>
+<text x="632" y="228" font-size="10.5" fill="#4a5568" text-anchor="middle">hoechster Score, sofern ein</text>
+<text x="632" y="243" font-size="10.5" fill="#4a5568" text-anchor="middle">Dominanz-Signal vorliegt</text>
+<text x="380" y="320" font-size="10.5" fill="#718096" text-anchor="middle" font-style="italic">Korrelation belegt keine Kausalitaet: das Ergebnis ist eine begruendete Rangfolge, keine Ursachen-Wahrheit.</text>
+</svg>

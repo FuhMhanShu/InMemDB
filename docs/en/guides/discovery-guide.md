@@ -414,5 +414,6 @@ Multiple files = **cross-database** analysis over all collections of all files.
 - Import incl. FK import (FA-26): [docs/en/guides/import.md](import.md)
 - References & joins (FA-18): [docs/en/guides/references.md](references.md)
 - Merging collections (FA-24): [docs/en/guides/merge-collections.md](merge-collections.md)
+- Cross-collection influence analysis (FA-32): discovered foreign keys as a join source for dependencies across collection boundaries – [docs/en/guides/cross-influence.md](cross-influence.md)
 - Tests: `tests/test_discovery.cpp` (21), `test_discovery2.cpp` (17), `test_discovery3.cpp`
   (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23), `test_discovery6.cpp` (26, v0.40) – 124 checks in total

@@ -416,5 +416,6 @@ Mehrere Dateien = **database-übergreifende** Analyse über alle Collections all
 - Import inkl. FK-Import (FA-26): [docs/de/guides/import.md](import.md)
 - Referenzen & Joins (FA-18): [docs/de/guides/references.md](references.md)
 - Merge von Collections (FA-24): [docs/de/guides/merge-collections.md](merge-collections.md)
+- Cross-Collection-Einfluss-Analyse (FA-32): entdeckte Fremdschlüssel als Join-Quelle für Abhängigkeiten über Collection-Grenzen – [docs/de/guides/cross-influence.md](cross-influence.md)
 - Tests: `tests/test_discovery.cpp` (21), `test_discovery2.cpp` (17), `test_discovery3.cpp`
   (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23), `test_discovery6.cpp` (26, v0.40) – insg. 124 Checks
