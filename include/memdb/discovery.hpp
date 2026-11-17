@@ -54,6 +54,8 @@ struct DiscoveryOptions {
     double outlierZ = 3.0;              ///< v0.40: |z| > outlierZ gilt als Ausreißer (z-Score)
     double outlierIqrK = 1.5;           ///< v0.40: Tukey-Fence Q1-k*IQR / Q3+k*IQR
     std::size_t minOutlierSamples = 8;  ///< v0.40: Felder mit weniger numerischen Werten werden uebersprungen
+
+    double confusionMinConfidence = 0.9; ///< v0.42: Confusion-Matrix – FK-Befund zählt als "predicted positive" ab dieser Confidence
 };
 
 /// @brief Fremdschlüssel-Kandidaten per Werte-Überlappung – **collection- und
@@ -208,6 +210,19 @@ std::vector<FieldOutliers> discoverOutliers(const std::vector<Collection>& colls
                                             const DiscoveryOptions& opts = {});
 
 /// @brief Gesamtergebnis einer automatischen Analyse (v0.33).
+/// @brief Confusion-Matrix (v0.42): entdeckte Fremdschlüssel (gerichtetes Collection-Paar)
+/// gegen die tatsächlich deklarierten Referenzen in `__references` – TP/FP/FN/TN über alle
+/// gerichteten Collection-Paare (ohne `__references`) plus Precision/Recall/F1.
+struct ConfusionMatrix {
+    std::size_t tp = 0;      ///< predicted positive & tatsächlich Referenz (A->B)
+    std::size_t fp = 0;      ///< predicted positive, aber keine deklarierte Referenz
+    std::size_t fn = 0;      ///< deklarierte Referenz, aber nicht entdeckt (conf < Schwelle)
+    std::size_t tn = 0;      ///< weder entdeckt noch deklariert (alle übrigen gerichteten Paare)
+    double precision = 0.0;  ///< tp / (tp + fp); 0 wenn keine positiven Vorhersagen
+    double recall = 0.0;     ///< tp / (tp + fn); 0 wenn keine tatsächlichen Referenzen
+    double f1 = 0.0;         ///< harmonisches Mittel aus precision/recall; 0 wenn beide 0
+};
+
 struct AnalysisReport {
     std::vector<CollectionProfile> profiles;         ///< Datenprofil pro Collection
     std::vector<DiscoveredRelation> relations;       ///< FK / FD / Korrelation / Near-Dupes
@@ -218,14 +233,27 @@ struct AnalysisReport {
     std::size_t totalCollections = 0;
     std::size_t totalDocs = 0;
     double healthScore = 0.0;                        ///< 0..100 (v0.33, Ampel: >=80 gruen, >=50 gelb)
+    std::optional<ConfusionMatrix> confusion;       ///< v0.42: entdeckte FKs vs. deklarierte __references
+                                                     ///< (nur analyze(Database&) mit __references, sonst nullopt)
 };
+
 
 /// @brief Automatische Gesamtanalyse (v0.33): Profile + alle Discovery-Funktionen +
 /// Orphans + Merge-Vorschläge + Health-Score – read-only, auch cross-database
 /// (einfach `std::vector<Collection>` aus mehreren Databases übergeben).
 AnalysisReport analyze(const std::vector<Collection>& colls, const DiscoveryOptions& opts = {});
-/// @brief Wie oben für eine ganze Database.
+/// @brief Wie oben für eine ganze Database. Füllt zusätzlich `report.confusion`, wenn die
+/// Database eine `__references`-Collection hat (v0.42).
 AnalysisReport analyze(Database& db, const DiscoveryOptions& opts = {});
+
+/// @brief Confusion-Matrix der FK-Befunde gegen die deklarierten Referenzen (v0.42).
+/// Wertet `rels` (nur `RelationKind::ForeignKey` mit `confidence >= opts.confusionMinConfidence`)
+/// als "predicted positive"; "actual positive" = gerichtetes Collection-Paar (A,B) mit mindestens
+/// einer Referenz in `__references` von `db`. Wirft `Error`, wenn `__references` fehlt.
+ConfusionMatrix evaluateConfusion(const std::vector<DiscoveredRelation>& rels, Database& db,
+                                  const DiscoveryOptions& opts = {});
+/// @brief Confusion-Matrix als JSON (v0.42).
+std::string toJson(const ConfusionMatrix& cm);
 
 /// @brief Report als JSON (v0.33) – maschinenlesbar/LLM-freundlich.
 std::string toJson(const AnalysisReport& r);

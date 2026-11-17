@@ -6,6 +6,13 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
 
 ## [Unreleased]
 
+### Added
+- Discovery v0.42: **Confusion-Matrix** `evaluateConfusion(rels, db, opts)` + `AnalysisReport::confusion`
+  (nur `analyze(Database&)` mit `__references`): entdeckte FKs (gerichtete Collection-Paare, conf ≥
+  `confusionMinConfidence` = 0.9) vs. deklarierte Referenzen → TP/FP/FN/TN + Precision/Recall/F1;
+  in JSON (`"confusion"`), Markdown-Sektion, `printSummary` (`F1=`); CLI `inmemdb_discover --confusion`
+  und `--report` bei einer Datei; Tests `tests/test_discovery7.cpp` (29 Checks)
+
 ### Fixed (Härtung FA-29 bis FA-32)
 - **Numerische Stabilität (FA-30/31/32):** Pearson-Korrelationen zweistufig zentriert und in
   `long double` berechnet – die bisherige Summenformel (`n·Sxy − Sx·Sy`) verlor bei großen

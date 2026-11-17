@@ -248,6 +248,7 @@ schema similarity. CLI: `--suggest-merges`.
 | `mergeSuggestions` | `suggestMerges` (v0.32) |
 | `paths` | most important multi-hop FK paths (max 20) |
 | `outliers` | outliers per numeric field via `discoverOutliers` (v0.40) |
+| `confusion` | confusion matrix of the FK findings vs. `__references` (v0.42, only `analyze(Database&)`) |
 | `totalCollections`, `totalDocs` | sums |
 | `healthScore` | **0–100**, see 4.14 |
 
@@ -341,6 +342,36 @@ InMemDB analysis: 1 collections, 9 documents, Health 98.33333333333331/100 🟢
 stdout (in addition to the normal relations report); `--report <prefix>`
 integrates the outliers into `.report.md` / `.relations.json`.
 
+### 4.17 Confusion matrix: discovered FKs vs. declared references (v0.42)
+
+**What:** `evaluateConfusion(rels, db, opts)` compares the FK findings with the **actually
+declared references** in `__references` (e.g. from FK import FA-26 or `applyDiscovered`) –
+this is the confusion matrix of FK discovery: TP/FP/FN/TN over all directed collection pairs
+(A,B), A ≠ B, plus precision/recall/F1.
+
+- **predicted positive:** pair (A,B) with an FK finding and `confidence >= opts.confusionMinConfidence`
+  (default 0.9 – threshold configurable).
+- **actual positive:** pair (A,B) with at least one reference in `__references`.
+- `analyze(Database&, opts)` fills `AnalysisReport::confusion` (only when `__references` exists);
+  the cross-database variant `analyze(vector<Collection>, opts)` omits it.
+- All presentations: JSON (`"confusion":{...}`), Markdown ("Confusion-Matrix" section),
+  `printSummary` (`Confusion (FK vs. references): TP=… F1=…`).
+
+**Real console output** (`inmemdb_discover shop.inmemdb.json --confusion`, users/orders/logs
+with one declared reference orders→users but three discovered FK pairs):
+
+```
+{"tp":1,"fp":3,"fn":0,"tn":2,"precision":0.25,"recall":1,"f1":0.4}
+```
+
+```cpp
+memdb::ConfusionMatrix cm = memdb::evaluateConfusion(rels, db, opts);
+// cm.tp/fp/fn/tn, cm.precision, cm.recall, cm.f1
+```
+
+**CLI:** `--confusion` (exactly one file with `__references`); `--report <prefix>` includes the
+matrix automatically for a single file.
+
 ---
 
 ## 5. `DiscoveryOptions` – all knobs at a glance
@@ -359,6 +390,7 @@ integrates the outliers into `.report.md` / `.relations.json`.
 | `outlierZ` | 3.0 | z-score threshold for outliers (v0.40) |
 | `outlierIqrK` | 1.5 | Tukey factor k for the IQR fence (v0.40) |
 | `minOutlierSamples` | 8 | minimum number of numeric values per field before checking (v0.40) |
+| `confusionMinConfidence` | 0.9 | confusion matrix: FK finding counts as predicted positive from this confidence (v0.42) |
 
 ---
 
@@ -376,6 +408,7 @@ inmemdb_discover <file1> [file2 ...] [options]
 | `--mermaid` | Mermaid graph instead of JSON on stdout |
 | `--orphans` | additional orphan report (JSON) |
 | `--outliers` | additional outlier report (JSON, v0.40) |
+| `--confusion` | confusion matrix vs. `__references` (JSON, v0.42; only 1 file with references) |
 | `--path A B` | FK paths from collection A to B |
 | `--diff` | (with ≥ 2 files) `diffDatabases` as JSON |
 | `--suggest-merges` | merge suggestions as JSON |
@@ -416,4 +449,4 @@ Multiple files = **cross-database** analysis over all collections of all files.
 - Merging collections (FA-24): [docs/en/guides/merge-collections.md](merge-collections.md)
 - Cross-collection influence analysis (FA-32): discovered foreign keys as a join source for dependencies across collection boundaries – [docs/en/guides/cross-influence.md](cross-influence.md)
 - Tests: `tests/test_discovery.cpp` (21), `test_discovery2.cpp` (17), `test_discovery3.cpp`
-  (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23), `test_discovery6.cpp` (26, v0.40) – 124 checks in total
+  (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23), `test_discovery6.cpp` (26, v0.40), `test_discovery7.cpp` (29, v0.42) – 153 checks in total
