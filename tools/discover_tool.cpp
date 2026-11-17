@@ -2,7 +2,7 @@
 // Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X]
 //          [--min-confidence X] [--min-correlation X] [--sample N] [--seed N]
 //          [--mermaid] [--orphans] [--outliers] [--path A B] [--diff] [--suggest-merges]
-//          [--report <prefix>] [--apply] [--out <datei>]
+//          [--report <prefix>] [--confusion] [--apply] [--out <datei>]
 // Mehrere Dateien = database-übergreifende Analyse (Report über alle Collections).
 // --apply: FK-Befunde (confidence >= --min-confidence) pro Database als FA-18-Referenzen
 //          anlegen und die jeweilige Datei zurückschreiben (verschlüsselt bei --password).
@@ -26,15 +26,16 @@ static int run(int argc, char** argv) {
         std::cerr << "Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X] "
                      "[--min-confidence X] [--min-correlation X] [--min-similarity X] [--sample N] [--seed N] "
                      "[--mermaid] [--orphans] [--outliers] [--path A B] [--diff] [--suggest-merges] [--report <prefix>] "
-                     "[--apply] [--out <datei>]\n"
+                     "[--confusion] [--apply] [--out <datei>]\n"
                      "  Dateien: .inmemdb.json / .json-Snapshot (plain) bzw. verschlüsselt mit --password\n"
-                     "  --report <prefix>: Gesamtanalyse (v0.33) -> <prefix>.report.md / .relations.json / .graph.mmd + Summary\n";
+                     "  --report <prefix>: Gesamtanalyse (v0.33) -> <prefix>.report.md / .relations.json / .graph.mmd + Summary\n"
+                     "  --confusion: Confusion-Matrix der FK-Befunde vs. __references (v0.42, nur 1 Datei mit Referenzen)\n";
         return 2;
     }
     std::vector<std::string> files;
     std::string password, out;
     memdb::DiscoveryOptions opts;
-    bool mermaid = false, apply = false, orphans = false, diffMode = false, suggestMerges = false, outliers = false;
+    bool mermaid = false, apply = false, orphans = false, diffMode = false, suggestMerges = false, outliers = false, confusion = false;
     std::string reportPrefix;
     std::string pathFrom, pathTo;
     double applyMinConf = 0.9;
@@ -59,6 +60,7 @@ static int run(int argc, char** argv) {
         else if (a == "--mermaid") mermaid = true;
         else if (a == "--orphans") orphans = true;
         else if (a == "--outliers") outliers = true; // v0.40
+        else if (a == "--confusion") confusion = true; // v0.42
         else if (a == "--diff") diffMode = true;
         else if (a == "--suggest-merges") suggestMerges = true;
         else if (a == "--report") reportPrefix = next();
@@ -90,7 +92,8 @@ static int run(int argc, char** argv) {
     std::cout << memdb::toJson(rels) << "\n";
 
     if (!reportPrefix.empty()) {
-        auto rep = memdb::analyze(allColls, opts);
+        // v0.42: bei genau einer Datei analyze(Database&) -> Confusion-Matrix gegen __references im Report
+        auto rep = dbs.size() == 1 ? memdb::analyze(dbs[0], opts) : memdb::analyze(allColls, opts);
         memdb::printSummary(rep, std::cout);
         std::ofstream(reportPrefix + ".report.md", std::ios::binary) << memdb::toMarkdown(rep);
         std::ofstream(reportPrefix + ".relations.json", std::ios::binary) << memdb::toJson(rep);
@@ -131,6 +134,13 @@ static int run(int argc, char** argv) {
         }
         oj += "]}";
         std::cout << oj << "\n";
+    }
+    if (confusion) { // v0.42: Confusion-Matrix der FK-Befunde vs. deklarierte __references
+        if (dbs.size() != 1 || !dbs[0].hasCollection("__references")) {
+            std::cerr << "--confusion braucht genau eine Datei mit __references-Collection\n";
+            return 2;
+        }
+        std::cout << memdb::toJson(memdb::evaluateConfusion(rels, dbs[0], opts)) << "\n";
     }
     if (diffMode && dbs.size() >= 2) {
         auto dd = memdb::diffDatabases(dbs[0], dbs[1], opts);

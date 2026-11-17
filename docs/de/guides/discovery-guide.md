@@ -249,6 +249,7 @@ Schema-Ähnlichkeit. CLI: `--suggest-merges`.
 | `mergeSuggestions` | `suggestMerges` (v0.32) |
 | `paths` | wichtigste Multi-Hop-FK-Pfade (max. 20) |
 | `outliers` | Ausreißer pro numerischem Feld via `discoverOutliers` (v0.40) |
+| `confusion` | Confusion-Matrix der FK-Befunde vs. `__references` (v0.42, nur `analyze(Database&)`) |
 | `totalCollections`, `totalDocs` | Summen |
 | `healthScore` | **0–100**, siehe 4.14 |
 
@@ -342,6 +343,36 @@ InMemDB Analyse: 1 Collections, 9 Dokumente, Health 98.33333333333331/100 🟢
 stdout aus (zusätzlich zum normalen Relationen-Report); `--report <prefix>`
 integriert die Ausreißer in `.report.md` / `.relations.json`.
 
+### 4.17 Confusion-Matrix: entdeckte FKs vs. deklarierte Referenzen (v0.42)
+
+**Was:** `evaluateConfusion(rels, db, opts)` vergleicht die FK-Befunde mit den **tatsächlich
+deklarierten Referenzen** in `__references` (z. B. aus FK-Import FA-26 oder `applyDiscovered`) –
+das ist die Confusion-Matrix der FK-Discovery: TP/FP/FN/TN über alle gerichteten Collection-Paare
+(A,B), A ≠ B, plus Precision/Recall/F1.
+
+- **predicted positive:** Paar (A,B) mit FK-Befund und `confidence >= opts.confusionMinConfidence`
+  (Default 0.9 – Schwelle konfigurierbar).
+- **actual positive:** Paar (A,B) mit mindestens einer Referenz in `__references`.
+- `analyze(Database&, opts)` füllt `AnalysisReport::confusion` (nur wenn `__references` existiert);
+  die cross-database-Variante `analyze(vector<Collection>, opts)` lässt es weg.
+- Alle Präsentationen: JSON (`"confusion":{...}`), Markdown (Sektion „Confusion-Matrix“),
+  `printSummary` (`Confusion (FK vs. Referenzen): TP=… F1=…`).
+
+**Reale Konsolen-Ausgabe** (`inmemdb_discover shop.inmemdb.json --confusion`, users/orders/logs
+mit einer deklarierten Referenz orders→users, aber drei entdeckten FK-Paaren):
+
+```
+{"tp":1,"fp":3,"fn":0,"tn":2,"precision":0.25,"recall":1,"f1":0.4}
+```
+
+```cpp
+memdb::ConfusionMatrix cm = memdb::evaluateConfusion(rels, db, opts);
+// cm.tp/fp/fn/tn, cm.precision, cm.recall, cm.f1
+```
+
+**CLI:** `--confusion` (genau eine Datei mit `__references`); `--report <prefix>` enthält die
+Matrix bei einer Datei automatisch.
+
 ---
 
 ## 5. `DiscoveryOptions` – alle Knöpfe im Überblick
@@ -360,6 +391,7 @@ integriert die Ausreißer in `.report.md` / `.relations.json`.
 | `outlierZ` | 3.0 | z-Score-Schwelle für Ausreißer (v0.40) |
 | `outlierIqrK` | 1.5 | Tukey-Faktor k für die IQR-Fence (v0.40) |
 | `minOutlierSamples` | 8 | Mindestanzahl numerischer Werte pro Feld, bevor geprüft wird (v0.40) |
+| `confusionMinConfidence` | 0.9 | Confusion-Matrix: FK-Befund zählt als predicted positive ab dieser Confidence (v0.42) |
 
 ---
 
@@ -377,6 +409,7 @@ inmemdb_discover <datei1> [datei2 ...] [Optionen]
 | `--mermaid` | Mermaid-Graph statt JSON auf stdout |
 | `--orphans` | zusätzlicher Orphan-Report (JSON) |
 | `--outliers` | zusätzlicher Ausreißer-Report (JSON, v0.40) |
+| `--confusion` | Confusion-Matrix vs. `__references` (JSON, v0.42; nur 1 Datei mit Referenzen) |
 | `--path A B` | FK-Pfade von Collection A nach B |
 | `--diff` | (bei ≥ 2 Dateien) `diffDatabases` als JSON |
 | `--suggest-merges` | Merge-Vorschläge als JSON |
@@ -418,4 +451,4 @@ Mehrere Dateien = **database-übergreifende** Analyse über alle Collections all
 - Merge von Collections (FA-24): [docs/de/guides/merge-collections.md](merge-collections.md)
 - Cross-Collection-Einfluss-Analyse (FA-32): entdeckte Fremdschlüssel als Join-Quelle für Abhängigkeiten über Collection-Grenzen – [docs/de/guides/cross-influence.md](cross-influence.md)
 - Tests: `tests/test_discovery.cpp` (21), `test_discovery2.cpp` (17), `test_discovery3.cpp`
-  (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23), `test_discovery6.cpp` (26, v0.40) – insg. 124 Checks
+  (18), `test_discovery4.cpp` (19), `test_discovery5.cpp` (23), `test_discovery6.cpp` (26, v0.40), `test_discovery7.cpp` (29, v0.42) – insg. 153 Checks

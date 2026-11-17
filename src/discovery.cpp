@@ -997,6 +997,62 @@ std::vector<FieldOutliers> discoverOutliers(const std::vector<Collection>& colls
     return out;
 }
 
+ConfusionMatrix evaluateConfusion(const std::vector<DiscoveredRelation>& rels, Database& db,
+                                  const DiscoveryOptions& opts) {
+    if (!db.hasCollection("__references"))
+        throw Error("evaluateConfusion: Database hat keine __references-Collection");
+    // tatsaechliche gerichtete Paare (A,B) aus den deklarierten Referenzen
+    std::set<std::pair<std::string, std::string>> actual;
+    {
+        Collection rc = db.collection("__references");
+        rc.forEach(Expression{}, [&](const Document& d) {
+            const Value* fc = d.find("from_coll");
+            const Value* tc = d.find("to_coll");
+            if (fc && tc && fc->isString() && tc->isString())
+                actual.insert({fc->asString(), tc->asString()});
+        });
+    }
+    // vorhergesagte Paare: FK-Befunde ab Schwelle (v0.42)
+    std::set<std::pair<std::string, std::string>> pred;
+    for (const auto& rel : rels)
+        if (rel.kind == RelationKind::ForeignKey && rel.confidence >= opts.confusionMinConfidence)
+            pred.insert({rel.fromCollection, rel.toCollection});
+    // alle gerichteten Paare (A,B), A != B, ueber den Daten-Collections (ohne __references)
+    std::vector<std::string> names;
+    for (const auto& n : db.collectionNames())
+        if (n != "__references")
+            names.push_back(n);
+    ConfusionMatrix cm;
+    for (const auto& a : names)
+        for (const auto& b : names) {
+            if (a == b)
+                continue;
+            const bool p = pred.count({a, b}) > 0;
+            const bool t = actual.count({a, b}) > 0;
+            if (p && t)
+                ++cm.tp;
+            else if (p)
+                ++cm.fp;
+            else if (t)
+                ++cm.fn;
+            else
+                ++cm.tn;
+        }
+    cm.precision = (cm.tp + cm.fp) > 0 ? static_cast<double>(cm.tp) / (cm.tp + cm.fp) : 0.0;
+    cm.recall = (cm.tp + cm.fn) > 0 ? static_cast<double>(cm.tp) / (cm.tp + cm.fn) : 0.0;
+    cm.f1 = (cm.precision + cm.recall) > 0
+                ? 2.0 * cm.precision * cm.recall / (cm.precision + cm.recall)
+                : 0.0;
+    return cm;
+}
+
+std::string toJson(const ConfusionMatrix& cm) {
+    return std::string("{\"tp\":") + std::to_string(cm.tp) + ",\"fp\":" + std::to_string(cm.fp) +
+           ",\"fn\":" + std::to_string(cm.fn) + ",\"tn\":" + std::to_string(cm.tn) +
+           ",\"precision\":" + num(cm.precision) + ",\"recall\":" + num(cm.recall) +
+           ",\"f1\":" + num(cm.f1) + "}";
+}
+
 AnalysisReport analyze(const std::vector<Collection>& colls, const DiscoveryOptions& opts) {
     AnalysisReport r;
     std::vector<Collection> dataColls;
@@ -1105,7 +1161,10 @@ AnalysisReport analyze(Database& db, const DiscoveryOptions& opts) {
     std::vector<Collection> colls;
     for (const auto& n : db.collectionNames())
         colls.push_back(db.collection(n));
-    return analyze(colls, opts);
+    AnalysisReport r = analyze(colls, opts);
+    if (db.hasCollection("__references")) // v0.42: Confusion-Matrix gegen deklarierte Referenzen
+        r.confusion = evaluateConfusion(r.relations, db, opts);
+    return r;
 }
 
 namespace {
@@ -1173,6 +1232,17 @@ std::string toMarkdown(const AnalysisReport& r) {
                  escMd(ex) + " |\n";
         }
     }
+    if (r.confusion) { // v0.42: Confusion-Matrix
+        const ConfusionMatrix& cm = *r.confusion;
+        o += "\n## Confusion-Matrix (entdeckte FKs vs. deklarierte Referenzen)\n\n"
+             "| | tatsächlich Referenz (A→B) | keine Referenz |\n|---|---|---|\n"
+             "| **FK entdeckt (conf ≥ Schwelle)** | TP = " + std::to_string(cm.tp) + " | FP = " +
+             std::to_string(cm.fp) + " |\n"
+             "| **nicht entdeckt** | FN = " + std::to_string(cm.fn) + " | TN = " + std::to_string(cm.tn) +
+             " |\n\n"
+             "Precision = " + num(cm.precision) + ", Recall = " + num(cm.recall) + ", F1 = " + num(cm.f1) +
+             "\n";
+    }
     o += "\n## Integrität (Orphans)\n\n| Von | Nach | geprüft | Orphans |\n|---|---|---|---|\n";
     for (const auto& orp : r.orphans)
         o += "| " + escMd(orp.fromCollection + "." + orp.field) + " | " +
@@ -1202,7 +1272,11 @@ std::string toMarkdown(const AnalysisReport& r) {
         o += "- **Redundanz:** " + std::to_string(dupes) + " Near-Duplicate-Paar(e) prüfen (Duplikate?).\n";
     if (outlTotal > 0)
         o += "- **Ausreißer:** " + std::to_string(outlTotal) + " Wert(e) in numerischen Feldern außerhalb z-Score/IQR-Fence (siehe Tabelle) – Messfehler oder Spitzenwerte prüfen.\n";
-    if (orphTotal == 0 && r.mergeSuggestions.empty() && dupes == 0 && outlTotal == 0)
+    if (r.confusion && (r.confusion->fp > 0 || r.confusion->fn > 0))
+        o += "- **Confusion-Matrix:** FP = " + std::to_string(r.confusion->fp) + " (erkannt, aber nicht deklariert), FN = " +
+             std::to_string(r.confusion->fn) + " (deklariert, aber nicht erkannt) – Schwelle `confusionMinConfidence` bzw. Werte prüfen.\n";
+    if (orphTotal == 0 && r.mergeSuggestions.empty() && dupes == 0 && outlTotal == 0 &&
+        !(r.confusion && (r.confusion->fp > 0 || r.confusion->fn > 0)))
         o += "- Keine Auffälligkeiten gefunden.\n";
     return o;
 }
@@ -1282,6 +1356,8 @@ std::string toJson(const AnalysisReport& r) {
         }
         o += "]}";
     }
+    if (r.confusion) // v0.42: Confusion-Matrix gegen deklarierte Referenzen
+        o += ",\"confusion\":" + toJson(*r.confusion);
     o += "]}";
     return o;
 }
@@ -1297,6 +1373,12 @@ void printSummary(const AnalysisReport& r, std::ostream& os) {
     for (const auto& o : r.orphans)
         orph += o.orphans;
     os << orph << ", Merge-Vorschläge: " << r.mergeSuggestions.size() << ", Outliers: " << outl << "\n";
+    if (r.confusion) { // v0.42
+        const ConfusionMatrix& cm = *r.confusion;
+        os << "  Confusion (FK vs. Referenzen): TP=" << cm.tp << " FP=" << cm.fp << " FN=" << cm.fn
+           << " TN=" << cm.tn << ", P=" << num(cm.precision) << " R=" << num(cm.recall) << " F1=" << num(cm.f1)
+           << "\n";
+    }
     for (const auto& rel : r.relations) {
         if (rel.kind == RelationKind::ForeignKey)
             os << "  FK  " << rel.fromCollection << "." << rel.field << " -> " << rel.toCollection << "."

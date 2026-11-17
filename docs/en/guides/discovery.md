@@ -56,6 +56,8 @@ std::ofstream("graph.mmd")     << memdb::toMermaid(rep);
 // 13) v0.40: outlier detection (z-score + IQR) per numeric field, also cross-database
 auto outs = memdb::discoverOutliers(db, opts);   // or discoverOutliers(coll, opts) / ({c1, c2}, opts)
 // outs feed into analyze(): AnalysisReport::outliers + health-score factor (weights 0.30/0.15/0.20/0.20/0.15)
+// 14) v0.42: confusion matrix of the FK findings against declared __references (needs Database)
+memdb::ConfusionMatrix cm = memdb::evaluateConfusion(all, db, opts);  // or in analyze(db): rep.confusion
 ```
 
 Details, semantics and examples for each step: [discovery-guide.md](discovery-guide.md).
@@ -88,6 +90,7 @@ inmemdb_discover shop.enc --password secret --mermaid           # encrypted, Mer
 inmemdb_discover a.json b.json --min-support 0.9 --sample 10000 --seed 7
 inmemdb_discover a.json --orphans                               # orphan report (v0.30)
 inmemdb_discover a.json --outliers                              # outlier report (v0.40, z-score + IQR)
+inmemdb_discover a.json --confusion                             # confusion matrix vs. __references (v0.42, 1 file)
 inmemdb_discover a.json --path order_items users                # FK paths A -> B (v0.30)
 inmemdb_discover a.json b.json --diff                           # diffDatabases (v0.32)
 inmemdb_discover a.json --suggest-merges                        # merge suggestions (v0.32)
@@ -97,7 +100,7 @@ inmemdb_discover a.json --apply --out report.json
 ```
 
 All options: `--password`, `--min-support`, `--min-confidence`, `--min-correlation`,
-`--min-similarity`, `--sample`, `--seed`, `--mermaid`, `--orphans`, `--outliers`,
+`--min-similarity`, `--sample`, `--seed`, `--mermaid`, `--orphans`, `--outliers`, `--confusion`,
 `--path A B`, `--diff`, `--suggest-merges`, `--report <prefix>`, `--apply`, `--out <file>`.
 Details and examples: [discovery-guide.md](discovery-guide.md) §6.
 
@@ -114,8 +117,11 @@ Details and examples: [discovery-guide.md](discovery-guide.md) §6.
 - `tests/test_discovery6.cpp` (26 checks, v0.40): `discoverOutliers` (z-score + IQR, thresholds,
   minOutlierSamples, cross-database), integration in `analyze()` (report field `outliers`,
   health score drops with outliers), all four presentations
+- `tests/test_discovery7.cpp` (29 checks, v0.42): `evaluateConfusion` (TP/FP/FN/TN, precision/recall/F1,
+  threshold `confusionMinConfidence`, FN case, error case without `__references`, empty `__references`),
+  `analyze(Database&)` fills `confusion` (vector overload does not), all presentations
 
-124 discovery checks in total.
+153 discovery checks in total.
 
 ## Extensions v0.30
 
@@ -219,3 +225,25 @@ clean field, configurable thresholds, minOutlierSamples, cross-database,
   [docs/en/guides/cross-influence.md](cross-influence.md)
 - Influence analysis within a single collection (FA-31):
   [docs/en/guides/influence.md](influence.md)
+
+## Extension v0.42: confusion matrix (FK discovery vs. declared references)
+
+`evaluateConfusion(rels, db, opts)` evaluates the FK findings in `rels` against the **declared
+references** in `__references` (e.g. from FK import FA-26 or `applyDiscovered`):
+
+- **predicted positive:** directed collection pair (A,B), A ≠ B, with an FK finding and
+  `confidence >= opts.confusionMinConfidence` (default 0.9).
+- **actual positive:** directed pair (A,B) with at least one reference in `__references`.
+- Result `ConfusionMatrix{tp, fp, fn, tn, precision, recall, f1}` over all directed pairs
+  of the data collections (excluding `__references`); `tn` = all remaining pairs.
+  Precision/recall/F1 with a 0-guard (empty denominator → 0).
+- Throws `Error` if `db` has no `__references` collection.
+- **Integration into `analyze()`:** `analyze(Database&, opts)` fills `AnalysisReport::confusion`
+  (only when `__references` exists, otherwise `nullopt`); `analyze(vector<Collection>, opts)`
+  omits it (cross-database has no shared reference store).
+- Presentations: JSON (`"confusion":{"tp":…,"f1":…}`), Markdown (section "Confusion-Matrix" +
+  recommendation on FP/FN), `printSummary` (`Confusion (FK vs. references): TP=… F1=…`).
+- CLI: `inmemdb_discover a.json --confusion` (exactly one file with `__references`);
+  `--report <prefix>` uses `analyze(db)` for a single file and includes the matrix in the report.
+
+Tests: `tests/test_discovery7.cpp` (29 checks).
