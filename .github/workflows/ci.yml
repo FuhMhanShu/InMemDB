@@ -37,7 +37,14 @@ jobs:
         run: cmake --build build --config Release -j
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure -C Release
+        run: |
+          ctest --test-dir build --output-on-failure -C Release > /tmp/ctest.log 2>&1 || true
+          if grep -qE "tests failed|Failed " /tmp/ctest.log; then
+            grep -E "FAIL|Failed|failed|tests passed|tests failed" /tmp/ctest.log | head -60 | while IFS= read -r l; do
+              echo "::error::${l}"
+            done
+            exit 8
+          fi
 
   sqlite-import:
     name: Import (sqlite, INMEMDB_WITH_SQLITE=ON)
@@ -56,7 +63,14 @@ jobs:
         run: cmake --build build -j
 
       - name: Test (inkl. Import-Tests)
-        run: ctest --test-dir build --output-on-failure -C Release
+        run: |
+          ctest --test-dir build --output-on-failure -C Release > /tmp/ctest.log 2>&1 || true
+          if grep -qE "tests failed|Failed " /tmp/ctest.log; then
+            grep -E "FAIL|Failed|failed|tests passed|tests failed" /tmp/ctest.log | head -60 | while IFS= read -r l; do
+              echo "::error::${l}"
+            done
+            exit 8
+          fi
 
   qmake-qt:
     name: qmake/Qt-Einbindung (FA-23)
