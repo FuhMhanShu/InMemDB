@@ -367,6 +367,53 @@ int main() {
         CHECK(near(r1.fields[0].min, 1.0) && near(r1.fields[0].max, 1.0));
     }
 
+    // 13) Haertung: gegenlaeufige Extremwerte (±1e308) – Quantile in long double
+    //     interpoliert, IQR mit Finite-Fallback, nicht darstellbare
+    //     Sequenzspruenge (> DBL_MAX) uebersprungen
+    {
+        Database db("n13");
+        auto c = db.createCollection("extrem2");
+        for (int i = 0; i < 6; ++i)
+            c.insert({{"v", i < 3 ? -1e308 : 1e308}});
+        NumericAnalysisOptions opts;
+        auto fields = analyzeNumericFields(c, opts);
+        CHECK(fields.size() == 1);
+        const auto& f = fields[0];
+        CHECK(f.field == "v");
+        CHECK(f.count == 6 && f.distinct == 2);
+        CHECK(f.q1 == -1e308);
+        CHECK(f.median == 0.0); // Interpolation in long double, exakt
+        CHECK(f.q3 == 1e308);
+        CHECK(near(f.iqr, 0.0)); // q3 - q1 laeuft nach inf => Finite-Fallback
+        CHECK(std::isfinite(f.mean) && f.mean == 0.0);
+        CHECK(near(f.stddev, 0.0)); // lm2 laeuft nach inf => Finite-Fallback
+        CHECK(std::isfinite(f.q1) && std::isfinite(f.median) && std::isfinite(f.q3));
+        CHECK(std::isfinite(f.iqr));
+        CHECK(std::isfinite(f.skewness) && std::isfinite(f.kurtosis));
+        CHECK(f.histogram.size() == 10 && f.histogram[0] == 6); // Range inf => alle in Bin 0
+        const std::string j = toJson(f);
+        CHECK(j.find(":inf") == std::string::npos);
+        CHECK(j.find(":nan") == std::string::npos);
+
+        // Sequenz mit Riesensprung: Differenz 2e308 (ueber DBL_MAX) wird
+        // uebersprungen, stepMedian aus den endlichen Differenzen gebildet
+        auto c2 = db.createCollection("seqext");
+        for (double v : {-1.7e308, -1.2e308, -1e308, 1e308, 1.7e308})
+            c2.insert({{"s", v}});
+        auto f2s = analyzeNumericFields(c2, opts);
+        CHECK(f2s.size() == 1);
+        const auto* fs = findField(f2s, "s");
+        CHECK(fs != nullptr);
+        CHECK(fs != nullptr && fs->monotonic && !fs->consecutive);
+        CHECK(fs != nullptr && std::isfinite(fs->stepMedian));
+        CHECK(fs != nullptr && near(fs->stepMedian, 5e307, 1e-9));
+        CHECK(fs != nullptr && fs->gaps == 1);
+        CHECK(fs != nullptr && fs->histogram.size() == 10 && fs->histogram[0] == 5);
+        const std::string j2 = toJson(*fs);
+        CHECK(j2.find(":inf") == std::string::npos);
+        CHECK(j2.find(":nan") == std::string::npos);
+    }
+
     std::cout << g_checks << " Checks, " << g_failures << " Fehler\n";
     return g_failures == 0 ? 0 : 1;
 }

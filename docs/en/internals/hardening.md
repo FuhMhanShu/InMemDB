@@ -55,6 +55,7 @@ on pathological data must produce a result, not a crash and no `inf`/`nan` in th
 | Pearson correlation (FA-30/31/32) | two-pass **centered** computation in `long double`; the textbook formula (`n·Sxy − Sx·Sy`) loses massive precision for large values with a small variation range (catastrophic cancellation); value slots assigned consistently to the sorted field pair (per-document field order may vary); result clamped to [−1, 1] |
 | Moments (mean/stddev/skewness/kurtosis, FA-30) | accumulated in `long double` (no overflow on extreme values), finiteness check on write-back – reports stay valid JSON |
 | Histogram (FA-30) | non-finite range (±DBL_MAX) → all values in bin 0 instead of a `static_cast` of NaN |
+| Quantiles/IQR/sequence (FA-30) | interpolation in `long double` with a finiteness fallback – the same defect as FA-33: opposing extreme values (±1e308) turned Q1/median/Q3 into `inf` (invalid JSON); IQR with a finiteness check (q3 − q1); non-representable sequence jumps (> DBL_MAX) are skipped, `stepMedian` computed only from finite differences |
 | R² regression (FA-31/32) | Gauss solver with partial pivoting + **finiteness check** of the solution; **mean-centred** normal equations without an intercept column – large offsets (e.g. 1e12) would otherwise drown the tiny residual variance in rounding noise; `SST` checks; `R²` either finite or `rSquaredComputed = false` |
 | Influence score (FA-31/32) | `influenceScore` guarded to 0 if non-finite – NaN would otherwise break the `std::sort` ordering (strict weak ordering) |
 | Join sources (FA-32) | dangling edges (deleted documents) no longer count toward `rows`/`matchedA`/join coverage; `__references` entries with negative, non-integral, or NaN IDs are ignored |
@@ -62,6 +63,6 @@ on pathological data must produce a result, not a crash and no `inf`/`nan` in th
 | Quantile/median (FA-33) | interpolation in `long double` with a finiteness check on write-back – `xs[lo+1] − xs[lo]` overflows to infinity in `double` for opposing extreme values (±1e308) and turned the median into `inf` (invalid JSON) |
 | Moments/text statistics (FA-33) | number statistics in `long double` with finiteness checks; text classes guarded by thresholds (`maxCategoryDistinct`, `identifierUniqueness`, `freeTextMinLength`); Pearson centered two-pass as in FA-30, eta²/Cramér's V clamped to [0, 1]; association guards (`minPairsForAssociation`, `maxDistinctForAssociation`, constant fields excluded) |
 
-Regression tests: `test_numeric_analysis.cpp` (112 checks), `test_influence.cpp` (130 checks),
+Regression tests: `test_numeric_analysis.cpp` (136 checks), `test_influence.cpp` (130 checks),
 `test_cross_influence.cpp` (193 checks), `test_character.cpp` (62 checks),
 `test_mixed_analysis.cpp` (184 checks) – each covering extreme-value, offset, and guard scenarios.

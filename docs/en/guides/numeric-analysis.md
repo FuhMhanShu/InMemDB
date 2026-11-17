@@ -74,7 +74,11 @@ MAD >= 0.015 against the expectation flags the field as `benfordSuspicious`.
   (variance 0) are omitted.
 - Findings are hints, not proof – Benford and grids react sensitively to small
   value sets.
-- Tests: `tests/test_numeric_analysis.cpp` (112 checks).
+- Hardening: quantiles are interpolated in `long double` (opposing extreme
+  values ±1e308 previously turned Q1/median/Q3 into `inf`), the IQR gets a
+  finiteness fallback, and non-representable sequence jumps (> DBL_MAX) are
+  skipped; reports stay valid JSON.
+- Tests: `tests/test_numeric_analysis.cpp` (136 checks).
 
 See also: [character.md](character.md) for the upfront categorization and
 [discovery.md](discovery.md) for outlier detection (z-score/IQR) and data profiles.
