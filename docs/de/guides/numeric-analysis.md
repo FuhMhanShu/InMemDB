@@ -74,7 +74,11 @@ MAD >= 0.015 gegenüber der Erwartung markiert das Feld als `benfordSuspicious`.
   (Varianz 0) werden ausgelassen.
 - Auffälligkeiten sind Hinweise, keine Beweise – Benford und Raster reagieren
   empfindlich auf kleine Wertemengen.
-- Tests: `tests/test_numeric_analysis.cpp` (112 Checks).
+- Härtung: Quantile werden in `long double` interpoliert (gegenläufige
+  Extremwerte ±1e308 machten Q1/Median/Q3 zuvor zu `inf`), der IQR erhält
+  einen Finite-Fallback, und nicht darstellbare Sequenz-Sprünge (> DBL_MAX)
+  werden übersprungen; Reports bleiben gültiges JSON.
+- Tests: `tests/test_numeric_analysis.cpp` (136 Checks).
 
 Siehe auch: [character.md](character.md) für die Vorab-Kategorisierung und
 [discovery.md](discovery.md) für Ausreißer (z-Score/IQR) und Datenprofile.

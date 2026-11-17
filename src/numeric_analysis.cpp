@@ -27,12 +27,21 @@ std::string num(double d) {
 double quantile(const std::vector<double>& xs, double p) {
     if (xs.empty())
         return 0.0;
-    double pos = p * static_cast<double>(xs.size() - 1);
-    std::size_t lo = static_cast<std::size_t>(pos);
-    double frac = pos - static_cast<double>(lo);
+    const double pos = p * static_cast<double>(xs.size() - 1);
+    const std::size_t lo = static_cast<std::size_t>(pos);
+    const double frac = pos - static_cast<double>(lo);
     if (lo + 1 >= xs.size())
         return xs.back();
-    return xs[lo] + frac * (xs[lo + 1] - xs[lo]);
+    // Härtung: Interpolation in long double – die Differenz xs[lo+1] - xs[lo]
+    // läuft bei gegenläufigen Extremwerten (±1e308) in double nach unendlich
+    // über und machte das Quantil inf bzw. nan (0*inf, ungültiges JSON); in
+    // long double bleibt sie endlich, das Ergebnis liegt per Konstruktion
+    // zwischen xs[lo] und xs[lo+1]. Absicherung beim Zurückschreiben.
+    const long double v = static_cast<long double>(xs[lo]) +
+                          frac * (static_cast<long double>(xs[lo + 1]) -
+                                 static_cast<long double>(xs[lo]));
+    const double m = static_cast<double>(v);
+    return std::isfinite(m) ? m : xs[lo];
 }
 
 bool isIntegral(double v) {
@@ -187,7 +196,8 @@ NumericCollectionAnalysis analyzeNumeric(const Collection& c, const NumericAnaly
         a.q1 = quantile(xs, 0.25);
         a.median = quantile(xs, 0.5);
         a.q3 = quantile(xs, 0.75);
-        a.iqr = a.q3 - a.q1;
+        const double iqr = a.q3 - a.q1; // Härtung: Finite-Check beim Zurückschreiben –
+        a.iqr = std::isfinite(iqr) ? iqr : 0.0; // q3 - q1 läuft bei gegenläufigen Extremwerten über
         if (xs.size() >= 3 && lm2 > 0.0L) {
             const double sk = static_cast<double>(lm3 / (lm2 * std::sqrt(lm2)));
             const double ku = static_cast<double>(lm4 / (lm2 * lm2) - 3.0L);
@@ -237,7 +247,8 @@ NumericCollectionAnalysis analyzeNumeric(const Collection& c, const NumericAnaly
                 const double prev = vals[i - 1].asDouble();
                 const double cur = vals[i].asDouble();
                 const double diff = cur - prev;
-                diffs.push_back(diff);
+                if (std::isfinite(diff)) // Härtung: nicht darstellbare Sprünge (> DBL_MAX) überspringen
+                    diffs.push_back(diff);
                 if (cur <= prev)
                     mono = false;
                 if (std::fabs(diff - 1.0) > 1e-9)
@@ -245,7 +256,7 @@ NumericCollectionAnalysis analyzeNumeric(const Collection& c, const NumericAnaly
             }
             a.monotonic = mono;
             a.consecutive = mono && consec;
-            if (mono) {
+            if (mono && !diffs.empty()) {
                 std::sort(diffs.begin(), diffs.end());
                 a.stepMedian = quantile(diffs, 0.5);
                 if (a.stepMedian > 0.0)

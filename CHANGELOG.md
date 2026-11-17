@@ -21,6 +21,18 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   Zahl/Boolean, Cramérs V für kategorisch/kategorisch) mit Guards; Reports
   `toJson`/`toMarkdown`; Tests `tests/test_mixed_analysis.cpp` (129 Checks)
 
+### Fixed (Härtung FA-30)
+- **Quantile/IQR/Sequenz-Schritte:** Quantile werden wie bei FA-33 überlaufsicher in
+  `long double` interpoliert und mit Finite-Fallback zurückgeschrieben – bei
+  gegenläufigen Extremwerten (±1e308) lief die Differenz `xs[lo+1] − xs[lo]`
+  in `double` nach unendlich über und machte Q1/Median/Q3 zu `inf`
+  (ungültiges JSON); der IQR erhält einen Finite-Check (q3 − q1 kann nach `inf`
+  überlaufen), nicht darstellbare Sequenz-Sprünge (> DBL_MAX) werden übersprungen,
+  `stepMedian` wird nur aus endlichen Differenzen gebildet.
+  Regressionstests für gegenläufige Extremwerte (exakte Quantile, IQR-Fallback,
+  inf/nan-Ausschluss) und Sequenzen mit Riesensprung: `tests/test_numeric_analysis.cpp`
+  (112 → 136 Checks)
+
 ### Fixed (Härtung FA-33)
 - **Median-Interpolation:** Quantile werden überlaufsicher in `long double`
   interpoliert und beim Zurückschreiben mit Finite-Checks abgesichert – bei
