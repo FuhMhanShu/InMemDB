@@ -37,7 +37,12 @@ jobs:
         run: cmake --build build --config Release -j
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure -C Release
+        run: |
+          set +e
+          ctest --test-dir build --output-on-failure -C Release 2>&1 | tee /tmp/ctest.log
+          code=${PIPESTATUS[0]}
+          grep -E "FAILED|Fehler|FAIL |Segmentation|error:" /tmp/ctest.log | head -40 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
+          exit $code
 
   sqlite-import:
     name: Import (sqlite, INMEMDB_WITH_SQLITE=ON)
@@ -56,7 +61,12 @@ jobs:
         run: cmake --build build -j
 
       - name: Test (inkl. Import-Tests)
-        run: ctest --test-dir build --output-on-failure -C Release
+        run: |
+          set +e
+          ctest --test-dir build --output-on-failure -C Release 2>&1 | tee /tmp/ctest.log
+          code=${PIPESTATUS[0]}
+          grep -E "FAILED|Fehler|FAIL |Segmentation|error:" /tmp/ctest.log | head -40 | while IFS= read -r l; do echo "::error::$(echo "$l" | cut -c1-300)"; done
+          exit $code
 
   qmake-qt:
     name: qmake/Qt-Einbindung (FA-23)
