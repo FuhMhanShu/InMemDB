@@ -408,6 +408,122 @@ int main() {
         CHECK(md.find("land") != std::string::npos);
     }
 
+    // 13) Haertung: gegenlaeufige Extremwerte (+/-1e308) – die Median-
+    //     Interpolation darf nicht nach unendlich ueberlaufen
+    {
+        Database db("m13");
+        auto c = db.createCollection("extrem");
+        for (int i = 0; i < 6; ++i)
+            c.insert({{"v", i < 3 ? -1e308 : 1e308}});
+        MixedCollectionAnalysis res = analyzeMixed(c);
+        const auto* f = findField(res.fields, "v");
+        CHECK(f != nullptr);
+        CHECK(f->kind == MixedKind::Number);
+        CHECK(f->count == 6 && f->distinct == 2);
+        CHECK(f->min == -1e308 && f->max == 1e308);
+        CHECK(f->median == 0.0); // Interpolation zwischen -1e308 und +1e308
+        CHECK(std::isfinite(f->mean) && f->mean == 0.0);
+        CHECK(std::isfinite(f->median));
+        CHECK(near(f->stddev, 0.0)); // Streuung ueberlaeuft in double -> Finite-Guard
+        CHECK(std::isfinite(f->stddev));
+        CHECK(!f->discrete); // Spannweite inf > discreteMaxRange
+        CHECK(f->note.empty()); // integralRatio 1.0: kein Dezimalanteil-Hinweis
+        const std::string j = toJson(*f);
+        CHECK(j.find("inf") == std::string::npos);
+        CHECK(j.find("nan") == std::string::npos);
+        CHECK(res.associations.empty());
+    }
+
+    // 14) Haertung: inf/nan werden nicht in die Statistik aufgenommen
+    {
+        Database db("m14");
+        auto c = db.createCollection("finit");
+        for (int i = 1; i <= 5; ++i)
+            c.insert({{"v", i}});
+        c.insert({{"v", HUGE_VAL}});
+        c.insert({{"v", std::nan("")}});
+        MixedCollectionAnalysis res = analyzeMixed(c);
+        const auto* f = findField(res.fields, "v");
+        CHECK(f != nullptr);
+        CHECK(res.docCount == 7);
+        CHECK(f->count == 5 && f->distinct == 5);
+        CHECK(f->missing == 2);
+        CHECK(near(f->missingRatio, 2.0 / 7.0, 1e-12));
+        CHECK(f->min == 1.0 && f->max == 5.0);
+        CHECK(near(f->mean, 3.0) && near(f->median, 3.0));
+        CHECK(near(f->stddev, std::sqrt(2.0), 1e-12));
+        CHECK(f->integralRatio == 1.0 && f->discrete);
+        CHECK(f->note.find("fehlt in 29 %") != std::string::npos);
+        const std::string j = toJson(*f);
+        CHECK(j.find("inf") == std::string::npos);
+        CHECK(j.find("nan") == std::string::npos);
+    }
+
+    // 15) Haertung: konstante Felder (Zahl/Text/Boolean) – analysiert mit
+    //     Stdabw 0, aber nie in Assoziationen
+    {
+        Database db("m15");
+        auto c = db.createCollection("konst");
+        for (int i = 0; i < 6; ++i)
+            c.insert({{"x", 7}, {"y", i}, {"s", "a"}, {"b", true}});
+        MixedCollectionAnalysis res = analyzeMixed(c);
+        const auto* x = findField(res.fields, "x");
+        CHECK(x != nullptr);
+        CHECK(x->distinct == 1 && near(x->stddev, 0.0));
+        CHECK(x->note.find("konstantes Feld") != std::string::npos);
+        const auto* s = findField(res.fields, "s");
+        CHECK(s != nullptr && s->kind == MixedKind::Text);
+        CHECK(s->distinct == 1);
+        CHECK(s->textClass == TextClass::Categorical); // uniqueness 1/6 < 0.99
+        CHECK(s->note.find("konstantes Feld") != std::string::npos);
+        const auto* b = findField(res.fields, "b");
+        CHECK(b != nullptr && b->kind == MixedKind::Boolean);
+        CHECK(near(b->trueShare, 1.0));
+        CHECK(b->distinct == 1);
+        CHECK(b->note.find("Boolean (100 % true)") != std::string::npos);
+        CHECK(b->note.find("konstantes Feld") != std::string::npos);
+        CHECK(res.associations.empty()); // Varianz 0 bzw. 1 Gruppe: nie assoziiert
+    }
+
+    // 16) Haertung: grosser Offset bei kleiner Streuung – Kennzahlen und
+    //     Pearson bleiben genau (zweistufige Zentrierung in long double)
+    {
+        Database db("m16");
+        auto c = db.createCollection("offset");
+        for (int i = 0; i < 10; ++i)
+            c.insert({{"off", 1e12 + i}, {"v", 2.0 * i}});
+        MixedCollectionAnalysis res = analyzeMixed(c);
+        const auto* off = findField(res.fields, "off");
+        CHECK(off != nullptr);
+        CHECK(near(off->mean, 1e12 + 4.5, 1e-6));
+        CHECK(near(off->median, 1e12 + 4.5, 1e-6));
+        CHECK(near(off->stddev, std::sqrt(8.25), 1e-12));
+        const auto* p = findAssoc(res.associations, "off", "v", "pearson");
+        CHECK(p != nullptr);
+        CHECK(p != nullptr && near(p->value, 1.0, 1e-9));
+        CHECK(p != nullptr && p->pairs == 10);
+        const std::string j = toJson(res);
+        CHECK(j.find(":inf") == std::string::npos);
+        CHECK(j.find(":nan") == std::string::npos);
+    }
+
+    // 17) Haertung: sehr lange Strings – Laengen-Statistik bleibt korrekt
+    {
+        Database db("m17");
+        auto c = db.createCollection("lang");
+        for (int i = 0; i < 5; ++i)
+            c.insert({{"t", std::string(100000, static_cast<char>('a' + i))}});
+        MixedCollectionAnalysis res = analyzeMixed(c);
+        const auto* f = findField(res.fields, "t");
+        CHECK(f != nullptr);
+        CHECK(f->kind == MixedKind::Text);
+        CHECK(f->count == 5 && f->distinct == 5);
+        CHECK(f->lenMin == 100000 && f->lenMax == 100000);
+        CHECK(near(f->lenMean, 100000.0));
+        CHECK(f->textClass == TextClass::Identifier); // uniqueness 1.0
+        CHECK(f->note.find("Kennung (100 % einzigartig)") != std::string::npos);
+    }
+
     std::cout << "test_mixed_analysis: " << g_checks << " Checks, " << g_failures
               << " Fehlgeschlagen\n";
     return g_failures == 0 ? 0 : 1;

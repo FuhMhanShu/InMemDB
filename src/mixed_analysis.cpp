@@ -34,12 +34,21 @@ std::string pct(double ratio) {
 double quantile(const std::vector<double>& xs, double p) {
     if (xs.empty())
         return 0.0;
-    double pos = p * static_cast<double>(xs.size() - 1);
-    std::size_t lo = static_cast<std::size_t>(pos);
-    double frac = pos - static_cast<double>(lo);
+    const double pos = p * static_cast<double>(xs.size() - 1);
+    const std::size_t lo = static_cast<std::size_t>(pos);
+    const double frac = pos - static_cast<double>(lo);
     if (lo + 1 >= xs.size())
         return xs.back();
-    return xs[lo] + frac * (xs[lo + 1] - xs[lo]);
+    // Härtung: Interpolation in long double – die Differenz xs[lo+1] - xs[lo]
+    // läuft bei gegenläufigen Extremwerten (±1e308) in double nach unendlich
+    // über und machte den Median unendlich (ungültiges JSON); in long double
+    // bleibt sie endlich, das Ergebnis liegt per Konstruktion zwischen
+    // xs[lo] und xs[lo+1]. Absicherung beim Zurückschreiben für alle Fälle.
+    const long double v = static_cast<long double>(xs[lo]) +
+                          frac * (static_cast<long double>(xs[lo + 1]) -
+                                 static_cast<long double>(xs[lo]));
+    const double m = static_cast<double>(v);
+    return std::isfinite(m) ? m : xs[lo];
 }
 
 bool isIntegral(double v) {
@@ -246,7 +255,8 @@ MixedCollectionAnalysis analyzeMixed(const Collection& c, const MixedAnalysisOpt
             std::sort(xs.begin(), xs.end());
             a.min = xs.front();
             a.max = xs.back();
-            a.median = quantile(xs, 0.5);
+            const double med = quantile(xs, 0.5);
+            a.median = std::isfinite(med) ? med : 0.0; // Härtung: Finite-Check beim Zurückschreiben
             // Härtung: Momente in long double akkumulieren (kein Ueberlauf bei
             // Extremwerten), beim Zurueckschreiben Endlichkeit erzwingen (gueltiges JSON).
             long double lmean = 0.0L;
