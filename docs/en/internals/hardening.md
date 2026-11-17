@@ -45,7 +45,7 @@ Violation → `LimitError` **before the mutation** (bulk atomic), counter `metri
 Rules of thumb: `maxDocuments` ≈ RAM/avg doc size, `maxDocumentBytes` 1–16 MiB, fields ~1000, indexes ~32–64.
 RAM protection for "larger than RAM" remains the spill mode (v0.18).
 
-## 6. Analysis pipeline (FA-29 to FA-33)
+## 6. Analysis pipeline (FA-29 to FA-34)
 
 The analysis modules are deliberately **computationally hardened** instead of throwing – analysis
 on pathological data must produce a result, not a crash and no `inf`/`nan` in the report:
@@ -61,8 +61,10 @@ on pathological data must produce a result, not a crash and no `inf`/`nan` in th
 | Join sources (FA-32) | dangling edges (deleted documents) no longer count toward `rows`/`matchedA`/join coverage; `__references` entries with negative, non-integral, or NaN IDs are ignored |
 | Field filter (FA-30) | fields without numeric values are skipped even with `minValuesPerField = 0` (no access to empty vectors) |
 | Quantile/median (FA-33) | interpolation in `long double` with a finiteness check on write-back – `xs[lo+1] − xs[lo]` overflows to infinity in `double` for opposing extreme values (±1e308) and turned the median into `inf` (invalid JSON) |
+| Cycles/depth (FA-34) | hard depth cap of 64 independent of `maxDepth` – recursion into cyclic documents (values referencing themselves via `shared_ptr`) would otherwise overflow the stack with generous options; cap reported transparently as a note; distinct cap transparent in the path `note`; empty fingerprint (document without paths) without empty field entries |
 | Moments/text statistics (FA-33) | number statistics in `long double` with finiteness checks; text classes guarded by thresholds (`maxCategoryDistinct`, `identifierUniqueness`, `freeTextMinLength`); Pearson centered two-pass as in FA-30, eta²/Cramér's V clamped to [0, 1]; association guards (`minPairsForAssociation`, `maxDistinctForAssociation`, constant fields excluded) |
 
 Regression tests: `test_numeric_analysis.cpp` (136 checks), `test_influence.cpp` (130 checks),
 `test_cross_influence.cpp` (193 checks), `test_character.cpp` (62 checks),
-`test_mixed_analysis.cpp` (184 checks) – each covering extreme-value, offset, and guard scenarios.
+`test_mixed_analysis.cpp` (184 checks), `test_complex_analysis.cpp` (197 checks) –
+each covering extreme-value, offset, and guard scenarios.
