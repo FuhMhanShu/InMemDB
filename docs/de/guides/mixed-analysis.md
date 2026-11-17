@@ -86,7 +86,12 @@ kategorische Texte.
   belegen keine Kausalität.
 - Sampling (`sampleSize > 0`) ist reproduktiv (fester `seed`); `missingRatio`
   bezieht sich stets auf die gesampelte Dokumentmenge.
-- Tests: `tests/test_mixed_analysis.cpp` (129 Checks).
+- Härtung: Quantile (Median) werden überlaufsicher in `long double` interpoliert –
+  bei gegenläufigen Extremwerten (±1e308) lief die Differenz in `double` nach
+  unendlich über; zusätzlich Finite-Check beim Zurückschreiben.
+- Tests: `tests/test_mixed_analysis.cpp` (184 Checks): u. a. gegenläufige
+  Extremwerte, inf/nan-Ausschluss, konstante Felder, große Offsets und
+  lange Strings.
 
 Siehe auch: [character.md](character.md) für die Vorab-Kategorisierung,
 [numeric-analysis.md](numeric-analysis.md) für die Kategorie-1-Pipeline und

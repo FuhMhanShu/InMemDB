@@ -86,7 +86,12 @@ categorical texts.
   establish causation.
 - Sampling (`sampleSize > 0`) is reproducible (fixed `seed`); `missingRatio`
   always refers to the sampled document set.
-- Tests: `tests/test_mixed_analysis.cpp` (129 checks).
+- Hardening: quantiles (median) are interpolated overflow-safe in `long double` –
+  for opposing extreme values (±1e308) the difference overflowed to infinity in
+  `double`; additionally a finiteness check on write-back.
+- Tests: `tests/test_mixed_analysis.cpp` (184 checks): among others opposing
+  extreme values, inf/nan exclusion, constant fields, large offsets and long
+  strings.
 
 See also: [character.md](character.md) for the up-front categorization,
 [numeric-analysis.md](numeric-analysis.md) for the category-1 pipeline and

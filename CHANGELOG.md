@@ -21,6 +21,15 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   Zahl/Boolean, Cramérs V für kategorisch/kategorisch) mit Guards; Reports
   `toJson`/`toMarkdown`; Tests `tests/test_mixed_analysis.cpp` (129 Checks)
 
+### Fixed (Härtung FA-33)
+- **Median-Interpolation:** Quantile werden überlaufsicher in `long double`
+  interpoliert und beim Zurückschreiben mit Finite-Checks abgesichert – bei
+  gegenläufigen Extremwerten (±1e308) lief die Differenz `xs[lo+1] − xs[lo]`
+  in `double` nach unendlich über und machte den Median `inf` (ungültiges JSON).
+  Regressionstests für gegenläufige Extremwerte, inf/nan-Ausschluss, konstante
+  Felder (nie assoziiert), große Offsets (Pearson bleibt exakt) und lange
+  Strings: `tests/test_mixed_analysis.cpp` (129 → 184 Checks)
+
 ### Fixed (Härtung FA-29 bis FA-32)
 - **Numerische Stabilität (FA-30/31/32):** Pearson-Korrelationen zweistufig zentriert und in
   `long double` berechnet – die bisherige Summenformel (`n·Sxy − Sx·Sy`) verlor bei großen
