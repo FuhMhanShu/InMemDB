@@ -74,7 +74,7 @@ MAD >= 0.015 against the expectation flags the field as `benfordSuspicious`.
   (variance 0) are omitted.
 - Findings are hints, not proof – Benford and grids react sensitively to small
   value sets.
-- Tests: `tests/test_numeric_analysis.cpp` (81 checks).
+- Tests: `tests/test_numeric_analysis.cpp` (112 checks).
 
 See also: [character.md](character.md) for the upfront categorization and
 [discovery.md](discovery.md) for outlier detection (z-score/IQR) and data profiles.

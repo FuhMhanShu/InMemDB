@@ -45,7 +45,7 @@ Violation → `LimitError` **before the mutation** (bulk atomic), counter `metri
 Rules of thumb: `maxDocuments` ≈ RAM/avg doc size, `maxDocumentBytes` 1–16 MiB, fields ~1000, indexes ~32–64.
 RAM protection for "larger than RAM" remains the spill mode (v0.18).
 
-## 6. Analysis pipeline (FA-29 to FA-32)
+## 6. Analysis pipeline (FA-29 to FA-33)
 
 The analysis modules are deliberately **computationally hardened** instead of throwing – analysis
 on pathological data must produce a result, not a crash and no `inf`/`nan` in the report:
@@ -59,7 +59,8 @@ on pathological data must produce a result, not a crash and no `inf`/`nan` in th
 | Influence score (FA-31/32) | `influenceScore` guarded to 0 if non-finite – NaN would otherwise break the `std::sort` ordering (strict weak ordering) |
 | Join sources (FA-32) | dangling edges (deleted documents) no longer count toward `rows`/`matchedA`/join coverage; `__references` entries with negative, non-integral, or NaN IDs are ignored |
 | Field filter (FA-30) | fields without numeric values are skipped even with `minValuesPerField = 0` (no access to empty vectors) |
+| Moments/text statistics (FA-33) | number statistics in `long double` with finiteness checks; text classes guarded by thresholds (`maxCategoryDistinct`, `identifierUniqueness`, `freeTextMinLength`); Pearson centered two-pass as in FA-30, eta²/Cramér's V clamped to [0, 1]; association guards (`minPairsForAssociation`, `maxDistinctForAssociation`, constant fields excluded) |
 
 Regression tests: `test_numeric_analysis.cpp` (112 checks), `test_influence.cpp` (130 checks),
-`test_cross_influence.cpp` (193 checks), `test_character.cpp` (62 checks) – each covering
-extreme-value, offset, and guard scenarios.
+`test_cross_influence.cpp` (193 checks), `test_character.cpp` (62 checks),
+`test_mixed_analysis.cpp` (129 checks) – each covering extreme-value, offset, and guard scenarios.

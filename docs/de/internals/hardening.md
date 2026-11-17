@@ -45,7 +45,7 @@ Verstoß → `LimitError` **vor der Mutation** (Bulk atomar), Zähler `metrics()
 Faustregeln: `maxDocuments` ≈ RAM/ØDocgröße, `maxDocumentBytes` 1–16 MiB, Felder ~1000, Indizes ~32–64.
 RAM-Schutz für „größer als RAM“ bleibt der Spill-Modus (v0.18).
 
-## 6. Analyse-Pipeline (FA-29 bis FA-32)
+## 6. Analyse-Pipeline (FA-29 bis FA-33)
 
 Die Analyse-Module sind bewusst **rechnerisch gehärtet** statt mit Exceptions – Analyseauf
 pathologischen Daten muss ein Ergebnis liefern, kein Crash und kein `inf`/`nan` im Report:
@@ -59,7 +59,8 @@ pathologischen Daten muss ein Ergebnis liefern, kein Crash und kein `inf`/`nan` 
 | Einfluss-Score (FA-31/32) | `influenceScore` per Finite-Guard auf 0 – NaN würde sonst die `std::sort`-Ordnung (strict weak ordering) brechen |
 | Join-Quellen (FA-32) | hängende Kanten (gelöschte Dokumente) zählen nicht in `rows`/`matchedA`/Join-Abdeckung; `__references`-Einträge mit negativen, nicht ganzzahligen oder NaN-IDs werden ignoriert |
 | Feld-Filter (FA-30) | Felder ohne numerische Werte werden auch bei `minValuesPerField = 0` übersprungen (kein Zugriff auf leere Vektoren) |
+| Momente/Text-Statistik (FA-33) | Zahl-Kennzahlen in `long double` mit Finite-Checks; Text-Klassen mit Guards (`maxCategoryDistinct`, `identifierUniqueness`, `freeTextMinLength`); Pearson wie FA-30 zweistufig zentriert, eta²/Cramérs V auf [0, 1] geklemmt; Assoziations-Guards (`minPairsForAssociation`, `maxDistinctForAssociation`, konstante Felder ausgeschlossen) |
 
 Regressionstests: `test_numeric_analysis.cpp` (112 Checks), `test_influence.cpp` (130 Checks),
-`test_cross_influence.cpp` (193 Checks), `test_character.cpp` (62 Checks) – jeweils mit
-Extremwert-, Offset- und Guardszenarien.
+`test_cross_influence.cpp` (193 Checks), `test_character.cpp` (62 Checks),
+`test_mixed_analysis.cpp` (129 Checks) – jeweils mit Extremwert-, Offset- und Guardszenarien.

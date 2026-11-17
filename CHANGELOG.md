@@ -12,6 +12,14 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   `confusionMinConfidence` = 0.9) vs. deklarierte Referenzen → TP/FP/FN/TN + Precision/Recall/F1;
   in JSON (`"confusion"`), Markdown-Sektion, `printSummary` (`F1=`); CLI `inmemdb_discover --confusion`
   und `--report` bei einer Datei; Tests `tests/test_discovery7.cpp` (29 Checks)
+- **Gemischte Metadaten-Analyse (FA-33):** `analyzeMixedFields`/`analyzeMixed` (Collection,
+  mehrere Collections, `Database&`) interpretiert Felder gemäß ihrem dominanten Typ
+  (Zahl/Text/Boolean, Tie-Break Zahl>Text>Boolean) – Zahl-Kennzahlen inkl. Ganzzahl-Anteil
+  und Diskretheit, Text-Klassen (kategorisch/Kennung/Freitext) mit Format-Hinweisen
+  (Datum/Hex/zahlartig), Boolean-Anteile, Missing-Quote und Typ-Drift; paarweise
+  Assoziationen (Pearson für Zahl/Boolean-Kombinationen, eta² für kategorisch gegen
+  Zahl/Boolean, Cramérs V für kategorisch/kategorisch) mit Guards; Reports
+  `toJson`/`toMarkdown`; Tests `tests/test_mixed_analysis.cpp` (129 Checks)
 
 ### Fixed (Härtung FA-29 bis FA-32)
 - **Numerische Stabilität (FA-30/31/32):** Pearson-Korrelationen zweistufig zentriert und in

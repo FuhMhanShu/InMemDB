@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="300" viewBox="0 0 760 300" font-family="sans-serif">
+<rect width="760" height="300" fill="#ffffff" rx="10"/>
+<text x="195" y="22" font-size="13" fill="#1a202c" text-anchor="middle" font-weight="bold">Text-Feld: dominanter Typ und semantische Klasse</text>
+<rect x="45" y="40" width="290" height="42" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="190" y="57" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">dominanter Typ</text>
+<text x="190" y="72" font-size="10.5" fill="#4a5568" text-anchor="middle">Zahl &gt; Text &gt; Boolean (Tie-Break); dominantShare</text>
+<line x1="190" y1="82" x2="190" y2="102" stroke="#3182ce" stroke-width="1.5" marker-end="none"/>
+<polygon points="185,100 195,100 190,110" fill="#3182ce"/>
+<rect x="45" y="112" width="140" height="52" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="115" y="130" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">Identifier</text>
+<text x="115" y="146" font-size="10" fill="#4a5568" text-anchor="middle">uniqueness &#8805; 0.99</text>
+<text x="115" y="158" font-size="10" fill="#4a5568" text-anchor="middle">(ID, Referenz)</text>
+<rect x="120" y="178" width="140" height="52" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="190" y="196" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">Categorical</text>
+<text x="190" y="212" font-size="10" fill="#4a5568" text-anchor="middle">distinct &#8804; 12</text>
+<text x="190" y="224" font-size="10" fill="#4a5568" text-anchor="middle">(Gruppe, Status)</text>
+<rect x="195" y="178" width="140" height="52" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="265" y="196" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">FreeText</text>
+<text x="265" y="212" font-size="10" fill="#4a5568" text-anchor="middle">lenMean &#8805; 20</text>
+<text x="265" y="224" font-size="10" fill="#4a5568" text-anchor="middle">(Beschreibung)</text>
+<line x1="150" y1="164" x2="185" y2="178" stroke="#3182ce" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="190" y1="164" x2="190" y2="178" stroke="#3182ce" stroke-width="1.2" stroke-dasharray="4 3"/>
+<line x1="230" y1="164" x2="262" y2="178" stroke="#3182ce" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="190" y="258" font-size="10.5" fill="#718096" text-anchor="middle">Entscheidungsfolge in Reihenfolge: Identifier vor Categorical vor FreeText</text>
+<text x="190" y="285" font-size="10.5" fill="#4a5568" text-anchor="middle">Format-Hinweise: dateLike (JJJJ-MM-TT) | hexLike | numericLike | emptyShare</text>
+<text x="575" y="22" font-size="13" fill="#1a202c" text-anchor="middle" font-weight="bold">Assoziationsmaß je Feldpaar</text>
+<rect x="420" y="40" width="310" height="56" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="575" y="60" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">pearson ([-1, 1])</text>
+<text x="575" y="76" font-size="10.5" fill="#4a5568" text-anchor="middle">Zahl/Zahl, Zahl/Boolean, Boolean/Boolean</text>
+<text x="575" y="90" font-size="10" fill="#718096" text-anchor="middle">zweistufig zentriert in long double; konstante Felder ausgeschlossen</text>
+<rect x="420" y="112" width="150" height="56" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="495" y="132" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">etaSquared ([0, 1])</text>
+<text x="495" y="148" font-size="10.5" fill="#4a5568" text-anchor="middle">kategorischer Text</text>
+<text x="495" y="161" font-size="10.5" fill="#4a5568" text-anchor="middle">gegen Zahl/Boolean</text>
+<rect x="580" y="112" width="150" height="56" fill="#90cdf4" stroke="#3182ce" stroke-width="1" rx="6"/>
+<text x="655" y="132" font-size="11" fill="#1a202c" text-anchor="middle" font-weight="bold">cramersV ([0, 1])</text>
+<text x="655" y="148" font-size="10.5" fill="#4a5568" text-anchor="middle">zwei kategorische</text>
+<text x="655" y="161" font-size="10.5" fill="#4a5568" text-anchor="middle">Text-Felder (Kontingenz)</text>
+<text x="575" y="192" font-size="10.5" fill="#718096" text-anchor="middle">Guards: minPairsForAssociation (3) | maxDistinctForAssociation (32)</text>
+<text x="575" y="212" font-size="10.5" fill="#4a5568" text-anchor="middle">Sortierung alphabetisch (fieldX, fieldY); withAssociations abschaltbar</text>
+<text x="575" y="258" font-size="10.5" fill="#718096" text-anchor="middle">Assoziationen belegen keine Kausalität</text>
+<text x="575" y="285" font-size="10.5" fill="#4a5568" text-anchor="middle">Reports: toJson (Feld/Collection) und toMarkdown (Tabellen)</text>
+</svg>

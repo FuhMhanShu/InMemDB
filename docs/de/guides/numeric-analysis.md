@@ -74,7 +74,7 @@ MAD >= 0.015 gegenüber der Erwartung markiert das Feld als `benfordSuspicious`.
   (Varianz 0) werden ausgelassen.
 - Auffälligkeiten sind Hinweise, keine Beweise – Benford und Raster reagieren
   empfindlich auf kleine Wertemengen.
-- Tests: `tests/test_numeric_analysis.cpp` (81 Checks).
+- Tests: `tests/test_numeric_analysis.cpp` (112 Checks).
 
 Siehe auch: [character.md](character.md) für die Vorab-Kategorisierung und
 [discovery.md](discovery.md) für Ausreißer (z-Score/IQR) und Datenprofile.

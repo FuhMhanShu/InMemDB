@@ -13,15 +13,15 @@ categories based on its fields:
 | Category | Meaning | Typical analysis pipeline |
 |---|---|---|
 | `DataCategory::Numeric` | Category 1: almost exclusively numeric fields (>= 80 %) | numeric metadata analysis (`numeric_analysis.hpp`, FA-30) |
-| `DataCategory::Mixed` | Category 2: mixture of numbers, strings, booleans | rule/association mining, semantic types |
+| `DataCategory::Mixed` | Category 2: mixture of numbers, strings, booleans | mixed metadata analysis (`mixed_analysis.hpp`, FA-33) |
 | `DataCategory::Complex` | Category 3: complex mixed forms (arrays, nested documents, binary, type drift >= 40 %) | recursive profiling, schema variants, entity resolution |
 
 <img src="../../images/analysis-pipeline.svg" alt="Analysis pipeline dispatcher: assessCharacter classifies each collection as Numeric, Mixed or Complex and routes to the matching analysis" width="760">
 
 The following graphic summarizes the dispatcher: `assessCharacter` classifies each
 collection read-only and routes it to the matching analysis pipeline – category 1
-directly into the FA-30/31/32 chain, categories 2 and 3 are reserved for future
-modules.
+directly into the FA-30/31/32 chain and category 2 into the mixed metadata
+analysis FA-33; category 3 remains reserved for future modules.
 
 ## Functions
 
@@ -76,7 +76,8 @@ std::string md = memdb::toMarkdown(ccs); // overview table
   truncation is alphabetical as in the discovery module.
 - Empty collections (no fields with values) are classified as `Mixed` with
   `confidence == 0`.
-- Tests: `tests/test_character.cpp` (55 checks).
+- Tests: `tests/test_character.cpp` (62 checks).
 
-See also: [numeric-analysis.md](numeric-analysis.md) for the category-1 pipeline
+See also: [mixed-analysis.md](mixed-analysis.md) for the category-2 pipeline,
+[numeric-analysis.md](numeric-analysis.md) for the category-1 pipeline
 and [discovery.md](discovery.md) for the underlying data profiles.
