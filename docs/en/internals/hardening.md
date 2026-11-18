@@ -68,3 +68,15 @@ Regression tests: `test_numeric_analysis.cpp` (136 checks), `test_influence.cpp`
 `test_cross_influence.cpp` (193 checks), `test_character.cpp` (62 checks),
 `test_mixed_analysis.cpp` (184 checks), `test_complex_analysis.cpp` (197 checks) –
 each covering extreme-value, offset, and guard scenarios.
+
+## 7. NaN/Inf ordering in the Value order & indexes (v0.43, finding M1)
+
+NaN must not break the strict weak ordering (`ValueLess`) – otherwise equivalence in the
+`std::map` indexes is not transitive and the tree is undefined (corruption, endless loops in
+`find`, wrong unique checks and query results). **Fixed (Postgres-style):** NaN is greater than
+every number (including +Inf), NaN == NaN; `equal(NaN, NaN)` = true, `equal(NaN, x)` = false for
+numbers. Implemented centrally in `compare()`/`equal()` (`src/value.cpp`) – all paths (indexes,
+`groupBy`, `distinctValues`, min/max, discovery sets) benefit. The JSON parser accepts the
+tolerant literals `nan`/`-nan`/`inf`/`-Infinity` (any case); on write, NaN/Inf still become
+`null` in the snapshot. Regression tests: `tests/test_nan_ordering.cpp` (100 checks, incl.
+ASan/UBSan).

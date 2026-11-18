@@ -36,6 +36,8 @@ coll.clear();                           // empties the content, index definition
   (v0.37: when parsing, `{"$binary":...}` becomes `Binary` only if the string is valid
   hex – otherwise it stays a normal document; before, e.g. `{"$binary":"hello"}`
   threw a `JsonError` and aborted the whole parse)
+- **Tolerant literals (v0.43, finding M1):** `nan`, `-nan`, `inf`, `-Infinity` (any case) are
+  parsed → `Double` NaN/±Inf; on write, NaN/Inf still become `null`.
 - **Nesting limit (v0.37):** parser and writer accept at most 1000 levels –
   deeper nested JSON (or cyclic Value structures when writing) throws
   `JsonError` instead of stack overflow/segfault (before: crash at ~50000 `[[[...`).

@@ -32,6 +32,22 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   Zahl/Boolean, Cramérs V für kategorisch/kategorisch) mit Guards; Reports
   `toJson`/`toMarkdown`; Tests `tests/test_mixed_analysis.cpp` (129 Checks)
 
+### Fixed (M1: NaN-Ordnung, v0.43)
+- **Befund M1 (Major):** NaN verletzte die strikte schwache Ordnung der Indizes – `compare()`
+  lieferte für NaN gegen jede Zahl 0 (weder `<` noch `>`), NaN war damit zu jeder Zahl äquivalent,
+  die Äquivalenz nicht transitiv → UB in den `std::map`-Indizes (Indexkorruption, Endlosschleifen
+  in `find`), falsche Unique-Verletzungen und falsche Query-Ergebnisse (`x == 5` war für NaN wahr)
+- Fix (Postgres-Stil, zentral in `src/value.cpp`): **NaN ist größer als jede Zahl (auch +Inf),
+  NaN == NaN**; `equal()` konsistent (NaN==NaN true, NaN≠Zahl) → Ordnung transitiv, alle
+  Index-/Sortier-/Gruppierungs-Pfade (ValueLess) NaN-sicher
+- JSON-Parser: tolerante Literale `nan` / `-nan` / `inf` / `-Infinity` (groß/klein) werden jetzt
+  tatsächlich geparst (vorher toter Code: Number-Scanner ließ keine Buchstaben zu, nacktes `nan`
+  kollidierte mit `null`); Writer schreibt NaN/Inf weiterhin als `null`; strikte Zahlen bleiben
+  strikt (alles andere → `JsonError`)
+- Regressionstests `tests/test_nan_ordering.cpp` (100 Checks): compare/equal mit NaN/±Inf,
+  Transitivität von ValueLess, Index-Queries (==, >=, <) mit NaN, Unique-Index (2×NaN →
+  `UniqueConstraintError`), JSON-Load mit nan/inf, Aggregation/groupBy, 2000er-Stresstest
+
 ### Fixed (Härtung FA-34)
 - **Tiefen-Grenze:** Die Pfad-Rekursion endet unabhängig von `maxDepth` bei
   einer harten Tiefen-Obergrenze von 64 – bei großzügigen Optionen

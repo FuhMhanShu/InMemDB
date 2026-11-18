@@ -26,6 +26,9 @@ Pro indexiertem Feldpfad (Punktnotation möglich, z. B. `adresse.plz`) eine
 - `ValueLess` ist eine strikte schwache Ordnung: Typ-Rang (null < bool < Zahl <
   string < binary < document < array), innerhalb von Zahl/String über `compare()`.
   **Int und Double liegen im selben Rang** – `age == 30.0` matcht also `age = 30`.
+- **NaN (v0.43, Befund M1):** NaN ist größer als jede Zahl (auch +Inf), NaN == NaN – die Ordnung
+  bleibt transitiv, Indizes und Unique-Prüfung sind damit NaN-sicher (zwei NaN-Werte verletzen
+  einen Unique-Index, Postgres-Stil).
 - Unique-Index: Schlüsselwert darf nur einem Dokument gehören.
 
 ## Nutzung durch die Query-Engine

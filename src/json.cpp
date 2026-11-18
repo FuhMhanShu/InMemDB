@@ -205,8 +205,12 @@ struct Parser {
         if (pos < s.size() && s[pos] == '-')
             ++pos;
         bool isDouble = false;
-        while (pos < s.size() && (std::isdigit(static_cast<unsigned char>(s[pos])) || s[pos] == '.' ||
-                                   s[pos] == 'e' || s[pos] == 'E' || s[pos] == '+' || s[pos] == '-')) {
+        // v0.43 (M1): Buchstaben im Token zulassen, damit die toleranten Literale
+        // inf/infinity/nan (auch mit Vorzeichen) ueberhaupt den Fallback unten erreichen;
+        // alles Ungueltige landet weiterhin in fail() -> strikte Zahlen bleiben strikt.
+        while (pos < s.size() && (std::isdigit(static_cast<unsigned char>(s[pos])) ||
+                                   std::isalpha(static_cast<unsigned char>(s[pos])) || s[pos] == '.' ||
+                                   s[pos] == '+' || s[pos] == '-')) {
             if (s[pos] == '.' || s[pos] == 'e' || s[pos] == 'E')
                 isDouble = true;
             ++pos;
@@ -244,6 +248,11 @@ struct Parser {
                 if (r.ec == std::errc() && r.ptr == buf + n)
                     return Value(d);
             }
+        }
+        // Tolerante Literale (nicht JSON, aber akzeptiert): inf/infinity/nan, auch mit
+        // Vorzeichen und gross/klein – v0.43 (M1): greift jetzt fuer int- und double-Tokens
+        // (Scanner akzeptiert Buchstaben), z. B. "nan", "-nan", "inf", "-Infinity".
+        {
             std::string lower(buf, n);
             for (auto& c : lower)
                 c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -317,7 +326,20 @@ struct Parser {
     Value parseValue() {
         char c = peek();
         switch (c) {
-            case 'n': expectLit("null"); return Value(nullptr);
+            case 'n': {
+                // v0.43 (M1): nacktes "nan" tolerant akzeptieren (bisher nur -nan/+nan
+                // ueber parseNumber); Gross-/Kleinschreibung wie dort. Sonst wie gehabt "null".
+                skipWs();
+                std::string lower;
+                for (std::size_t i = 0; i < 3 && pos + i < s.size(); ++i)
+                    lower += static_cast<char>(std::tolower(static_cast<unsigned char>(s[pos + i])));
+                if (lower == "nan") {
+                    pos += 3;
+                    return Value(std::numeric_limits<double>::quiet_NaN());
+                }
+                expectLit("null");
+                return Value(nullptr);
+            }
             case 't': expectLit("true"); return Value(true);
             case 'f': expectLit("false"); return Value(false);
             case '"': return Value(parseString());

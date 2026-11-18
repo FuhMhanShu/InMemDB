@@ -104,7 +104,15 @@ bool equal(const Value& a, const Value& b) {
     if (a.isNumber() && b.isNumber()) {
         if (a.isInt() && b.isInt())
             return a.asInt() == b.asInt();
-        return a.asDouble() == b.asDouble();
+        // v0.43 (M1): IEEE-NaN ist zu nichts gleich (auch nicht zu sich selbst) -
+        // explizit behandeln: NaN == NaN, NaN != Zahl (konsistent zu compare()).
+        {
+            const double x = a.asDouble();
+            const double y = b.asDouble();
+            if (std::isnan(x) || std::isnan(y))
+                return std::isnan(x) && std::isnan(y);
+            return x == y;
+        }
     }
     if (a.type() != b.type())
         return false;
@@ -179,6 +187,14 @@ std::optional<int> compare(const Value& a, const Value& b) {
         }
         double x = a.asDouble();
         double y = b.asDouble();
+        // v0.43 (M1): NaN explizit ordnen, sonst waere NaN zu jeder Zahl aequivalent
+        // (weder x<y noch x>y) und die Aequivalenz waere nicht transitiv -> UB in
+        // std::map-Indizes. Postgres-Stil: NaN ist groesser als jede Zahl, NaN == NaN.
+        if (std::isnan(x) || std::isnan(y)) {
+            if (std::isnan(x) && std::isnan(y))
+                return 0;
+            return std::isnan(x) ? 1 : -1;
+        }
         if (x < y)
             return -1;
         if (x > y)
