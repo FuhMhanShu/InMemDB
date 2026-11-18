@@ -25,6 +25,9 @@ Per indexed field path (dot notation possible, e.g. `address.zip`) a
 - `ValueLess` is a strict weak ordering: type rank (null < bool < number <
   string < binary < document < array), within number/string via `compare()`.
   **Int and double share the same rank** – so `age == 30.0` also matches `age = 30`.
+- **NaN (v0.43, finding M1):** NaN is greater than every number (including +Inf), NaN == NaN – the
+  order stays transitive, indexes and unique checks are NaN-safe (two NaN values violate a
+  unique index, Postgres-style).
 - Unique index: a key value may belong to only one document.
 
 ## Use by the query engine

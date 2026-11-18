@@ -68,3 +68,15 @@ Regressionstests: `test_numeric_analysis.cpp` (136 Checks), `test_influence.cpp`
 `test_cross_influence.cpp` (193 Checks), `test_character.cpp` (62 Checks),
 `test_mixed_analysis.cpp` (184 Checks), `test_complex_analysis.cpp` (197 Checks) –
 jeweils mit Extremwert-, Offset- und Guardszenarien.
+
+## 7. NaN/Inf-Ordnung in Value-Ordnung & Indizes (v0.43, Befund M1)
+
+NaN darf die strikte schwache Ordnung (`ValueLess`) nicht verletzen – sonst ist die Äquivalenz in
+den `std::map`-Indizes nicht transitiv und der Baum undefiniert (Korruption, Endlosschleifen in
+`find`, falsche Unique-Prüfungen und Query-Ergebnisse). **Festgelegt (Postgres-Stil):** NaN ist
+groesser als jede Zahl (auch +Inf), NaN == NaN; `equal(NaN, NaN)` = true, `equal(NaN, x)` = false
+für Zahlen. Umsetzung zentral in `compare()`/`equal()` (`src/value.cpp`) – alle Pfade (Indizes,
+`groupBy`, `distinctValues`, Min/Max, Discovery-Sets) profitieren davon. Der JSON-Parser akzeptiert
+die toleranten Literale `nan`/`-nan`/`inf`/`-Infinity` (gross/klein); beim Schreiben gehen NaN/Inf
+weiterhin als `null` in den Snapshot. Regressionstests: `tests/test_nan_ordering.cpp`
+(100 Checks, inkl. ASan/UBSan).

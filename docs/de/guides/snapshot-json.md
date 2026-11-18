@@ -36,6 +36,8 @@ coll.clear();                           // Inhalt leeren, Index-Definitionen ble
   (v0.37: beim Parsen wird `{"$binary":...}` nur zu `Binary`, wenn der String gueltiges
   Hex ist – sonst bleibt es ein normales Dokument; vorher warf z. B. `{"$binary":"hello"}`
   einen `JsonError` und brach das gesamte Parsen ab)
+- **Tolerante Literale (v0.43, Befund M1):** `nan`, `-nan`, `inf`, `-Infinity` (auch groß/klein)
+  werden geparst → `Double` NaN/±Inf; beim Schreiben gehen NaN/Inf weiterhin als `null` raus.
 - **Verschachtelungs-Limit (v0.37):** Parser und Writer akzeptieren max. 1000 Ebenen –
   tiefer verschachteltes JSON (oder zyklische Value-Strukturen beim Schreiben) wirft
   `JsonError` statt Stack-Overflow/Segfault (vorher: Crash ab ~50000 `[[[...`).
