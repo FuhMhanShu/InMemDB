@@ -20,13 +20,13 @@ magic. `Error` on IO failures, `JsonError` on invalid decrypted content.
 ```
 offset 0   : magic 8 bytes  "INMEMDB\x01"
 offset 8   : salt 16 bytes (random per file)
-offset 24  : PBKDF2 iterations uint32 LE (100,000)
+offset 24  : PBKDF2 iterations uint32 LE (600,000 from v0.44; v≤0.43: 100,000 – the value is versioned in the file header, old files still load)
 offset 28  : ChaCha20 nonce 12 bytes (random per file)
 offset 40  : ciphertext (ChaCha20, length = JSON length)
 last 32    : tag = HMAC-SHA256(macKey, all preceding bytes)
 ```
 
-- **Key derivation:** PBKDF2-HMAC-SHA256(password, salt, 100,000) → 64 bytes:
+- **Key derivation:** PBKDF2-HMAC-SHA256(password, salt, **600,000** – OWASP recommendation from v0.44, finding M4; before: 100,000) → 64 bytes:
   32 bytes encryption key (ChaCha20), 32 bytes MAC key.
 - **Encryption:** ChaCha20 (RFC 8439), counter starts at 1.
 - **Integrity:** encrypt-then-MAC; tag comparison in constant time.

@@ -38,7 +38,7 @@ coll.setClockForTesting([] { return myFakeNow; });
   `count`, `aggregate`, `groupBy`, `size`, `toJson`) expired documents are removed first
   (once, with a `ChangeType::Remove` event and the `expiredDocs` metric). Cheap as long as
   no document has `expiresAt` (only one atomic check).
-- **No sweep in the middle of transactions/merges** (`txLocks > 0` → snapshot isolation);
+- **No sweep in the middle of transactions/merges** (`txLocks > 0`; during a tx the collection holds the exclusive lock – full serialization, no MVCC, see M3/`transactions.md`);
   after commit the sweep happens on the next read access.
 - **No background thread:** the library starts no threads; `expireNow()` is the manual
   sweep for your own timers.

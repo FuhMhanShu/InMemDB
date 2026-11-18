@@ -81,8 +81,12 @@ Transaktionslogik exakt dieselbe Code-Basis wie der Normalbetrieb – keine dopp
 Lesezugriffe (`find`, `findById`, `count`, `size`) laufen mit `shared_lock`, Schreibzugriffe
 (`insert`, `update`, `remove`, `replace`) mit `unique_lock`. `Cursor` ist eine Snapshot-Kopie
 (konsistente Sicht zum Abfragezeitpunkt). Transaktionen halten während ihrer Laufzeit einen
-Exklusiv-Lock (volle Isolation, read-your-own-writes). Die Registries (`ImportRegistry`,
-`QueryFunctionRegistry`) sind per Mutex thread-sicher.
+Exklusiv-Lock (volle Isolation, read-your-own-writes) – von `beginTransaction()` bis
+`commit()`/`rollback()` blockieren ALLE Zugriffe inkl. Leser; es gibt kein MVCC
+(Befund M3, Tradeoff dokumentiert in `docs/de/guides/transactions.md`). Nebenläufigkeit
+ist gestresstestet: `tests/test_concurrency.cpp` (parallele Reader/Writer/Tx/Observer)
+läuft in den CI-Jobs **TSan** (Data-Race-freiheit) und **ASan/UBSan** (ganze Suite, v0.44).
+Die Registries (`ImportRegistry`, `QueryFunctionRegistry`) sind per Mutex thread-sicher.
 
 ### Abhängigkeiten
 Keine Pflichtabhängigkeiten; nur die C++17-Standardbibliothek. CMake ≥ 3.20.

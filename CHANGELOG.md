@@ -32,6 +32,35 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   Zahl/Boolean, Cramérs V für kategorisch/kategorisch) mit Guards; Reports
   `toJson`/`toMarkdown`; Tests `tests/test_mixed_analysis.cpp` (129 Checks)
 
+### Fixed (M2: Nebenläufigkeit – Tests + CI, v0.44)
+- Neuer Stresstest `tests/test_concurrency.cpp` (8 Checks): 4 parallele Reader (find/count/
+  findById/aggregate) gegen 4 Writer (insert/update/remove, teils in Transaktionen) + Unique-Index
+  unter Wettbewerb + Observer auf Collection-Ebene; Konsistenz-Checks (size == inserted − removed,
+  Index-Abfrage == Vollscan, Metriken/Events)
+- Zwei echte Data Races dadurch gefunden und gefixt: `Metrics::lastQueryMs/totalQueryMs/
+  lastUsedIndex` und `CollectionState::lastCandidateCount` waren nicht atomar (Write unter
+  `shared_lock` in `candidates()` bei parallelen Readern) → jetzt `std::atomic` (+ CAS-Add für
+  `totalQueryMs`); `CollectionState::undo` (TxUndo*) wurde unter `shared_lock` gelesen und unter
+  `unique_lock` geschrieben → jetzt `std::atomic<TxUndo*>`
+- CI verankert (M2): neue Jobs **TSan** (`-fsanitize=thread`, führt den Stresstest – data-race-frei)
+  und **ASan/UBSan** (gesamte Testsuite mit `-fsanitize=address,undefined`)
+- `tests/test_regex.cpp`: Zeitbudgets der Perf-/Hang-Schutz-Checks unter Sanitizer-Builds
+  skaliert (`kTimeScale` = 20, Erkennung via `__SANITIZE_*`/`__has_feature`) – im
+  ASan/UBSan-CI-Job (Debug + Sanitizer) dauern die pathologischen Matches sonst > 5 s
+
+### Changed (M3: Doku-Präzisierung Transaktionssperre, v0.44)
+- Tradeoff präzise dokumentiert (kein MVCC): `Transaction::Impl` hält den `unique_lock` von
+  `beginTransaction()` bis `commit()`/`rollback()` – währenddessen blockieren ALLE Zugriffe
+  inkl. Leser (`src/transaction.cpp`); „Snapshot-Isolation" war unpräzise. Doku: `transactions.md`,
+  `architecture.md`, `ttl-expiry.md` (de+en), anforderungen FA-16
+
+### Changed (M4: Sicherheit – PBKDF2-Iterationen, v0.44)
+- `kPbkdf2Iterations` 100.000 → **600.000** (aktuelle OWASP-Empfehlung für PBKDF2-HMAC-SHA256;
+  gestohlene Snapshot-Dateien sind Offline-Angriffspunkt). Abwärtskompatibel: Iterationszahl steht
+  versioniert im Dateiheader (offset 24), Leser nutzt den Wert aus der Datei (Cap 10 Mio. bleibt)
+- Test `tests/test_crypto_kdf.cpp` (9 Checks): Header trägt 600.000; echtes Altformat mit 100.000
+  lädt weiterhin; Iterationen > 10 Mio. → `CryptoError`; falsches Passwort → `CryptoError`
+
 ### Fixed (M1: NaN-Ordnung, v0.43)
 - **Befund M1 (Major):** NaN verletzte die strikte schwache Ordnung der Indizes – `compare()`
   lieferte für NaN gegen jede Zahl 0 (weder `<` noch `>`), NaN war damit zu jeder Zahl äquivalent,

@@ -156,10 +156,19 @@ struct Metrics {
     std::atomic<std::uint64_t> evalErrors{0};   ///< v0.35: abgefangene Eval-Fehler im Query-Scan (Dokument = Nicht-Treffer)
     std::atomic<std::uint64_t> eventErrors{0};  ///< v0.35: abgefangene Observer-Exceptions (Schreib-OP lief weiter)
     std::atomic<std::uint64_t> limitViolations{0}; ///< v0.39: wegen Collection-Limits abgelehnte Schreibzugriffe
-    double lastQueryMs = 0.0;
-    double totalQueryMs = 0.0;
-    bool lastUsedIndex = false;
+    // v0.44 (M2): auch die "last*"-Werte atomar – candidates() schreibt sie unter
+    // shared_lock, parallele Leser duerfen nicht racen (TSan-Report im Stresstest).
+    std::atomic<double> lastQueryMs{0.0};
+    std::atomic<double> totalQueryMs{0.0};
+    std::atomic<bool> lastUsedIndex{false};
 };
+
+/// v0.44 (M2): atomares += fuer std::atomic<double> (C++17 hat kein fetch_add fuer double).
+inline void atomicAdd(std::atomic<double>& a, double v) {
+    double cur = a.load(std::memory_order_relaxed);
+    while (!a.compare_exchange_weak(cur, cur + v, std::memory_order_relaxed)) {
+    }
+}
 
 struct CollectionState {
     std::string name;
@@ -167,7 +176,7 @@ struct CollectionState {
     std::uint64_t nextId = 1;
     std::map<std::string, std::unique_ptr<FieldIndex>> indexes;
     mutable std::shared_mutex mtx;
-    mutable std::size_t lastCandidateCount = 0;
+    mutable std::atomic<std::size_t> lastCandidateCount{0}; // v0.44 (M2): atomic, siehe Metrics
     mutable Metrics metrics;
     std::vector<ChangeEvent>* sink = nullptr;
     std::vector<std::pair<std::uint64_t, ChangeCallback>> observers;
@@ -191,8 +200,8 @@ struct CollectionState {
         const bool o = oldDoc && hasExpiryField(*oldDoc);
         const bool n = newDoc && hasExpiryField(*newDoc);
         if (o || n) {
-            if (undo)
-                undo->touchedExpiry = true;
+            if (auto* u = undo.load())
+                u->touchedExpiry = true;
             if (n && !o)
                 ++expiryCount;
             else if (o && !n)
@@ -273,23 +282,23 @@ struct CollectionState {
         std::unordered_map<DocumentId, Document> clearedDocs;         // nur bei Clear/Load waehrend Tx
         bool touchedExpiry = false;                          // FA-25: Rollback muss expiryCount neu zaehlen
     };
-    TxUndo* undo = nullptr;
+    std::atomic<TxUndo*> undo{nullptr}; // v0.44 (M2): atomic – wird unter shared_lock gelesen (Sweep) und unter unique_lock geschrieben (Tx)
 
     void noteUndo(DocumentId id) {
-        if (undo && undo->docs.count(id) == 0) {
+        if (auto* u = undo.load(); u && u->docs.count(id) == 0) {
             auto it = docs.find(id);
-            undo->docs[id] = it != docs.end() ? std::optional<Document>(it->second) : std::nullopt;
+            u->docs[id] = it != docs.end() ? std::optional<Document>(it->second) : std::nullopt;
         }
     }
     void noteUndoClear() {
-        if (undo && !undo->cleared) {
-            undo->cleared = true;
+        if (auto* u = undo.load(); u && !u->cleared) {
+            u->cleared = true;
             // Bereits per noteUndo erfasste IDs ueberlagern wir beim Restore separat
             for (const auto& [id, doc] : docs) {
                 if (hasExpiryField(doc))
-                    undo->touchedExpiry = true;
-                if (undo->docs.count(id) == 0)
-                    undo->clearedDocs.emplace(id, doc);
+                    u->touchedExpiry = true;
+                if (u->docs.count(id) == 0)
+                    u->clearedDocs.emplace(id, doc);
             }
         }
     }
@@ -570,7 +579,7 @@ struct CollectionState {
                 ++metrics.indexQueries;
             metrics.lastUsedIndex = idx != nullptr;
             metrics.lastQueryMs = ms;
-            metrics.totalQueryMs += ms;
+            atomicAdd(metrics.totalQueryMs, ms);
             lastCandidateCount = ids.size();
         }
         return ids;
@@ -986,7 +995,7 @@ struct CollectionState {
                 ++metrics.indexQueries;
                 metrics.lastUsedIndex = true;
                 metrics.lastQueryMs = ms;
-                metrics.totalQueryMs += ms;
+                atomicAdd(metrics.totalQueryMs, ms);
                 lastCandidateCount = n;
                 return std::vector<Value>(uniq.begin(), uniq.end());
             }
@@ -1032,7 +1041,7 @@ struct CollectionState {
         metrics.scannedDocs += all.size();
         metrics.lastUsedIndex = false;
         metrics.lastQueryMs = ms;
-        metrics.totalQueryMs += ms;
+        atomicAdd(metrics.totalQueryMs, ms);
         lastCandidateCount = res.size();
         return res;
     }
@@ -1046,7 +1055,7 @@ struct CollectionState {
             idx->entries.clear();
         if (overflowEnabled) {
             spillIndex.clear();
-            if (undo == nullptr) {
+            if (undo.load() == nullptr) {
                 // waehrend Tx Datei/Bytes stehenlassen: Rollback braucht die Records
                 if (spillFile.is_open())
                     spillFile.close();
@@ -1091,7 +1100,7 @@ struct CollectionState {
             idx->entries.clear();
         if (overflowEnabled) {
             spillIndex.clear();
-            if (undo == nullptr) {
+            if (undo.load() == nullptr) {
                 // waehrend Tx Datei/Bytes stehenlassen: Rollback braucht die Records
                 if (spillFile.is_open())
                     spillFile.close();

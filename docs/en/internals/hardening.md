@@ -14,7 +14,7 @@
 | DSL parser (`src/query_dsl.cpp`, v0.38) | nesting ≤ 256 (`(` and `!`) | `QueryError` with position (before: segfault at ~50000 parens) |
 | BSON import (`src/import_bson.cpp`, v0.38) | nesting ≤ 1000; all lengths checked against end of file (`need()`) | `Error "BSON: nesting too deep"` (before: segfault at ~20000) |
 | Spill read (hybrid, v0.18) | record length ≤ 64 MiB, ID must match, JSON must be a document | `std::nullopt` (doc treated as missing) |
-| Encrypted snapshots (FA-19) | magic + PBKDF2 iterations ≤ 10M from file; HMAC via `constantTimeEqual` (no timing leak) | `CryptoError` |
+| Encrypted snapshots (FA-19) | magic + PBKDF2 iterations ≤ 10M from file (default 600,000 from v0.44/M4, OWASP; versioned in the file header → backward compatible); HMAC via `constantTimeEqual` (no timing leak) | `CryptoError` |
 | JSON numbers | > 63 chars → error; hex-float fallback only with `0x`; locale-independent (`std::from_chars`) | `JsonError` |
 | DSL numbers (v0.38) | strict `from_chars` check; int64 overflow → double | `QueryError` (before: `"1.2.3"`/`"1e"` silently 0) |
 
@@ -31,7 +31,8 @@ Singleton, thread-safe; register your own handlers via `subscribe()`. The catch 
 ## 4. How do we test that?
 - **Attack probes** (reproduced before every fix): deep nesting, nested `{n,m}`, alternation chains, cyclic Values, broken `$binary` markers, random strings
 - **Fuzz-lite** in the test suites (deterministic seed): `test_regex.cpp` (2000 patterns), `test_json_hardening.cpp` (4000 strings), `test_hardening.cpp` (3000 DSL strings) — never a crash, only typed exceptions
-- **ASan/UBSan** clean on the hardening test suites
+- **ASan/UBSan** clean on the hardening test suites – and from v0.44 (M2) anchored in CI: job **ASan/UBSan** runs the WHOLE test suite with `-fsanitize=address,undefined`
+- **TSan** (v0.44, M2): CI job **TSan** builds and runs `tests/test_concurrency.cpp` (parallel readers/writers/transactions/observers at collection level) with `-fsanitize=thread` – data-race freedom is thus reproducible in CI; the stress test uncovered two real races (non-atomic `last*` metric fields and the `undo` pointer, fixed in v0.44)
 - **Fault injection** (recommendation for persistence/WAL, see outlook): truncate/corrupt the file at every byte offset → recovery must fail cleanly
 
 ## 5. Tests

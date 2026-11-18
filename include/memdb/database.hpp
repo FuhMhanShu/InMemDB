@@ -125,7 +125,8 @@ public:
 
     /// @brief Speichert die gesamte Database binär VERSCHLÜSSELT (FA-19).
     ///
-    /// Passwortbasiert (PBKDF2-HMAC-SHA256, 100.000 Iterationen, zufälliges Salt),
+    /// Passwortbasiert (PBKDF2-HMAC-SHA256, 600.000 Iterationen – OWASP-Empfehlung ab v0.44;
+/// alte Dateien mit 100.000 Iterationen laden weiterhin, der Wert steht im Dateiheader), zufälliges Salt),
     /// Verschlüsselung ChaCha20 (RFC 8439), Integrität/Authentizität per
     /// HMAC-SHA256 (encrypt-then-MAC). Ohne externe Abhängigkeiten.
     /// @throws CryptoError bei leerem Passwort; Error bei IO-Fehlern.

@@ -84,8 +84,12 @@ operation – no duplicated logic.
 read accesses (`find`, `findById`, `count`, `size`) run with `shared_lock`, write accesses
 (`insert`, `update`, `remove`, `replace`) with `unique_lock`. `Cursor` is a snapshot copy
 (consistent view at query time). Transactions hold an exclusive lock for their duration
-(full isolation, read-your-own-writes). The registries (`ImportRegistry`,
-`QueryFunctionRegistry`) are thread-safe via a mutex.
+(full isolation, read-your-own-writes) – from `beginTransaction()` to
+`commit()`/`rollback()` ALL accesses including readers block; there is no MVCC
+(finding M3, tradeoff documented in `docs/en/guides/transactions.md`). Concurrency
+is stress-tested: `tests/test_concurrency.cpp` (parallel readers/writers/tx/observer)
+runs in the CI jobs **TSan** (data-race freedom) and **ASan/UBSan** (whole suite, v0.44).
+The registries (`ImportRegistry`, `QueryFunctionRegistry`) are thread-safe via a mutex.
 
 ### Dependencies
 No mandatory dependencies; only the C++17 standard library. CMake ≥ 3.20.

@@ -26,7 +26,7 @@ struct Transaction::Impl {
     bool active = true;
 
     explicit Impl(std::shared_ptr<detail::CollectionState> s) : state(std::move(s)), lock(state->mtx) {
-        state->undo = &undo;
+        state->undo.store(&undo); // v0.44 (M2): atomic
         ++state->txLocks; // waehrend der Transaktion kein Evict ins Spill
         backupNextId = state->nextId;
         backupSpillIndex = state->spillIndex;
@@ -39,8 +39,8 @@ struct Transaction::Impl {
 
     // Undo-Hook abmelden + Evict wieder erlauben (idempotent)
     void releaseState() {
-        if (state && state->undo == &undo) {
-            state->undo = nullptr;
+        if (state && state->undo.load() == &undo) {
+            state->undo.store(nullptr); // v0.44 (M2): atomic
             --state->txLocks;
             state->maybeEvict(); // nach Tx-Ende evtl. ueberfuellig geworden
         }

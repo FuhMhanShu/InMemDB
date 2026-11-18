@@ -8,7 +8,24 @@
 #include <stdexcept>
 #include <string>
 
+// Sanitizer-Builds (ASan/UBSan/TSan, CI-Jobs) sind deutlich langsamer als Release.
+// Die Zeitbudgets unten dienen nur als Hang-Schutz (das Match-/NFA-Budget bricht
+// ohnehin ab) – unter Sanitizern skalieren wir sie daher hoch, damit der Check
+// nicht gegen die Instrumentierung selbst fehlschlaegt.
+#if defined(__SANITIZE_ADDRESS__) || defined(__SANITIZE_THREAD__) || defined(__SANITIZE_UNDEFINED__)
+#define INMEMDB_TEST_SANITIZER 1
+#elif defined(__has_feature)
+#if __has_feature(address_sanitizer) || __has_feature(thread_sanitizer) || __has_feature(undefined_behavior_sanitizer)
+#define INMEMDB_TEST_SANITIZER 1
+#endif
+#endif
+#ifndef INMEMDB_TEST_SANITIZER
+#define INMEMDB_TEST_SANITIZER 0
+#endif
+
 namespace {
+
+constexpr double kTimeScale = INMEMDB_TEST_SANITIZER ? 20.0 : 1.0; // Hang-Schutz bleibt wirksam
 
 int g_failures = 0;
 int g_checks = 0;
@@ -191,7 +208,7 @@ int main() {
         auto t0 = std::chrono::steady_clock::now();
         CHECK_NOMATCH("(a+)+b$", longA); // NFA: O(n*m), schnell
         auto t1 = std::chrono::steady_clock::now();
-        CHECK(std::chrono::duration<double>(t1 - t0).count() < 2.0);
+        CHECK(std::chrono::duration<double>(t1 - t0).count() < 2.0 * kTimeScale);
     }
 
     // --- v0.34: Haertung gegen pathologische Patterns (frueher: Segfault/Hang) ---
@@ -216,7 +233,7 @@ int main() {
             auto t0 = std::chrono::steady_clock::now();
             CHECK_INVALID("((a{100}){100}){100}");
             auto t1 = std::chrono::steady_clock::now();
-            CHECK(std::chrono::duration<double>(t1 - t0).count() < 1.0); // Abbruch statt Hang
+            CHECK(std::chrono::duration<double>(t1 - t0).count() < 1.0 * kTimeScale); // Abbruch statt Hang
         }
         // 5) Regex-Handle: einmal kompilieren, viele match()-Aufrufe, deterministisch, thread-sicher
         {
@@ -248,7 +265,7 @@ int main() {
             }
             auto t1 = std::chrono::steady_clock::now();
             CHECK(caught);
-            CHECK(std::chrono::duration<double>(t1 - t0).count() < 5.0);
+            CHECK(std::chrono::duration<double>(t1 - t0).count() < 5.0 * kTimeScale);
         }
         // 7) Fuzz-lite (deterministischer Seed): Zufallspattern duerfen nie crashen/hangen,
         //    nur invalid_argument werfen, und deterministisch sein
