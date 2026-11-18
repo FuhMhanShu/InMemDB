@@ -44,6 +44,9 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   `unique_lock` geschrieben → jetzt `std::atomic<TxUndo*>`
 - CI verankert (M2): neue Jobs **TSan** (`-fsanitize=thread`, führt den Stresstest – data-race-frei)
   und **ASan/UBSan** (gesamte Testsuite mit `-fsanitize=address,undefined`)
+- `tests/test_regex.cpp`: Zeitbudgets der Perf-/Hang-Schutz-Checks unter Sanitizer-Builds
+  skaliert (`kTimeScale` = 20, Erkennung via `__SANITIZE_*`/`__has_feature`) – im
+  ASan/UBSan-CI-Job (Debug + Sanitizer) dauern die pathologischen Matches sonst > 5 s
 
 ### Changed (M3: Doku-Präzisierung Transaktionssperre, v0.44)
 - Tradeoff präzise dokumentiert (kein MVCC): `Transaction::Impl` hält den `unique_lock` von
