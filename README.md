@@ -67,6 +67,36 @@ db.saveToFileEncrypted("shop.enc", "secret");                    // encrypted sn
 - Thread safety via `shared_mutex` (parallel reads, serialized writes); numbers are locale-independent (always a decimal point, even with `de_DE`, bugfix v0.23.1)
 - **Qt/qmake integration** via `InMemDB.pro`/`InMemDB.pri` plus a ready-made `QAbstractTableModel` adapter (`memdb::qt::MemDbTableModel`, QtCore only, no hard Qt dependency, FA-23, v0.23)
 
+## Comparison with SQLite, DuckDB and UnQLite
+
+InMemDB is not a replacement for the established embedded databases; it targets a different
+niche: a **schema-less document working set in RAM**, native to C++17, with built-in data
+analysis. The following table highlights the differences (based on the public
+documentation of the named projects, November 2026):
+
+| | **InMemDB** | **SQLite** | **DuckDB** | **UnQLite** |
+|---|---|---|---|---|
+| Positioning | Embedded working database for C++ applications: data lives in RAM as native objects | Embedded OLTP database, the standard for relational data on the device | Embedded OLAP engine for analytical SQL over local data | Embedded NoSQL engine for C (key/value and documents) |
+| Architecture & storage | Entirely in RAM; optional spill of the oldest documents to a file (hybrid, v0.18) | B-tree file on disk, optional `:memory:` mode | Columnar file, vectorized execution, processes data larger than RAM | Single file or in-memory key/value plus document store |
+| Data model | Schema-less JSON-like documents, nested fields, arrays, type drift allowed | Relational tables with a fixed schema and strong SQL typing | Relational (columnar) tables with a fixed schema | Key/value plus JSON documents (accessed via the Jx9 scripting language) |
+| Query language | Type-safe C++ expression tree or string DSL, no SQL required | SQL, very complete (window functions, CTEs, …) | SQL, geared toward analytics (window functions, …) | Jx9 scripts, no SQL |
+| Indexes | Secondary and unique indexes per field (equality and range) | B-tree indexes, partial and expression indexes | Automatic (zonemaps/ART), few manual index choices | No secondary indexes; cursors for linear traversal |
+| Transactions | Atomic per collection, commit/rollback, rollback via copy-on-write (fast with millions of documents) | Full ACID, multi-statement, WAL | ACID, geared toward analytical loads (single writer) | ACID (key/value and documents) |
+| Relationships & joins | References between collections, traversal with cycle detection, `@relation` joins, automatic FK discovery (FA-27) | FK constraints and SQL JOINs | SQL JOINs, including external files (CSV, Parquet, …) | None |
+| Persistence | JSON snapshots, encrypted snapshots (PBKDF2 + ChaCha20 + HMAC-SHA256), optional spill | One DB file, extremely battle-tested format (stability guaranteed until 2050) | Single file (stable since 1.0, 2024) | Single file |
+| Data analysis & discovery | Built in: FK/FD discovery, correlations, outliers, health score, numeric/mixed/complex analysis pipelines (FA-27…FA-34) | None (external tools) | None built in; analysis via hand-written SQL | None |
+| Concurrency | `shared_mutex`: parallel reads, serialized writes | Threading modes (serialized), one writer per file | Single process, parallel queries, one writer | Thread modes, one writer |
+| API & language | Native, object-oriented C++17 (Pimpl, no external dependencies) | C API (C++ only via wrappers) | C++/C API | C API |
+| License | MIT | Public Domain | MIT | Symisc Public License (BSD-style) |
+| Typical strength | A structured, fast-to-query working set in RAM plus bundled profiling/analysis features, no infrastructure | Reliable relational OLTP storage for any application and language | Fast aggregations and reports over medium to large local data sets | Very lightweight embedded persistence for C programs (KV or Jx9) |
+
+In short: for durable relational data on disk, **SQLite** remains the choice; for analytical
+SQL aggregation over large data sets, pick **DuckDB**; for minimal NoSQL persistence in C,
+use **UnQLite**. **InMemDB** fills the gap in between: the RAM data set of a C++
+application itself, with queries, indexes, transactions and an analysis pipeline that
+profiles the data set without SQL. An existing SQLite database can be imported via
+`INMEMDB_WITH_SQLITE=ON` ([import guide](docs/en/guides/import.md)).
+
 ## Documentation
 
 The full documentation lives in **[docs/](docs/README.md)** (language picker):
