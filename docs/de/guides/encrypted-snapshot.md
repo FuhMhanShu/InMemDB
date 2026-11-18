@@ -21,13 +21,13 @@ ungültigem entschlüsseltem Inhalt.
 ```
 offset 0   : Magic 8 Bytes  "INMEMDB\x01"
 offset 8   : Salt 16 Bytes (zufällig pro Datei)
-offset 24  : PBKDF2-Iterationen uint32 LE (100.000)
+offset 24  : PBKDF2-Iterationen uint32 LE (600.000 ab v0.44; v≤0.43: 100.000 – der Wert steht versioniert im Header, alte Dateien laden weiterhin)
 offset 28  : ChaCha20-Nonce 12 Bytes (zufällig pro Datei)
 offset 40  : Ciphertext (ChaCha20, Länge = JSON-Länge)
 letzte 32  : Tag = HMAC-SHA256(macKey, alle vorherigen Bytes)
 ```
 
-- **Schlüsselableitung:** PBKDF2-HMAC-SHA256(passwort, salt, 100.000) → 64 Bytes:
+- **Schlüsselableitung:** PBKDF2-HMAC-SHA256(passwort, salt, **600.000** – OWASP-Empfehlung ab v0.44, Befund M4; vorher 100.000) → 64 Bytes:
   32 Bytes Verschlüsselungsschlüssel (ChaCha20), 32 Bytes MAC-Schlüssel.
 - **Verschlüsselung:** ChaCha20 (RFC 8439), Counter startet bei 1.
 - **Integrität:** encrypt-then-MAC; Tag-Vergleich in konstanter Zeit.

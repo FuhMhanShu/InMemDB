@@ -405,7 +405,10 @@ constexpr std::size_t kSaltLen = 16;
 constexpr std::size_t kNonceLen = 12;
 constexpr std::size_t kTagLen = 32;
 constexpr std::size_t kHeaderLen = kMagicLen + kSaltLen + 4 + kNonceLen;
-constexpr std::uint32_t kPbkdf2Iterations = 100000;
+// v0.44 (M4): 600.000 statt 100.000 – aktuelle OWASP-Empfehlung fuer PBKDF2-HMAC-SHA256.
+// Abwaertskompatibel: die Iterationszahl steht versioniert im Dateiheader (offset 24),
+// der Leser nutzt den Wert aus der Datei (Cap 10 Mio. bleibt) – alte Dateien laden weiter.
+constexpr std::uint32_t kPbkdf2Iterations = 600000;
 const char kMagic[kMagicLen] = {'I', 'N', 'M', 'E', 'M', 'D', 'B', 0x01};
 
 void putU32Le(std::vector<std::uint8_t>& out, std::uint32_t v) {

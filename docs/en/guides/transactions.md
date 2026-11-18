@@ -26,8 +26,13 @@ Inside the transaction all read/write operations are available
 
 ## Semantics
 - **Isolation:** `beginTransaction()` holds a `unique_lock` on the collection's
-  `shared_mutex` – meanwhile all other accesses (reads and writes) block. The
-  transaction is thus fully serialized (snapshot isolation, FA-16).
+  `shared_mutex` – meanwhile all other accesses (reads AND writes) block. The
+  transaction is thus fully serialized – stronger than snapshot isolation, but
+  without MVCC: **readers block for the whole transaction duration** (finding
+  M3, clarified in v0.44: `Transaction::Impl` holds the `unique_lock` from
+  `beginTransaction()` until `commit()`/`rollback()`, `src/transaction.cpp`).
+  Tradeoff: simple, correct isolation at collection level at the price of
+  blocking readers during long transactions.
 - **Atomicity/rollback (copy-on-write, v0.19):** On begin only an undo log is
   activated (`CollectionState::undo`); every write operation logs the old state of
   each document before its first change (`noteUndo`). `rollback()` – or the

@@ -101,3 +101,35 @@ jobs:
 
       - name: Build API-Doku
         run: cmake --build build --target docs
+
+  tsan:
+    name: TSan (ThreadSanitizer – Nebenlaeufigkeits-Stresstest, M2)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure CMake (TSan)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS="-fsanitize=thread -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=thread"
+
+      - name: Build (nur Stresstest + Lib)
+        run: cmake --build build -j --target memdb_tests_concurrency
+
+      - name: Run unter TSan (Data-Race-frei erwartet)
+        run: ./build/memdb_tests_concurrency
+
+  asan-ubsan:
+    name: ASan/UBSan (gesamte Testsuite, M2)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure CMake (ASan+UBSan)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test (volle Suite unter ASan/UBSan)
+        run: ctest --test-dir build --output-on-failure

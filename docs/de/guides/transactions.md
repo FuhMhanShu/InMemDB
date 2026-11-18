@@ -27,8 +27,12 @@ Innerhalb der Transaktion sind alle Lese-/Schreiboperationen verfügbar
 ## Semantik
 - **Isolation:** `beginTransaction()` hält ein `unique_lock` auf der
   `shared_mutex` der Collection – währenddessen blockieren alle anderen
-  Zugriffe (lesen und schreiben). Damit ist die Transaktion vollständig
-  serialisiert (Snapshot-Isolation, FA-16).
+  Zugriffe (lesen UND schreiben). Damit ist die Transaktion vollständig
+  serialisiert – stärker als Snapshot-Isolation, aber ohne MVCC: **Leser
+  blockieren für die gesamte Transaktionsdauer** (Befund M3, v0.44 präzisiert:
+  `Transaction::Impl` hält den `unique_lock` von `beginTransaction()` bis
+  `commit()`/`rollback()`, `src/transaction.cpp`). Tradeoff: einfache, korrekte
+  Isolation auf Collection-Ebene zum Preis blockierender Leser bei langen Tx.
 - **Atomarität/Rollback (Copy-on-Write, v0.19):** Beim Begin wird nur ein
   Undo-Log aktiviert (`CollectionState::undo`); jede schreibende Operation
   protokolliert vor ihrer ersten Änderung pro Dokument dessen alten Zustand

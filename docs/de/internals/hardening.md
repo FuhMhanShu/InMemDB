@@ -14,7 +14,7 @@
 | DSL-Parser (`src/query_dsl.cpp`, v0.38) | Verschachtelung ≤ 256 (`(` und `!`) | `QueryError` mit Position (vorher Segfault ab ~50000 Klammern) |
 | BSON-Import (`src/import_bson.cpp`, v0.38) | Verschachtelung ≤ 1000; alle Längen gegen Dateiende geprüft (`need()`) | `Error „BSON: Verschachtelung zu tief“` (vorher Segfault ab ~20000) |
 | Spill-Read (Hybrid, v0.18) | Record-Länge ≤ 64 MiB, ID muss passen, JSON muss Dokument sein | `std::nullopt` (Doc wird als fehlend behandelt) |
-| Verschlüsselte Snapshots (FA-19) | Magic + PBKDF2-Iterationen ≤ 10 Mio. aus Datei; HMAC via `constantTimeEqual` (kein Timing-Leak) | `CryptoError` |
+| Verschlüsselte Snapshots (FA-19) | Magic + PBKDF2-Iterationen ≤ 10 Mio. aus Datei (Default 600.000 ab v0.44/M4, OWASP; steht versioniert im Header → abwärtskompatibel); HMAC via `constantTimeEqual` (kein Timing-Leak) | `CryptoError` |
 | JSON-Zahlen | > 63 Zeichen → Fehler; Hex-Float-Fallback nur mit `0x`; locale-unabhängig (`std::from_chars`) | `JsonError` |
 | DSL-Zahlen (v0.38) | strikte `from_chars`-Prüfung; int64-Überlauf → double | `QueryError` (vorher: „1.2.3“/„1e“ stillschweigend 0) |
 
@@ -31,7 +31,8 @@ Singleton, thread-safe; eigene Handler via `subscribe()`. Die Abfang-Stellen mel
 ## 4. Wie testen wir das?
 - **Attack-Probes** (vor jedem Fix reproduziert): tiefe Verschachtelung, verschachtelte `{n,m}`, Alternationsketten, Zyklus-Values, kaputte `$binary`-Marker, Zufalls-Strings
 - **Fuzz-lite** in den Testsuiten (deterministischer Seed): `test_regex.cpp` (2000 Pattern), `test_json_hardening.cpp` (4000 Strings), `test_hardening.cpp` (3000 DSL-Strings) — nie Crash, nur typisierte Exceptions
-- **ASan/UBSan** auf den Härtungs-Testsuiten clean
+- **ASan/UBSan** auf den Härtungs-Testsuiten clean – und ab v0.44 (M2) in der CI verankert: Job **ASan/UBSan** führt die GESAMTE Testsuite mit `-fsanitize=address,undefined` aus
+- **TSan** (v0.44, M2): CI-Job **TSan** baut und führt `tests/test_concurrency.cpp` (parallele Reader/Writer/Transaktionen/Observer auf Collection-Ebene) mit `-fsanitize=thread` aus – Data-Race-freiheit ist damit reproduzierbar in der CI; der Stresstest deckte zwei echte Races auf (nicht-atomare `last*`-Metrikfelder und der `undo`-Pointer, gefixt in v0.44)
 - **Fault-Injection** (Empfehlung für Persistenz/WAL, s. Ausblick): Datei an jedem Byte-Offset truncaten/korruptieren → Recovery muss sauber fehlschlagen
 
 ## 5. Tests
