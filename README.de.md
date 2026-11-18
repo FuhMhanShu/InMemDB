@@ -67,6 +67,37 @@ db.saveToFileEncrypted("shop.enc", "geheim");                    // verschlüsse
 - Thread-Safety über `shared_mutex` (parallele Lesezugriffe, serialisierte Schreibzugriffe); Zahlen sind locale-unabhängig (immer Dezimalpunkt, auch bei `de_DE`, Bugfix v0.23.1)
 - **Qt/qmake-Einbindung** über `InMemDB.pro`/`InMemDB.pri` plus fertiger `QAbstractTableModel`-Adapter (`memdb::qt::MemDbTableModel`, nur QtCore, ohne harte Qt-Abhängigkeit, FA-23, v0.23)
 
+## Abgrenzung gegen SQLite, DuckDB und UnQLite
+
+InMemDB ist kein Ersatz für die etablierten eingebetteten Datenbanken, sondern deckt eine
+andere Nische ab: ein **schema-loser Dokumenten-Working-Set im RAM**, nativ in C++17,
+mit eingebauter Datenanalyse. Die folgende Tabelle stellt die Unterschiede heraus
+(Stand: öffentliche Dokumentation der Projekte, November 2026):
+
+| | **InMemDB** | **SQLite** | **DuckDB** | **UnQLite** |
+|---|---|---|---|---|
+| Positionierung | Eingebettete Arbeits-Datenbank für C++-Anwendungen: Daten leben als native Objekte im RAM | Eingebettete OLTP-Datenbank, Standard für relationale Daten auf dem Gerät | Eingebettete OLAP-Engine für analytisches SQL über lokale Daten | Eingebettete NoSQL-Engine für C (Key/Value und Dokumente) |
+| Architektur & Speicher | Komplett im RAM; optionaler Spill der ältesten Dokumente in eine Datei (Hybrid, v0.18) | B-Baum-Datei auf Datenträger, Modus `:memory:` optional | Spaltenorientierte Datei, vektorisierte Ausführung, verarbeitet Daten größer als der RAM | Eine Datei oder In-Memory, Key/Value- plus Dokumenten-Store |
+| Datenmodell | Schema-lose JSON-artige Dokumente, verschachtelte Felder, Arrays, Typ-Drift erlaubt | Relationale Tabellen mit festem Schema und starker SQL-Typisierung | Relationale (spaltenorientierte) Tabellen mit festem Schema | Key/Value plus JSON-Dokumente (Zugriff über die Jx9-Skriptsprache) |
+| Abfragesprache | Typsicherer C++-Ausdrucksbaum oder String-DSL, kein SQL nötig | SQL, sehr vollständig (Window Functions, CTEs, …) | SQL, auf Analyse ausgelegt (Window Functions, …) | Jx9-Skripte, kein SQL |
+| Indizes | Sekundär- und Unique-Indizes pro Feld (Gleichheit und Bereich) | B-Baum-Indizes, Partial- und Ausdrucks-Indizes | Automatisch (Zonemaps/ART), kaum manuelle Indexwahl | Keine Sekundärindizes; Cursoren für lineare Durchläufe |
+| Transaktionen | Pro Collection atomar, Commit/Rollback, Rollback per Copy-on-Write (schnell bei Millionen Dokumenten) | Voll-ACID, mehrere Anweisungen, WAL | ACID, auf analytische Last ausgelegt (ein Schreiber) | ACID (Key/Value und Dokumente) |
+| Beziehungen & Joins | Referenzen zwischen Collections, Traversierung mit Zykluserkennung, `@relation`-Joins, automatische FK-Entdeckung (FA-27) | FK-Constraints und SQL-JOINs | SQL-JOINs, auch über externe Dateien (CSV, Parquet, …) | Keine |
+| Persistenz | JSON-Snapshots, verschlüsselte Snapshots (PBKDF2 + ChaCha20 + HMAC-SHA256), optionaler Spill | Eine DB-Datei, extrem erprobtes Format (Stabilität bis 2050 garantiert) | Eine Datei (stabil seit 1.0, 2024) | Eine Datei |
+| Datenanalyse & Discovery | Eingebaut: FK-/FD-Entdeckung, Korrelationen, Ausreißer, Health-Score, numerische/gemischte/komplexe Analyse-Pipelines (FA-27…FA-34) | Keine (externe Werkzeuge) | Keine eingebaut; Analyse per handgeschriebenem SQL | Keine |
+| Nebenläufigkeit | `shared_mutex`: parallele Lesezugriffe, serialisierte Schreibzugriffe | Threading-Modi (serialized), ein Schreiber pro Datei | Ein-Prozess, parallele Queries, ein Schreiber | Thread-Modi, ein Schreiber |
+| API & Sprache | Natives, objektorientiertes C++17 (Pimpl, ohne externe Abhängigkeiten) | C-API (C++ nur über Wrapper) | C++/C-API | C-API |
+| Lizenz | MIT | Public Domain | MIT | Symisc Public License (BSD-artig) |
+| Typische Stärke | Strukturierter, schnell abfragbarer Working-Set im RAM plus mitgelieferte Profiling-/Analyse-Funktionen, ohne Infrastruktur | Zuverlässiger relationaler OLTP-Speicher für beliebige Anwendungen und Sprachen | Schnelle Aggregationen und Berichte über mittlere bis große lokale Datenmengen | Sehr leichtgewichtige eingebettete Persistenz für C-Programme (KV oder Jx9) |
+
+Kurz: Wer relationale Daten dauerhaft auf Datenträger ablegt, bleibt bei **SQLite**; wer
+analytische SQL-Aggregationen über große Datenmengen fährt, wählt **DuckDB**; wer eine
+minimale NoSQL-Persistenz für C sucht, nimmt **UnQLite**. **InMemDB** füllt die Lücke
+dazwischen: der RAM-Datensatz einer C++-Anwendung selbst, mit Abfragen, Indizes,
+Transaktionen und einer Analyse-Pipeline, die den Bestand ohne SQL profiliert.
+Ein bestehender SQLite-Bestand lässt sich über den Import übernehmen
+(`INMEMDB_WITH_SQLITE=ON`, [Import-Guide](docs/de/guides/import.md)).
+
 ## Dokumentation
 
 Der komplette Einstieg und alle Guides liegen in **[docs/](docs/de/README.md)**:

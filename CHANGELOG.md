@@ -7,6 +7,9 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
 ## [Unreleased]
 
 ### Added
+- **Doku:** Vergleichstabelle gegenüber SQLite, DuckDB und UnQLite in `README.md`
+  und `README.de.md` (Positionierung, Architektur, Datenmodell, Abfragen, Indizes,
+  Transaktionen, Persistenz, Analyse, Lizenz, typische Stärken)
 - **Komplexe Metadaten-Analyse (FA-34):** `analyzeComplexFields`/`analyzeComplex` (Collection,
   mehrere Collections, `Database&`) profiliert verschachtelte Strukturen rekursiv als
   Pfad-Profil in Punktnotation (`adresse.plz`, `tags[]`, `items[].preis`) – je Pfad
