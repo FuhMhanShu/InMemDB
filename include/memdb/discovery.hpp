@@ -269,4 +269,36 @@ std::string toJson(const std::vector<DiscoveredRelation>& rels);
 /// @brief Report als Mermaid-Graph (v0.29): Collections als Knoten, Relationen als Kanten.
 std::string toMermaid(const std::vector<DiscoveredRelation>& rels);
 
+/// @brief Sprache für Klartext-Beschreibungen (v0.45).
+enum class NarrativeLanguage {
+    German,  ///< Deutsch
+    English  ///< English
+};
+
+/// @brief Optionen für Klartext-Beschreibungen (v0.45).
+struct NarrativeOptions {
+    NarrativeLanguage language = NarrativeLanguage::German; ///< Ausgabesprache
+    double minConfidence = 0.0;      ///< nur Befunde ab dieser Confidence beschreiben
+    std::size_t maxRelations = 25;   ///< Deckel gegen Textwüste (0 = alle)
+};
+
+/// @brief Verständliche Klartext-Beschreibung der entdeckten Zusammenhänge zwischen
+/// Collections (v0.45): pro Befund ein Satz in Alltagssprache, de/en – für Menschen, die
+/// die Analyseergebnisse schnell überblicken wollen, z. B.
+/// „`orders.customer_id` verweist in 98 % der 1234 untersuchten Werte auf `users.id`
+/// (Kardinalität n:1, Konfidenz sehr hoch) – ohne deklarierte Relation“.
+/// Befunde werden nach Konfidenz absteigend sortiert; `minConfidence` filtert,
+/// `maxRelations` deckelt die Anzahl der Sätze.
+std::string describeRelations(const std::vector<DiscoveredRelation>& rels,
+                              const NarrativeOptions& opts = {});
+/// @brief Klartext-Beschreibung eines Analyse-Reports (v0.45): Übersicht (Collections,
+/// Dokumente, Health-Score, ggf. Confusion-F1) + Sätze zu den Zusammenhängen
+/// (`describeRelations`) + wichtigste Multi-Hop-Ketten.
+std::string toNarrative(const AnalysisReport& r, const NarrativeOptions& opts = {});
+/// @brief Discovery + Klartext in einem Schritt (v0.45): analysiert `db` (inkl.
+/// Confusion-Matrix, falls `__references` existiert) und liefert die menschenlesbare
+/// Beschreibung der Collection-Zusammenhänge.
+std::string describeDatabase(Database& db, const DiscoveryOptions& disc = {},
+                             const NarrativeOptions& narr = {});
+
 } // namespace memdb

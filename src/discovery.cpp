@@ -1427,4 +1427,151 @@ std::string toMermaid(const std::vector<DiscoveredRelation>& rels) {
     return out;
 }
 
+// ---------------------------------------------------------------------------
+// v0.45: Klartext-Beschreibungen (Narrative) – menschenlesbare Sätze zu den
+// entdeckten Zusammenhängen, de/en. Reine Text-Ausgabe, keine neuen Befunde.
+// ---------------------------------------------------------------------------
+namespace {
+
+std::string confWord(NarrativeLanguage lang, double c) {
+    if (lang == NarrativeLanguage::German) {
+        if (c >= 0.9) return "sehr hoch";
+        if (c >= 0.7) return "hoch";
+        if (c >= 0.5) return "mittel";
+        return "niedrig";
+    }
+    if (c >= 0.9) return "very high";
+    if (c >= 0.7) return "high";
+    if (c >= 0.5) return "medium";
+    return "low";
+}
+
+std::string pct(double x) { // Anteil 0..1 -> "98 %" (en: "98 %")
+    return std::to_string(static_cast<long long>(std::lround(x * 100.0))) + " %";
+}
+
+std::string relationSentence(const DiscoveredRelation& r, NarrativeLanguage lang) {
+    const bool de = lang == NarrativeLanguage::German;
+    const std::string from = r.fromCollection + "." + r.field;
+    const std::string to = r.toCollection + "." + r.toField;
+    const std::string n = std::to_string(r.sampleSize);
+    std::string s;
+    switch (r.kind) {
+        case RelationKind::ForeignKey:
+            if (de)
+                s = "Zusammenhang ohne deklarierte Relation: `" + from + "` verweist in " + pct(r.support) +
+                    " der " + n + " untersuchten Werte auf `" + to + "`";
+            else
+                s = "Relationship without a declared relation: `" + from + "` points to `" + to + "` in " +
+                    pct(r.support) + " of " + n + " examined values";
+            if (!r.cardinality.empty())
+                s += de ? " (Kardinalität " + r.cardinality + ")" : " (cardinality " + r.cardinality + ")";
+            s += de ? ", Konfidenz " : ", confidence ";
+            s += confWord(lang, r.confidence) + ".";
+            break;
+        case RelationKind::FunctionalDependency:
+            if (de)
+                s = "Innerhalb von `" + r.fromCollection + "` bestimmt `" + r.field + "` eindeutig `" +
+                    r.toField + "` (in " + pct(r.support) + " der " + n + " Fälle genau ein Zielwert, Konfidenz " +
+                    confWord(lang, r.confidence) + ").";
+            else
+                s = "Within `" + r.fromCollection + "`, `" + r.field + "` uniquely determines `" + r.toField +
+                    "` (in " + pct(r.support) + " of " + n + " cases exactly one target value, confidence " +
+                    confWord(lang, r.confidence) + ").";
+            break;
+        case RelationKind::Correlation:
+            if (de)
+                s = "In `" + r.fromCollection + "` hängen `" + r.field + "` und `" + r.toField +
+                    "` zusammen (Korrelation r = " + num(r.confidence) + ", " + n + " Werte).";
+            else
+                s = "In `" + r.fromCollection + "`, `" + r.field + "` and `" + r.toField +
+                    "` are associated (correlation r = " + num(r.confidence) + ", " + n + " values).";
+            break;
+        case RelationKind::NearDuplicate:
+            if (de)
+                s = "`" + from + "` und `" + to + "` enthalten auffällig ähnliche Werte (Ähnlichkeit " +
+                    num(r.confidence) + ") – mögliche Dubletten über Collections hinweg.";
+            else
+                s = "`" + from + "` and `" + to + "` contain conspicuously similar values (similarity " +
+                    num(r.confidence) + ") – possible duplicates across collections.";
+            break;
+    }
+    if (!r.note.empty())
+        s += de ? " Hinweis: " + r.note + "." : " Note: " + r.note + ".";
+    return s;
+}
+
+} // namespace
+
+std::string describeRelations(const std::vector<DiscoveredRelation>& rels, const NarrativeOptions& opts) {
+    const bool de = opts.language == NarrativeLanguage::German;
+    std::vector<const DiscoveredRelation*> sel;
+    for (const auto& r : rels)
+        if (r.confidence >= opts.minConfidence)
+            sel.push_back(&r);
+    // nach Konfidenz absteigend – die stärksten Zusammenhänge zuerst (stabil = deterministisch)
+    std::stable_sort(sel.begin(), sel.end(),
+                     [](const DiscoveredRelation* a, const DiscoveredRelation* b) {
+                         return a->confidence > b->confidence;
+                     });
+    if (sel.empty())
+        return de ? "Keine Zusammenhänge zwischen den Collections gefunden (bei den gewählten Schwellen).\n"
+                  : "No relationships between collections found (at the chosen thresholds).\n";
+    std::size_t shown = sel.size();
+    if (opts.maxRelations > 0 && sel.size() > opts.maxRelations)
+        shown = opts.maxRelations;
+    std::string out;
+    for (std::size_t i = 0; i < shown; ++i)
+        out += "- " + relationSentence(*sel[i], opts.language) + "\n";
+    if (shown < sel.size())
+        out += de ? "- … und " + std::to_string(sel.size() - shown) +
+                       " weitere Zusammenhänge (Deckel maxRelations=" + std::to_string(opts.maxRelations) + ").\n"
+                 : "- … and " + std::to_string(sel.size() - shown) +
+                       " more relationships (capped at maxRelations=" + std::to_string(opts.maxRelations) + ").\n";
+    return out;
+}
+
+std::string toNarrative(const AnalysisReport& r, const NarrativeOptions& opts) {
+    const bool de = opts.language == NarrativeLanguage::German;
+    std::string out;
+    if (de)
+        out = "Übersicht: " + std::to_string(r.totalCollections) + " Collections, " +
+              std::to_string(r.totalDocs) + " Dokumente, Health-Score " + num(r.healthScore) + "/100.\n";
+    else
+        out = "Overview: " + std::to_string(r.totalCollections) + " collections, " + std::to_string(r.totalDocs) +
+              " documents, health score " + num(r.healthScore) + "/100.\n";
+    if (r.confusion) { // v0.42: Confusion-Matrix kurz in Worten
+        const ConfusionMatrix& cm = *r.confusion;
+        if (de)
+            out += "Entdeckte FKs vs. deklarierte Referenzen: TP=" + std::to_string(cm.tp) + " FP=" +
+                   std::to_string(cm.fp) + " FN=" + std::to_string(cm.fn) + " TN=" + std::to_string(cm.tn) +
+                   ", F1=" + num(cm.f1) + ".\n";
+        else
+            out += "Discovered FKs vs. declared references: TP=" + std::to_string(cm.tp) + " FP=" +
+                   std::to_string(cm.fp) + " FN=" + std::to_string(cm.fn) + " TN=" + std::to_string(cm.tn) +
+                   ", F1=" + num(cm.f1) + ".\n";
+    }
+    out += "\n";
+    out += describeRelations(r.relations, opts);
+    if (!r.paths.empty()) {
+        out += de ? "\nWichtigste Ketten (Multi-Hop):\n" : "\nMain chains (multi-hop):\n";
+        const std::size_t shown = std::min<std::size_t>(r.paths.size(), 5);
+        for (std::size_t i = 0; i < shown; ++i) {
+            out += "- ";
+            for (std::size_t j = 0; j < r.paths[i].size(); ++j) {
+                if (j)
+                    out += "  ";
+                out += r.paths[i][j].fromCollection + "." + r.paths[i][j].field + " → " +
+                       r.paths[i][j].toCollection + "." + r.paths[i][j].toField;
+            }
+            out += "\n";
+        }
+    }
+    return out;
+}
+
+std::string describeDatabase(Database& db, const DiscoveryOptions& disc, const NarrativeOptions& narr) {
+    return toNarrative(analyze(db, disc), narr);
+}
+
 } // namespace memdb
