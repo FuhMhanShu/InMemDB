@@ -373,6 +373,51 @@ memdb::ConfusionMatrix cm = memdb::evaluateConfusion(rels, db, opts);
 **CLI:** `--confusion` (genau eine Datei mit `__references`); `--report <prefix>` enthält die
 Matrix bei einer Datei automatisch.
 
+### 4.18 Klartext-Beschreibung der Zusammenhänge: `describeRelations` / `toNarrative` / `describeDatabase` (v0.45)
+
+**Was:** Die Analyse-Ergebnisse (Relationen, Konfidenzen, Kardinalitäten) sind als JSON/Tabelle
+für Menschen nicht schnell zu überblicken. v0.45 erzeugt daher einen **verständlichen
+Beschreibungstext** – pro entdecktem Zusammenhang ein Satz in Alltagssprache, **deutsch oder
+englisch** (`NarrativeLanguage::German` / `English`), ohne dass Relationen deklariert sein müssen:
+
+```cpp
+memdb::NarrativeOptions nopts;                 // Default: Deutsch
+nopts.language = memdb::NarrativeLanguage::English;
+nopts.minConfidence = 0.7;                     // nur Befunde ab dieser Konfidenz
+nopts.maxRelations = 25;                       // Deckel gegen Textwüste (0 = alle)
+
+std::string textDe = memdb::describeRelations(rels);                 // nur Relationen
+std::string textEn = memdb::describeRelations(rels, nopts);          // English
+std::string report  = memdb::toNarrative(analyze(db, opts), nopts);  // inkl. Übersicht + Ketten
+std::string quick   = memdb::describeDatabase(db, opts, nopts);       // Discovery + Klartext in einem Schritt
+```
+
+- Befunde werden **nach Konfidenz absteigend** sortiert (stärkster Zusammenhang zuerst).
+- Konfidenz wird in Worte gefasst: de „sehr hoch / hoch / mittel / niedrig“ (≥ 0.9 / 0.7 / 0.5),
+  en „very high / high / medium / low“.
+- `toNarrative` beginnt mit einer Übersicht (Collections, Dokumente, Health-Score, ggf.
+  Confusion-F1) und listet danach die Sätze sowie die wichtigsten **Multi-Hop-Ketten**.
+
+**Reale Konsolen-Ausgabe** (`inmemdb_discover shop.inmemdb.json --describe`, users/orders/logs,
+56 Dokumente – gekürzt):
+
+```
+Übersicht: 3 Collections, 56 Dokumente, Health-Score 88.27/100.
+
+- Zusammenhang ohne deklarierte Relation: `logs.user_id` verweist in 100 % der 30 untersuchten
+  Werte auf `users.id` (Kardinalität n:1), Konfidenz sehr hoch. Hinweis: name-heuristik.
+- Zusammenhang ohne deklarierte Relation: `orders.user_id` verweist in 100 % der 20 untersuchten
+  Werte auf `users.id` (Kardinalität n:1), Konfidenz sehr hoch. Hinweis: name-heuristik.
+- Innerhalb von `logs` bestimmt `id` eindeutig `msg` (in 100 % der 30 Fälle genau ein Zielwert, …).
+- … und 11 weitere Zusammenhänge (Deckel maxRelations=25).
+
+Wichtigste Ketten (Multi-Hop):
+- orders.user_id → users.id
+```
+
+**CLI:** `--describe [de|en]` (Default `de`) gibt den Klartext auf stdout aus, bei mehreren
+Dateien die cross-database-Variante. Ungültiger Sprachcode → Exit-Code 2.
+
 ---
 
 ## 5. `DiscoveryOptions` – alle Knöpfe im Überblick
@@ -410,6 +455,7 @@ inmemdb_discover <datei1> [datei2 ...] [Optionen]
 | `--orphans` | zusätzlicher Orphan-Report (JSON) |
 | `--outliers` | zusätzlicher Ausreißer-Report (JSON, v0.40) |
 | `--confusion` | Confusion-Matrix vs. `__references` (JSON, v0.42; nur 1 Datei mit Referenzen) |
+| `--describe [de|en]` | Klartext-Beschreibung der Collection-Zusammenhänge auf stdout (v0.45, Default de) |
 | `--path A B` | FK-Pfade von Collection A nach B |
 | `--diff` | (bei ≥ 2 Dateien) `diffDatabases` als JSON |
 | `--suggest-merges` | Merge-Vorschläge als JSON |

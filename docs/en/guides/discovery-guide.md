@@ -372,6 +372,51 @@ memdb::ConfusionMatrix cm = memdb::evaluateConfusion(rels, db, opts);
 **CLI:** `--confusion` (exactly one file with `__references`); `--report <prefix>` includes the
 matrix automatically for a single file.
 
+### 4.18 Plain-language description of relationships: `describeRelations` / `toNarrative` / `describeDatabase` (v0.45)
+
+**What:** Analysis results (relations, confidences, cardinalities) as JSON/tables are not quick
+to grasp for humans. v0.45 therefore generates an **understandable descriptive text** – one
+plain-language sentence per discovered relationship, **German or English**
+(`NarrativeLanguage::German` / `English`), without requiring declared relations:
+
+```cpp
+memdb::NarrativeOptions nopts;                 // default: German
+nopts.language = memdb::NarrativeLanguage::English;
+nopts.minConfidence = 0.7;                     // only findings at or above this confidence
+nopts.maxRelations = 25;                       // cap against text walls (0 = all)
+
+std::string textDe = memdb::describeRelations(rels);                 // relations only
+std::string textEn = memdb::describeRelations(rels, nopts);          // English
+std::string report  = memdb::toNarrative(analyze(db, opts), nopts);  // incl. overview + chains
+std::string quick   = memdb::describeDatabase(db, opts, nopts);       // discovery + narrative in one step
+```
+
+- Findings are sorted **by confidence descending** (strongest relationship first).
+- Confidence is expressed in words: en "very high / high / medium / low" (≥ 0.9 / 0.7 / 0.5),
+  de "sehr hoch / hoch / mittel / niedrig".
+- `toNarrative` starts with an overview (collections, documents, health score, confusion F1 if
+  present) and then lists the sentences plus the most important **multi-hop chains**.
+
+**Real console output** (`inmemdb_discover shop.inmemdb.json --describe en`, users/orders/logs,
+56 documents – shortened):
+
+```
+Overview: 3 collections, 56 documents, health score 88.27/100.
+
+- Relationship without a declared relation: `logs.user_id` points to `users.id` in 100 % of 30
+  examined values (cardinality n:1), confidence very high. Note: name-heuristik.
+- Relationship without a declared relation: `orders.user_id` points to `users.id` in 100 % of 20
+  examined values (cardinality n:1), confidence very high. Note: name-heuristik.
+- Within `logs`, `id` uniquely determines `msg` (in 100 % of 30 cases exactly one target value, …).
+- … and 11 more relationships (capped at maxRelations=25).
+
+Main chains (multi-hop):
+- orders.user_id → users.id
+```
+
+**CLI:** `--describe [de|en]` (default `de`) prints the narrative to stdout; with multiple files
+the cross-database variant. Invalid language code → exit code 2.
+
 ---
 
 ## 5. `DiscoveryOptions` – all knobs at a glance
@@ -409,6 +454,7 @@ inmemdb_discover <file1> [file2 ...] [options]
 | `--orphans` | additional orphan report (JSON) |
 | `--outliers` | additional outlier report (JSON, v0.40) |
 | `--confusion` | confusion matrix vs. `__references` (JSON, v0.42; only 1 file with references) |
+| `--describe [de|en]` | plain-language description of the collection relationships on stdout (v0.45, default de) |
 | `--path A B` | FK paths from collection A to B |
 | `--diff` | (with ≥ 2 files) `diffDatabases` as JSON |
 | `--suggest-merges` | merge suggestions as JSON |

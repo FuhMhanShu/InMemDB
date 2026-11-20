@@ -2,14 +2,16 @@
 // Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X]
 //          [--min-confidence X] [--min-correlation X] [--sample N] [--seed N]
 //          [--mermaid] [--orphans] [--outliers] [--path A B] [--diff] [--suggest-merges]
-//          [--report <prefix>] [--confusion] [--apply] [--out <datei>]
+//          [--report <prefix>] [--confusion] [--describe [de|en]] [--apply] [--out <datei>]
 // Mehrere Dateien = database-übergreifende Analyse (Report über alle Collections).
+// --describe [de|en]: Klartext-Beschreibung der Collection-Zusammenhänge (v0.45, Default de)
 // --apply: FK-Befunde (confidence >= --min-confidence) pro Database als FA-18-Referenzen
 //          anlegen und die jeweilige Datei zurückschreiben (verschlüsselt bei --password).
 #include <memdb/memdb.hpp>
 #include <memdb/message_handler.hpp>
 #include <memdb/references.hpp>
 
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -26,16 +28,19 @@ static int run(int argc, char** argv) {
         std::cerr << "Aufruf: inmemdb_discover <datei1> [datei2 ...] [--password pw] [--min-support X] "
                      "[--min-confidence X] [--min-correlation X] [--min-similarity X] [--sample N] [--seed N] "
                      "[--mermaid] [--orphans] [--outliers] [--path A B] [--diff] [--suggest-merges] [--report <prefix>] "
-                     "[--confusion] [--apply] [--out <datei>]\n"
+                     "[--confusion] [--describe [de|en]] [--apply] [--out <datei>]\n"
                      "  Dateien: .inmemdb.json / .json-Snapshot (plain) bzw. verschlüsselt mit --password\n"
                      "  --report <prefix>: Gesamtanalyse (v0.33) -> <prefix>.report.md / .relations.json / .graph.mmd + Summary\n"
-                     "  --confusion: Confusion-Matrix der FK-Befunde vs. __references (v0.42, nur 1 Datei mit Referenzen)\n";
+                     "  --confusion: Confusion-Matrix der FK-Befunde vs. __references (v0.42, nur 1 Datei mit Referenzen)\n"
+                     "  --describe [de|en]: Klartext-Beschreibung der Zusammenhänge (v0.45, Default de)\n";
         return 2;
     }
     std::vector<std::string> files;
     std::string password, out;
     memdb::DiscoveryOptions opts;
     bool mermaid = false, apply = false, orphans = false, diffMode = false, suggestMerges = false, outliers = false, confusion = false;
+    bool describe = false; // v0.45: Klartext-Beschreibung
+    memdb::NarrativeLanguage narrLang = memdb::NarrativeLanguage::German;
     std::string reportPrefix;
     std::string pathFrom, pathTo;
     double applyMinConf = 0.9;
@@ -61,6 +66,16 @@ static int run(int argc, char** argv) {
         else if (a == "--orphans") orphans = true;
         else if (a == "--outliers") outliers = true; // v0.40
         else if (a == "--confusion") confusion = true; // v0.42
+        else if (a == "--describe") { // v0.45: Klartext, optional Sprachcode de|en
+            describe = true;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                std::string l = argv[++i];
+                for (auto& c : l) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                if (l == "en" || l == "english") narrLang = memdb::NarrativeLanguage::English;
+                else if (l == "de" || l == "german" || l == "deutsch") narrLang = memdb::NarrativeLanguage::German;
+                else { std::cerr << "unbekannte Sprache fuer --describe: " << l << " (de|en)\n"; return 2; }
+            }
+        }
         else if (a == "--diff") diffMode = true;
         else if (a == "--suggest-merges") suggestMerges = true;
         else if (a == "--report") reportPrefix = next();
@@ -90,6 +105,13 @@ static int run(int argc, char** argv) {
 
     auto rels = memdb::discoverRelations(allColls, opts);
     std::cout << memdb::toJson(rels) << "\n";
+
+    if (describe) { // v0.45: Klartext-Beschreibung der Collection-Zusammenhänge (de/en)
+        auto rep = dbs.size() == 1 ? memdb::analyze(dbs[0], opts) : memdb::analyze(allColls, opts);
+        memdb::NarrativeOptions nopts;
+        nopts.language = narrLang;
+        std::cout << memdb::toNarrative(rep, nopts);
+    }
 
     if (!reportPrefix.empty()) {
         // v0.42: bei genau einer Datei analyze(Database&) -> Confusion-Matrix gegen __references im Report

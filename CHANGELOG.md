@@ -31,6 +31,14 @@ Jede Version entspricht einem Bereich gemergter Pull Requests – die PR-Nummern
   Assoziationen (Pearson für Zahl/Boolean-Kombinationen, eta² für kategorisch gegen
   Zahl/Boolean, Cramérs V für kategorisch/kategorisch) mit Guards; Reports
   `toJson`/`toMarkdown`; Tests `tests/test_mixed_analysis.cpp` (129 Checks)
+- Discovery v0.45: **Klartext-Beschreibung** der Collection-Zusammenhänge (de+en) –
+  `describeRelations(rels, narrOpts)`, `toNarrative(report, narrOpts)`,
+  `describeDatabase(db, discOpts, narrOpts)` mit `NarrativeOptions{language, minConfidence,
+  maxRelations}`: pro entdecktem Befund ein verständlicher Satz (z. B. „`orders.customer_id`
+  verweist in 98 % der 1234 untersuchten Werte auf `users.id` (n:1, Konfidenz sehr hoch) –
+  ohne deklarierte Relation"), sortiert nach Konfidenz, inkl. Übersicht (Health-Score,
+  Confusion-F1) und Multi-Hop-Ketten; CLI `inmemdb_discover --describe [de|en]`;
+  Tests `tests/test_discovery8.cpp` (49 Checks)
 
 ### Fixed (M2: Nebenläufigkeit – Tests + CI, v0.44)
 - Neuer Stresstest `tests/test_concurrency.cpp` (8 Checks): 4 parallele Reader (find/count/
